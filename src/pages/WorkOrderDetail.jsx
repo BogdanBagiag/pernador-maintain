@@ -434,7 +434,7 @@ export default function WorkOrderDetail() {
                   className="btn-primary w-full"
                   disabled={updateStatusMutation.isLoading}
                 >
-                  Start Work
+                  Începe Lucrul
                 </button>
               )}
               {workOrder.status === 'in_progress' && (
@@ -445,14 +445,14 @@ export default function WorkOrderDetail() {
                     disabled={updateStatusMutation.isLoading}
                   >
                     <CheckCircle className="w-4 h-4 mr-2 inline" />
-                    Mark Complete
+                    Marchează Complet
                   </button>
                   <button
                     onClick={() => updateStatusMutation.mutate({ newStatus: 'on_hold' })}
                     className="btn-secondary w-full"
                     disabled={updateStatusMutation.isLoading}
                   >
-                    Put On Hold
+                    Pune în Așteptare
                   </button>
                 </>
               )}
@@ -462,7 +462,7 @@ export default function WorkOrderDetail() {
                   className="btn-primary w-full"
                   disabled={updateStatusMutation.isLoading}
                 >
-                  Resume Work
+                  Reia Lucrul
                 </button>
               )}
               {workOrder.status !== 'cancelled' && workOrder.status !== 'completed' && (
@@ -471,7 +471,7 @@ export default function WorkOrderDetail() {
                   className="btn-secondary w-full text-red-600 hover:bg-red-50"
                   disabled={updateStatusMutation.isLoading}
                 >
-                  Cancel Work Order
+                  Anulează Comandă
                 </button>
               )}
             </div>
@@ -483,7 +483,7 @@ export default function WorkOrderDetail() {
               <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
                 <div className="p-6">
                   <div className="flex items-center justify-between mb-6">
-                    <h3 className="text-2xl font-bold text-gray-900">Complete Work Order</h3>
+                    <h3 className="text-2xl font-bold text-gray-900">Finalizează Comanda de Lucru</h3>
                     <button
                       onClick={() => setShowCompletionForm(false)}
                       className="text-gray-400 hover:text-gray-600"
@@ -496,7 +496,7 @@ export default function WorkOrderDetail() {
                     {/* Completed By */}
                     <div>
                       <label htmlFor="completed_by" className="block text-sm font-medium text-gray-700 mb-1">
-                        Completed By <span className="text-red-500">*</span>
+                        Finalizat De <span className="text-red-500">*</span>
                       </label>
                       <div className="relative">
                         <User className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
@@ -508,7 +508,7 @@ export default function WorkOrderDetail() {
                           value={completionData.completed_by}
                           onChange={handleCompletionChange}
                           className="input pl-10"
-                          placeholder="Technician name"
+                          placeholder="Numele tehnicianului"
                         />
                       </div>
                     </div>
@@ -516,7 +516,7 @@ export default function WorkOrderDetail() {
                     {/* Parts Replaced */}
                     <div>
                       <label htmlFor="parts_replaced" className="block text-sm font-medium text-gray-700 mb-1">
-                        Parts Replaced
+                        Piese Înlocuite
                       </label>
                       <div className="relative">
                         <Wrench className="absolute left-3 top-3 w-5 h-5 text-gray-400" />
@@ -527,11 +527,11 @@ export default function WorkOrderDetail() {
                           value={completionData.parts_replaced}
                           onChange={handleCompletionChange}
                           className="input pl-10"
-                          placeholder="e.g., Motor bearing, Drive belt, Oil filter..."
+                          placeholder="ex: Rulment motor, Curea transmisie, Filtru ulei..."
                         />
                       </div>
                       <p className="text-xs text-gray-500 mt-1">
-                        List all parts that were replaced or used
+                        Listează toate piesele care au fost înlocuite sau folosite
                       </p>
                     </div>
 
@@ -603,7 +603,7 @@ export default function WorkOrderDetail() {
                       {/* Actual Hours */}
                       <div>
                         <label htmlFor="actual_hours" className="block text-sm font-medium text-gray-700 mb-1">
-                          Actual Hours
+                          Ore Lucrate
                         </label>
                         <div className="relative">
                           <Clock className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
@@ -620,7 +620,7 @@ export default function WorkOrderDetail() {
                           />
                         </div>
                         <p className="text-xs text-gray-500 mt-1">
-                          Total time spent on repair
+                          Timp total petrecut la reparație
                         </p>
                       </div>
                     </div>
@@ -628,7 +628,7 @@ export default function WorkOrderDetail() {
                     {/* Completion Notes */}
                     <div>
                       <label htmlFor="completion_notes" className="block text-sm font-medium text-gray-700 mb-1">
-                        Completion Notes
+                        Note Finalizare
                       </label>
                       <div className="relative">
                         <FileText className="absolute left-3 top-3 w-5 h-5 text-gray-400" />
@@ -639,7 +639,7 @@ export default function WorkOrderDetail() {
                           value={completionData.completion_notes}
                           onChange={handleCompletionChange}
                           className="input pl-10"
-                          placeholder="Additional details about the repair, issues found, recommendations..."
+                          placeholder="Detalii suplimentare despre reparație, probleme găsite, recomandări..."
                         />
                       </div>
                     </div>
@@ -652,7 +652,7 @@ export default function WorkOrderDetail() {
                         className="btn-secondary"
                         disabled={updateStatusMutation.isLoading}
                       >
-                        Cancel
+                        Anulează
                       </button>
                       <button
                         type="submit"
@@ -662,12 +662,12 @@ export default function WorkOrderDetail() {
                         {updateStatusMutation.isLoading ? (
                           <>
                             <LoadingSpinner size="sm" />
-                            <span className="ml-2">Completing...</span>
+                            <span className="ml-2">Finalizare...</span>
                           </>
                         ) : (
                           <>
                             <Save className="w-5 h-5 mr-2" />
-                            Complete Work Order
+                            Finalizează Comanda
                           </>
                         )}
                       </button>
