@@ -329,7 +329,7 @@ export default function WorkOrderDetail() {
             <div className="card bg-green-50 border-green-200">
               <h2 className="text-xl font-semibold text-gray-900 mb-4 flex items-center">
                 <CheckCircle className="w-6 h-6 text-green-600 mr-2" />
-                Completion Details
+                Detalii Finalizare
               </h2>
               
               <div className="space-y-4">
@@ -337,7 +337,7 @@ export default function WorkOrderDetail() {
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center">
                       <User className="w-4 h-4 mr-1" />
-                      Completed By
+                      Finalizat De
                     </label>
                     <p className="text-gray-900 font-medium">{workOrder.completed_by}</p>
                   </div>
@@ -347,7 +347,7 @@ export default function WorkOrderDetail() {
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center">
                       <Wrench className="w-4 h-4 mr-1" />
-                      Parts Replaced
+                      Piese Înlocuite
                     </label>
                     <p className="text-gray-900 whitespace-pre-wrap">{workOrder.parts_replaced}</p>
                   </div>
@@ -397,7 +397,7 @@ export default function WorkOrderDetail() {
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center">
                         <Clock className="w-4 h-4 mr-1" />
-                        Time Spent
+                        Timp Lucrat
                       </label>
                       <p className="text-2xl font-bold text-gray-900">
                         {workOrder.actual_hours}h
@@ -410,7 +410,7 @@ export default function WorkOrderDetail() {
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center">
                       <FileText className="w-4 h-4 mr-1" />
-                      Notes
+                      Note
                     </label>
                     <div className="bg-white rounded-lg p-4 border border-green-200">
                       <p className="text-gray-900 whitespace-pre-wrap">{workOrder.completion_notes}</p>
@@ -680,13 +680,13 @@ export default function WorkOrderDetail() {
 
           {/* Details */}
           <div className="card">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Details</h3>
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Detalii</h3>
             <dl className="space-y-3">
               {workOrder.assigned_to_user && (
                 <div>
                   <dt className="text-sm font-medium text-gray-500 flex items-center">
                     <User className="w-4 h-4 mr-1" />
-                    Assigned To
+                    Asignat Către
                   </dt>
                   <dd className="mt-1 text-sm text-gray-900">
                     {workOrder.assigned_to_user.full_name}
@@ -697,7 +697,7 @@ export default function WorkOrderDetail() {
               <div>
                 <dt className="text-sm font-medium text-gray-500 flex items-center">
                   <Calendar className="w-4 h-4 mr-1" />
-                  Created
+                  Creat
                 </dt>
                 <dd className="mt-1 text-sm text-gray-900">
                   {new Date(workOrder.created_at).toLocaleString()}
@@ -706,17 +706,17 @@ export default function WorkOrderDetail() {
 
               {workOrder.created_by_user ? (
                 <div>
-                  <dt className="text-sm font-medium text-gray-500">Created By</dt>
+                  <dt className="text-sm font-medium text-gray-500">Creat De</dt>
                   <dd className="mt-1 text-sm text-gray-900">
                     {workOrder.created_by_user.full_name}
                   </dd>
                 </div>
               ) : (
                 <div>
-                  <dt className="text-sm font-medium text-gray-500">Created By</dt>
+                  <dt className="text-sm font-medium text-gray-500">Creat De</dt>
                   <dd className="mt-1 text-sm text-gray-900">
                     <span className="inline-flex items-center px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded">
-                      Public Report
+                      Raport Public
                     </span>
                   </dd>
                 </div>
@@ -726,7 +726,7 @@ export default function WorkOrderDetail() {
                 <div>
                   <dt className="text-sm font-medium text-gray-500 flex items-center">
                     <Calendar className="w-4 h-4 mr-1" />
-                    Scheduled
+                    Programat
                   </dt>
                   <dd className="mt-1 text-sm text-gray-900">
                     {new Date(workOrder.scheduled_date).toLocaleDateString()}
@@ -738,7 +738,7 @@ export default function WorkOrderDetail() {
                 <div>
                   <dt className="text-sm font-medium text-gray-500 flex items-center">
                     <CheckCircle className="w-4 h-4 mr-1" />
-                    Completed
+                    Finalizat
                   </dt>
                   <dd className="mt-1 text-sm text-gray-900">
                     {new Date(workOrder.completed_date).toLocaleDateString()}
@@ -750,7 +750,7 @@ export default function WorkOrderDetail() {
                 <div>
                   <dt className="text-sm font-medium text-gray-500 flex items-center">
                     <Clock className="w-4 h-4 mr-1" />
-                    Estimated Hours
+                    Ore Estimate
                   </dt>
                   <dd className="mt-1 text-sm text-gray-900">
                     {workOrder.estimated_hours}h
@@ -760,7 +760,7 @@ export default function WorkOrderDetail() {
 
               {workOrder.actual_hours && (
                 <div>
-                  <dt className="text-sm font-medium text-gray-500">Actual Hours</dt>
+                  <dt className="text-sm font-medium text-gray-500">Ore Lucrate</dt>
                   <dd className="mt-1 text-sm text-gray-900">
                     {workOrder.actual_hours}h
                   </dd>
