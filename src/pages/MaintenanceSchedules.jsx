@@ -26,7 +26,7 @@ export default function MaintenanceSchedules() {
   const queryClient = useQueryClient()
   const [showModal, setShowModal] = useState(false)
   const [editingSchedule, setEditingSchedule] = useState(null)
-  const [statusFilter, setStatusFilter] = useState('all')
+  const [statusFilter, setStatusFilter] = useState('upcoming')
   const [showCompletionWizard, setShowCompletionWizard] = useState(false)
   const [selectedScheduleForCompletion, setSelectedScheduleForCompletion] = useState(null)
 
@@ -181,7 +181,6 @@ export default function MaintenanceSchedules() {
 
   // Filter schedules
   const filteredSchedules = schedules?.filter(schedule => {
-    if (statusFilter === 'all') return true
     if (statusFilter === 'active') return schedule.is_active
     if (statusFilter === 'inactive') return !schedule.is_active
     if (statusFilter === 'overdue') return schedule.is_active && isOverdue(schedule.next_due_date)
@@ -190,7 +189,7 @@ export default function MaintenanceSchedules() {
       return schedule.is_active && days >= 0 && days <= 7
     }
     if (statusFilter === 'completed') return schedule.last_completed_date !== null
-    return true
+    return schedule.is_active // default to active instead of all
   })
 
   // Calculate stats
@@ -217,8 +216,8 @@ export default function MaintenanceSchedules() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-8">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Maintenance Schedules</h1>
-          <p className="text-gray-600 mt-1">Manage preventive maintenance schedules</p>
+          <h1 className="text-3xl font-bold text-gray-900">Programe Mentenanță</h1>
+          <p className="text-gray-600 mt-1">Gestionează programele de mentenanță preventivă</p>
         </div>
         <button
           onClick={() => {
@@ -228,31 +227,33 @@ export default function MaintenanceSchedules() {
           className="btn-primary mt-4 sm:mt-0 inline-flex items-center"
         >
           <Plus className="w-5 h-5 mr-2" />
-          New Schedule
+          Program Nou
         </button>
       </div>
 
       {/* Enhanced Filter Tabs */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+        {/* Upcoming - PRIMUL */}
         <button
-          onClick={() => setStatusFilter('all')}
+          onClick={() => setStatusFilter('upcoming')}
           className={`p-4 rounded-lg border-2 transition-all ${
-            statusFilter === 'all'
-              ? 'border-gray-400 bg-gray-100 ring-2 ring-gray-300'
-              : 'border-gray-200 bg-gray-50 hover:border-gray-400'
+            statusFilter === 'upcoming'
+              ? 'border-yellow-400 bg-yellow-100 ring-2 ring-yellow-300'
+              : 'border-yellow-200 bg-yellow-50 hover:border-yellow-400'
           }`}
         >
           <div className="flex items-center justify-between mb-2">
-            <span className={`text-2xl font-bold ${statusFilter === 'all' ? 'text-gray-900' : 'text-gray-700'}`}>
-              {stats.total}
+            <span className={`text-2xl font-bold ${statusFilter === 'upcoming' ? 'text-yellow-900' : 'text-yellow-700'}`}>
+              {stats.dueThisWeek}
             </span>
-            <Calendar className={`w-6 h-6 ${statusFilter === 'all' ? 'text-gray-700' : 'text-gray-400'} opacity-50`} />
+            <Clock className={`w-6 h-6 ${statusFilter === 'upcoming' ? 'text-yellow-700' : 'text-yellow-400'} opacity-50`} />
           </div>
-          <p className={`text-sm font-medium ${statusFilter === 'all' ? 'text-gray-800' : 'text-gray-600'}`}>
-            All Schedules
+          <p className={`text-sm font-medium ${statusFilter === 'upcoming' ? 'text-yellow-800' : 'text-yellow-600'}`}>
+            Următoarele 7 Zile
           </p>
         </button>
 
+        {/* Active */}
         <button
           onClick={() => setStatusFilter('active')}
           className={`p-4 rounded-lg border-2 transition-all ${
@@ -272,6 +273,7 @@ export default function MaintenanceSchedules() {
           </p>
         </button>
 
+        {/* Overdue */}
         <button
           onClick={() => setStatusFilter('overdue')}
           className={`p-4 rounded-lg border-2 transition-all ${
@@ -287,26 +289,27 @@ export default function MaintenanceSchedules() {
             <AlertCircle className={`w-6 h-6 ${statusFilter === 'overdue' ? 'text-red-700' : 'text-red-400'} opacity-50`} />
           </div>
           <p className={`text-sm font-medium ${statusFilter === 'overdue' ? 'text-red-800' : 'text-red-600'}`}>
-            Overdue
+            Întârziate
           </p>
         </button>
 
+        {/* Completed */}
         <button
-          onClick={() => setStatusFilter('upcoming')}
+          onClick={() => setStatusFilter('completed')}
           className={`p-4 rounded-lg border-2 transition-all ${
-            statusFilter === 'upcoming'
-              ? 'border-yellow-400 bg-yellow-100 ring-2 ring-yellow-300'
-              : 'border-yellow-200 bg-yellow-50 hover:border-yellow-400'
+            statusFilter === 'completed'
+              ? 'border-blue-400 bg-blue-100 ring-2 ring-blue-300'
+              : 'border-blue-200 bg-blue-50 hover:border-blue-400'
           }`}
         >
           <div className="flex items-center justify-between mb-2">
-            <span className={`text-2xl font-bold ${statusFilter === 'upcoming' ? 'text-yellow-900' : 'text-yellow-700'}`}>
-              {stats.dueThisWeek}
+            <span className={`text-2xl font-bold ${statusFilter === 'completed' ? 'text-blue-900' : 'text-blue-700'}`}>
+              {schedules?.filter(s => s.last_completed_date !== null).length || 0}
             </span>
-            <Clock className={`w-6 h-6 ${statusFilter === 'upcoming' ? 'text-yellow-700' : 'text-yellow-400'} opacity-50`} />
+            <CheckCircle className={`w-6 h-6 ${statusFilter === 'completed' ? 'text-blue-700' : 'text-blue-400'} opacity-50`} />
           </div>
-          <p className={`text-sm font-medium ${statusFilter === 'upcoming' ? 'text-yellow-800' : 'text-yellow-600'}`}>
-            Due This Week
+          <p className={`text-sm font-medium ${statusFilter === 'completed' ? 'text-blue-800' : 'text-blue-600'}`}>
+            Finalizate
           </p>
         </button>
       </div>
