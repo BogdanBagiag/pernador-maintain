@@ -195,7 +195,7 @@ export default function WorkOrderDetail() {
   }
 
   return (
-    <div>
+    <div className="px-4 sm:px-0">
       {/* Header */}
       <div className="mb-8">
         <button
@@ -206,20 +206,22 @@ export default function WorkOrderDetail() {
           Back to Work Orders
         </button>
         
-        <div className="flex items-start justify-between">
-          <div className="flex items-start space-x-4">
-            {getStatusIcon(workOrder.status)}
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900">{workOrder.title}</h1>
-              <div className="flex items-center space-x-2 mt-2">
-                <span className={`badge ${getStatusBadge(workOrder.status)} capitalize`}>
+        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+          <div className="flex items-start space-x-3 sm:space-x-4 flex-1 min-w-0">
+            <div className="flex-shrink-0">
+              {getStatusIcon(workOrder.status)}
+            </div>
+            <div className="min-w-0 flex-1">
+              <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 break-words">{workOrder.title}</h1>
+              <div className="flex flex-wrap items-center gap-2 mt-2">
+                <span className={`badge ${getStatusBadge(workOrder.status)} capitalize text-xs`}>
                   {workOrder.status.replace('_', ' ')}
                 </span>
-                <span className={`badge ${getPriorityBadge(workOrder.priority)} capitalize`}>
+                <span className={`badge ${getPriorityBadge(workOrder.priority)} capitalize text-xs`}>
                   {workOrder.priority}
                 </span>
                 {workOrder.type && (
-                  <span className="badge badge-secondary capitalize">
+                  <span className="badge badge-secondary capitalize text-xs">
                     {workOrder.type}
                   </span>
                 )}
@@ -228,21 +230,21 @@ export default function WorkOrderDetail() {
           </div>
           <Link
             to={`/work-orders/${id}/edit`}
-            className="btn-primary inline-flex items-center"
+            className="btn-primary inline-flex items-center justify-center whitespace-nowrap flex-shrink-0"
           >
-            <Edit className="w-5 h-5 mr-2" />
+            <Edit className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />
             Edit
           </Link>
         </div>
       </div>
 
-      <div className="grid lg:grid-cols-3 gap-6">
+      <div className="grid lg:grid-cols-3 gap-4 sm:gap-6">
         {/* Main Content */}
-        <div className="lg:col-span-2 space-y-6">
+        <div className="lg:col-span-2 space-y-4 sm:space-y-6">
           {/* Description */}
           <div className="card">
-            <h2 className="text-xl font-semibold text-gray-900 mb-4">Description</h2>
-            <p className="text-gray-700 whitespace-pre-wrap">
+            <h2 className="text-lg sm:text-xl font-semibold text-gray-900 mb-4">Description</h2>
+            <p className="text-gray-700 whitespace-pre-wrap break-words">
               {workOrder.description || 'No description provided'}
             </p>
           </div>
@@ -266,22 +268,24 @@ export default function WorkOrderDetail() {
           {/* Equipment Info */}
           {workOrder.equipment && (
             <div className="card">
-              <h2 className="text-xl font-semibold text-gray-900 mb-4">Equipment</h2>
+              <h2 className="text-lg sm:text-xl font-semibold text-gray-900 mb-4">Equipment</h2>
               <Link
                 to={`/equipment/${workOrder.equipment.id}`}
-                className="flex items-start space-x-4 p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+                className="flex items-start space-x-3 sm:space-x-4 p-3 sm:p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
               >
-                <Wrench className="w-8 h-8 text-primary-600 mt-1" />
-                <div>
-                  <p className="font-medium text-gray-900">{workOrder.equipment.name}</p>
+                <Wrench className="w-6 h-6 sm:w-8 sm:h-8 text-primary-600 mt-1 flex-shrink-0" />
+                <div className="min-w-0 flex-1">
+                  <p className="font-medium text-gray-900 break-words">{workOrder.equipment.name}</p>
                   {workOrder.equipment.serial_number && (
-                    <p className="text-sm text-gray-600">SN: {workOrder.equipment.serial_number}</p>
+                    <p className="text-sm text-gray-600 break-all">SN: {workOrder.equipment.serial_number}</p>
                   )}
                   {workOrder.equipment.location && (
-                    <p className="text-sm text-gray-600 flex items-center mt-1">
-                      <MapPin className="w-4 h-4 mr-1" />
-                      {workOrder.equipment.location.name}
-                      {workOrder.equipment.location.building && ` - ${workOrder.equipment.location.building}`}
+                    <p className="text-sm text-gray-600 flex items-center mt-1 flex-wrap">
+                      <MapPin className="w-4 h-4 mr-1 flex-shrink-0" />
+                      <span className="break-words">
+                        {workOrder.equipment.location.name}
+                        {workOrder.equipment.location.building && ` - ${workOrder.equipment.location.building}`}
+                      </span>
                     </p>
                   )}
                 </div>
@@ -291,7 +295,7 @@ export default function WorkOrderDetail() {
 
           {/* Comments Section */}
           <div className="card">
-            <h2 className="text-xl font-semibold text-gray-900 mb-4">Activity</h2>
+            <h2 className="text-lg sm:text-xl font-semibold text-gray-900 mb-4">Activity</h2>
             {!comments || comments.length === 0 ? (
               <p className="text-gray-500 text-center py-8">No comments yet</p>
             ) : (
@@ -301,8 +305,8 @@ export default function WorkOrderDetail() {
                     <div className="w-8 h-8 bg-primary-100 rounded-full flex items-center justify-center flex-shrink-0">
                       <User className="w-4 h-4 text-primary-600" />
                     </div>
-                    <div className="flex-1">
-                      <div className="flex items-center space-x-2">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
                         <p className="font-medium text-gray-900">
                           {comment.user?.full_name || 'Unknown User'}
                         </p>
@@ -310,7 +314,7 @@ export default function WorkOrderDetail() {
                           {new Date(comment.created_at).toLocaleString()}
                         </span>
                       </div>
-                      <p className="text-gray-700 mt-1">{comment.comment}</p>
+                      <p className="text-gray-700 mt-1 break-words">{comment.comment}</p>
                     </div>
                   </div>
                 ))}
@@ -354,11 +358,11 @@ export default function WorkOrderDetail() {
                 )}
 
                 {(workOrder.parts_cost || workOrder.labor_cost) && (
-                  <div className="grid md:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                     {workOrder.parts_cost > 0 && (
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center">
-                          <Wrench className="w-4 h-4 mr-1" />
+                          <Wrench className="w-4 h-4 mr-1 flex-shrink-0" />
                           Cost Piese
                         </label>
                         <p className="text-xl font-bold text-gray-900">
@@ -370,7 +374,7 @@ export default function WorkOrderDetail() {
                     {workOrder.labor_cost > 0 && (
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center">
-                          <User className="w-4 h-4 mr-1" />
+                          <User className="w-4 h-4 mr-1 flex-shrink-0" />
                           Cost Manoperă
                         </label>
                         <p className="text-xl font-bold text-gray-900">
@@ -380,7 +384,7 @@ export default function WorkOrderDetail() {
                     )}
 
                     {(workOrder.parts_cost > 0 || workOrder.labor_cost > 0) && (
-                      <div className="bg-green-100 p-3 rounded-lg">
+                      <div className="bg-green-100 p-3 rounded-lg sm:col-span-2 lg:col-span-1">
                         <label className="block text-sm font-medium text-green-700 mb-1">
                           Cost Total
                         </label>
@@ -392,14 +396,14 @@ export default function WorkOrderDetail() {
                   </div>
                 )}
 
-                <div className="grid md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   {workOrder.actual_hours && (
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center">
-                        <Clock className="w-4 h-4 mr-1" />
+                        <Clock className="w-4 h-4 mr-1 flex-shrink-0" />
                         Timp Lucrat
                       </label>
-                      <p className="text-2xl font-bold text-gray-900">
+                      <p className="text-xl sm:text-2xl font-bold text-gray-900">
                         {workOrder.actual_hours}h
                       </p>
                     </div>
@@ -423,7 +427,7 @@ export default function WorkOrderDetail() {
         </div>
 
         {/* Sidebar */}
-        <div className="space-y-6">
+        <div className="space-y-4 sm:space-y-6">
           {/* Quick Actions */}
           <div className="card">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h3>
@@ -479,14 +483,14 @@ export default function WorkOrderDetail() {
 
           {/* Completion Form Modal */}
           {showCompletionForm && (
-            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-              <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-                <div className="p-6">
-                  <div className="flex items-center justify-between mb-6">
-                    <h3 className="text-2xl font-bold text-gray-900">Finalizează Comanda de Lucru</h3>
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2 sm:p-4">
+              <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[95vh] overflow-y-auto">
+                <div className="p-4 sm:p-6">
+                  <div className="flex items-center justify-between mb-4 sm:mb-6">
+                    <h3 className="text-lg sm:text-2xl font-bold text-gray-900 pr-2">Finalizează Comanda de Lucru</h3>
                     <button
                       onClick={() => setShowCompletionForm(false)}
-                      className="text-gray-400 hover:text-gray-600"
+                      className="text-gray-400 hover:text-gray-600 flex-shrink-0"
                     >
                       <XCircle className="w-6 h-6" />
                     </button>
@@ -536,7 +540,7 @@ export default function WorkOrderDetail() {
                     </div>
 
                     {/* Costs */}
-                    <div className="grid md:grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       {/* Parts Cost */}
                       <div>
                         <label htmlFor="parts_cost" className="block text-sm font-medium text-gray-700 mb-1">
@@ -599,7 +603,7 @@ export default function WorkOrderDetail() {
                     )}
 
                     {/* Hours and Notes */}
-                    <div className="grid md:grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       {/* Actual Hours */}
                       <div>
                         <label htmlFor="actual_hours" className="block text-sm font-medium text-gray-700 mb-1">
@@ -645,18 +649,18 @@ export default function WorkOrderDetail() {
                     </div>
 
                     {/* Action Buttons */}
-                    <div className="flex items-center justify-end space-x-3 pt-4 border-t border-gray-200">
+                    <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-3 pt-4 border-t border-gray-200">
                       <button
                         type="button"
                         onClick={() => setShowCompletionForm(false)}
-                        className="btn-secondary"
+                        className="btn-secondary w-full sm:w-auto"
                         disabled={updateStatusMutation.isLoading}
                       >
                         Anulează
                       </button>
                       <button
                         type="submit"
-                        className="btn-primary inline-flex items-center bg-green-600 hover:bg-green-700"
+                        className="btn-primary inline-flex items-center justify-center bg-green-600 hover:bg-green-700 w-full sm:w-auto"
                         disabled={updateStatusMutation.isLoading}
                       >
                         {updateStatusMutation.isLoading ? (
