@@ -247,6 +247,22 @@ export default function WorkOrderDetail() {
             </p>
           </div>
 
+          {/* Issue Image */}
+          {workOrder.image_url && (
+            <div className="card">
+              <h2 className="text-xl font-semibold text-gray-900 mb-4">Fotografie Problemă</h2>
+              <img 
+                src={workOrder.image_url} 
+                alt="Issue photo" 
+                className="w-full rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
+                onClick={() => window.open(workOrder.image_url, '_blank')}
+              />
+              <p className="text-sm text-gray-500 mt-2">
+                Click pe imagine pentru a vedea în dimensiune completă
+              </p>
+            </div>
+          )}
+
           {/* Equipment Info */}
           {workOrder.equipment && (
             <div className="card">
