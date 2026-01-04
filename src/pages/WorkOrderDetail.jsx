@@ -16,7 +16,7 @@ import {
   XCircle,
   DollarSign,
   FileText,
-  
+  Trash2,
   Save
 } from 'lucide-react'
 import LoadingSpinner from '../components/LoadingSpinner'
@@ -24,9 +24,10 @@ import LoadingSpinner from '../components/LoadingSpinner'
 export default function WorkOrderDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
-  const { user } = useAuth()
+  const { user, profile } = useAuth()
   const queryClient = useQueryClient()
   const [showCompletionForm, setShowCompletionForm] = useState(false)
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [completionData, setCompletionData] = useState({
     completed_by: '',
     parts_replaced: '',
@@ -110,6 +111,27 @@ export default function WorkOrderDetail() {
       setShowCompletionForm(false)
     },
   })
+
+  const deleteMutation = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase
+        .from('work_orders')
+        .delete()
+        .eq('id', id)
+      
+      if (error) throw error
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['work-orders'] })
+      navigate('/work-orders')
+    },
+  })
+
+  const handleDelete = () => {
+    if (window.confirm('Sigur doriți să ștergeți această comandă de lucru? Această acțiune nu poate fi anulată.')) {
+      deleteMutation.mutate()
+    }
+  }
 
   const handleCompletionSubmit = (e) => {
     e.preventDefault()
@@ -228,13 +250,31 @@ export default function WorkOrderDetail() {
               </div>
             </div>
           </div>
-          <Link
-            to={`/work-orders/${id}/edit`}
-            className="btn-primary inline-flex items-center justify-center whitespace-nowrap flex-shrink-0"
-          >
-            <Edit className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />
-            Edit
-          </Link>
+          <div className="flex gap-2 flex-shrink-0">
+            <Link
+              to={`/work-orders/${id}/edit`}
+              className="btn-primary inline-flex items-center justify-center whitespace-nowrap"
+            >
+              <Edit className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />
+              Edit
+            </Link>
+            {profile?.role === 'admin' && (
+              <button
+                onClick={handleDelete}
+                disabled={deleteMutation.isLoading}
+                className="btn-secondary inline-flex items-center justify-center whitespace-nowrap text-red-600 hover:bg-red-50 hover:border-red-300"
+              >
+                {deleteMutation.isLoading ? (
+                  <LoadingSpinner size="sm" />
+                ) : (
+                  <>
+                    <Trash2 className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />
+                    Șterge
+                  </>
+                )}
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
