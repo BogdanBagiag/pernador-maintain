@@ -1,13 +1,16 @@
 import { useState, useEffect } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { useQuery, useMutation } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
-import { AlertTriangle, CheckCircle, Wrench, MapPin, Camera, Upload, X } from 'lucide-react'
+import { AlertTriangle, CheckCircle, Wrench, MapPin, Camera, Upload, X, Building } from 'lucide-react'
 import LoadingSpinner from '../components/LoadingSpinner'
 
 export default function ReportIssue() {
   const { equipmentId } = useParams()
+  const [searchParams] = useSearchParams()
+  const locationId = searchParams.get('location')
   const navigate = useNavigate()
+  
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -21,10 +24,11 @@ export default function ReportIssue() {
   const [submitted, setSubmitted] = useState(false)
   const [error, setError] = useState('')
 
-  // Fetch equipment details
-  const { data: equipment, isLoading } = useQuery({
+  // Fetch equipment details (if equipmentId)
+  const { data: equipment, isLoading: equipmentLoading } = useQuery({
     queryKey: ['equipment-public', equipmentId],
     queryFn: async () => {
+      if (!equipmentId) return null
       const { data, error } = await supabase
         .from('equipment')
         .select(`
@@ -37,7 +41,29 @@ export default function ReportIssue() {
       if (error) throw error
       return data
     },
+    enabled: !!equipmentId,
   })
+
+  // Fetch location details (if locationId)
+  const { data: location, isLoading: locationLoading } = useQuery({
+    queryKey: ['location-public', locationId],
+    queryFn: async () => {
+      if (!locationId) return null
+      const { data, error } = await supabase
+        .from('locations')
+        .select('*')
+        .eq('id', locationId)
+        .single()
+      
+      if (error) throw error
+      return data
+    },
+    enabled: !!locationId,
+  })
+
+  const isLoading = equipmentLoading || locationLoading
+  const item = equipment || location
+  const itemType = equipmentId ? 'equipment' : 'location'
 
   const createWorkOrderMutation = useMutation({
     mutationFn: async (data) => {
@@ -71,20 +97,37 @@ export default function ReportIssue() {
         setUploadingImage(false)
       }
       
-      // Create work order without authentication (public endpoint)
-      const { error } = await supabase
-        .from('work_orders')
-        .insert([{
-          title: data.title,
-          description: `${data.description}\n\n---\nRaportat de: ${data.reporterName}${data.reporterEmail ? `\nEmail: ${data.reporterEmail}` : ''}${imageUrl ? `\n\nPoza: ${imageUrl}` : ''}`,
-          equipment_id: equipmentId,
-          priority: data.priority,
-          status: 'open',
-          type: 'corrective',
-          image_url: imageUrl, // Store image URL in work order
-        }])
-      
-      if (error) throw error
+      // Create work order for equipment OR issue for location
+      if (itemType === 'equipment') {
+        // Create work order for equipment
+        const { error } = await supabase
+          .from('work_orders')
+          .insert([{
+            title: data.title,
+            description: `${data.description}\n\n---\nRaportat de: ${data.reporterName}${data.reporterEmail ? `\nEmail: ${data.reporterEmail}` : ''}${imageUrl ? `\n\nPoza: ${imageUrl}` : ''}`,
+            equipment_id: equipmentId,
+            priority: data.priority,
+            status: 'open',
+            type: 'corrective',
+            image_url: imageUrl,
+          }])
+        
+        if (error) throw error
+      } else {
+        // Create issue for location (anonymous report)
+        const { error } = await supabase
+          .from('issues')
+          .insert([{
+            title: data.title,
+            description: `${data.description}\n\n---\nRaportat de: ${data.reporterName}${data.reporterEmail ? `\nEmail: ${data.reporterEmail}` : ''}${imageUrl ? `\n\nPoza: ${imageUrl}` : ''}`,
+            location_id: locationId,
+            priority: data.priority,
+            status: 'open',
+            reported_by: null, // Anonymous report
+          }])
+        
+        if (error) throw error
+      }
     },
     onSuccess: () => {
       setSubmitted(true)
@@ -159,16 +202,18 @@ export default function ReportIssue() {
     )
   }
 
-  if (!equipment) {
+  if (!item) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
         <div className="card max-w-md w-full text-center">
           <AlertTriangle className="w-16 h-16 text-red-500 mx-auto mb-4" />
           <h2 className="text-2xl font-bold text-gray-900 mb-2">
-            Echipament Negăsit
+            {itemType === 'equipment' ? 'Echipament Negăsit' : 'Locație Negăsită'}
           </h2>
           <p className="text-gray-600">
-            Echipamentul pentru care încercați să raportați o problemă nu a fost găsit.
+            {itemType === 'equipment' 
+              ? 'Echipamentul pentru care încercați să raportați o problemă nu a fost găsit.'
+              : 'Locația pentru care încercați să raportați o problemă nu a fost găsită.'}
           </p>
         </div>
       </div>
@@ -187,11 +232,18 @@ export default function ReportIssue() {
             Mulțumim pentru raportare. Echipa noastră de mentenanță a fost notificată și va rezolva problema cât mai curând posibil.
           </p>
           <div className="bg-gray-50 rounded-lg p-4 text-left">
-            <p className="text-sm font-medium text-gray-700">Echipament:</p>
-            <p className="text-lg font-semibold text-gray-900">{equipment.name}</p>
-            {equipment.location && (
+            <p className="text-sm font-medium text-gray-700">
+              {itemType === 'equipment' ? 'Echipament:' : 'Locație:'}
+            </p>
+            <p className="text-lg font-semibold text-gray-900">{item.name}</p>
+            {itemType === 'equipment' && equipment.location && (
               <p className="text-sm text-gray-600 mt-1">
                 📍 {equipment.location.name}
+              </p>
+            )}
+            {itemType === 'location' && location.building && (
+              <p className="text-sm text-gray-600 mt-1">
+                🏢 {location.building}
               </p>
             )}
           </div>
@@ -209,31 +261,42 @@ export default function ReportIssue() {
             <AlertTriangle className="w-8 h-8 text-red-600" />
           </div>
           <h1 className="text-3xl font-bold text-gray-900 mb-2">
-            Raportează Problemă Echipament
+            Raportează Problemă {itemType === 'equipment' ? 'Echipament' : 'Locație'}
           </h1>
           <p className="text-gray-600">
             Spune-ne ce nu funcționează și o vom repara
           </p>
         </div>
 
-        {/* Equipment Info */}
+        {/* Equipment/Location Info */}
         <div className="card mb-6">
           <div className="flex items-start">
             <div className="w-12 h-12 bg-primary-100 rounded-lg flex items-center justify-center mr-4">
-              <Wrench className="w-6 h-6 text-primary-600" />
+              {itemType === 'equipment' ? (
+                <Wrench className="w-6 h-6 text-primary-600" />
+              ) : (
+                <Building className="w-6 h-6 text-primary-600" />
+              )}
             </div>
             <div className="flex-1">
-              <h2 className="text-xl font-semibold text-gray-900">{equipment.name}</h2>
-              {equipment.serial_number && (
+              <h2 className="text-xl font-semibold text-gray-900">{item.name}</h2>
+              {itemType === 'equipment' && equipment.serial_number && (
                 <p className="text-sm text-gray-600 mt-1">
                   SN: {equipment.serial_number}
                 </p>
               )}
-              {equipment.location && (
+              {itemType === 'equipment' && equipment.location && (
                 <div className="flex items-center text-sm text-gray-600 mt-2">
                   <MapPin className="w-4 h-4 mr-1" />
                   {equipment.location.name}
                   {equipment.location.building && ` - ${equipment.location.building}`}
+                </div>
+              )}
+              {itemType === 'location' && (
+                <div className="text-sm text-gray-600 mt-2">
+                  {location.building && <p>🏢 {location.building}</p>}
+                  {location.floor && <p>📍 Etaj {location.floor}</p>}
+                  {location.room && <p>🚪 Camera {location.room}</p>}
                 </div>
               )}
             </div>
@@ -266,7 +329,9 @@ export default function ReportIssue() {
                 value={formData.title}
                 onChange={handleChange}
                 className="input"
-                placeholder="ex: Mașina nu pornește, Zgomot ciudat, Scurgere"
+                placeholder={itemType === 'equipment' 
+                  ? "ex: Mașina nu pornește, Zgomot ciudat, Scurgere"
+                  : "ex: Perete crăpat, Lumină spartă, Curățenie necesară"}
               />
             </div>
 
@@ -282,7 +347,7 @@ export default function ReportIssue() {
                 value={formData.description}
                 onChange={handleChange}
                 className="input"
-                placeholder="Descrieți ce s-a întâmplat, când a început, mesaje de eroare..."
+                placeholder="Descrieți ce s-a întâmplat, când a început, detalii specifice..."
               />
             </div>
 
