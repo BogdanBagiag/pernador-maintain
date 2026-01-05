@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Html5Qrcode } from 'html5-qrcode'
 import { supabase } from '../lib/supabase'
+import { useAuth } from '../contexts/AuthContext'
 import { X, Camera, AlertCircle, Loader2 } from 'lucide-react'
 
 export default function QRScanner({ onClose }) {
@@ -11,6 +12,7 @@ export default function QRScanner({ onClose }) {
   const [manualCode, setManualCode] = useState('')
   const html5QrCodeRef = useRef(null)
   const navigate = useNavigate()
+  const { user } = useAuth() // Check if user is authenticated
 
   useEffect(() => {
     startScanner()
@@ -150,12 +152,22 @@ export default function QRScanner({ onClose }) {
     
     setSuccess(`✅ ${item.name} identificat!`)
     
-    // Redirect DIRECT la raportare (public, no auth required)
+    // Smart redirect based on authentication status
     setTimeout(() => {
-      if (itemType === 'location') {
-        navigate(`/report-issue?location=${item.id}`)
+      if (user) {
+        // AUTHENTICATED: Go to detail page to see full info
+        if (itemType === 'location') {
+          navigate(`/locations/${item.id}`)
+        } else {
+          navigate(`/equipment/${item.id}`)
+        }
       } else {
-        navigate(`/report/${item.id}`)
+        // UNAUTHENTICATED: Go directly to public report form
+        if (itemType === 'location') {
+          navigate(`/report-issue?location=${item.id}`)
+        } else {
+          navigate(`/report/${item.id}`)
+        }
       }
       onClose()
     }, 1000)
@@ -246,8 +258,12 @@ export default function QRScanner({ onClose }) {
           {/* Instructions */}
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
             <p className="text-sm text-blue-800">
-              💡 <strong>Instrucțiuni:</strong> Scanează QR code-ul de pe echipament sau locație. 
-              Vei fi redirecționat direct la formularul de raportare.
+              💡 <strong>Instrucțiuni:</strong> Scanează QR code-ul de pe echipament sau locație.
+              {user ? (
+                <span> Vei vedea detaliile complete și poți raporta probleme.</span>
+              ) : (
+                <span> Vei putea raporta probleme direct, fără autentificare.</span>
+              )}
             </p>
           </div>
         </div>
