@@ -103,17 +103,56 @@ export default function WorkOrderForm() {
   // Create/Update mutation
   const saveMutation = useMutation({
     mutationFn: async (data) => {
+      let workOrderId = id
+      let wasAssigned = false
+      
       if (isEditing) {
+        // Check if assigned_to changed
+        const oldAssignedTo = workOrder?.assigned_to
+        const newAssignedTo = data.assigned_to
+        wasAssigned = newAssignedTo && newAssignedTo !== oldAssignedTo
+        
         const { error } = await supabase
           .from('work_orders')
           .update(data)
           .eq('id', id)
         if (error) throw error
       } else {
-        const { error } = await supabase
+        const { data: newWO, error } = await supabase
           .from('work_orders')
-          .insert([{ ...data, created_by: user.id }])
+          .insert({ ...data, created_by: user.id })
+          .select()
+          .single()
         if (error) throw error
+        
+        workOrderId = newWO.id
+        wasAssigned = !!data.assigned_to
+      }
+      
+      // Send email notification if work order was assigned
+      if (wasAssigned && data.assigned_to) {
+        try {
+          const { data: { session } } = await supabase.auth.getSession()
+          
+          await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-email`, {
+            method: 'POST',
+            headers: {
+              'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
+              'Authorization': `Bearer ${session?.access_token}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              type: 'wo_assigned',
+              work_order_id: workOrderId,
+              user_id: data.assigned_to
+            })
+          })
+          
+          console.log('Email notification sent successfully')
+        } catch (emailError) {
+          // Don't fail the whole operation if email fails
+          console.error('Failed to send email notification:', emailError)
+        }
       }
     },
     onSuccess: () => {
