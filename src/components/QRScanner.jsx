@@ -9,7 +9,7 @@ export default function QRScanner({ onClose }) {
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
   const [manualCode, setManualCode] = useState('')
-  const [debugInfo, setDebugInfo] = useState(null) // NEW: Debug info visible in UI
+  const [debugInfo, setDebugInfo] = useState(null)
   const scannerRef = useRef(null)
   const html5QrCodeRef = useRef(null)
   const navigate = useNavigate()
@@ -72,14 +72,14 @@ export default function QRScanner({ onClose }) {
       type: typeof qrCodeText
     })
     
-    // Try to extract equipment ID
+    // Try to extract equipment ID from QR code
     let equipmentId = qrCodeText.trim()
     
-    // Format 1: Full URL
-    if (qrCodeText.includes('/equipment/')) {
-      const match = qrCodeText.match(/\/equipment\/([a-f0-9-]+)/)
+    // Format 1: Full URL (equipment or report path)
+    if (qrCodeText.includes('/equipment/') || qrCodeText.includes('/report/')) {
+      const match = qrCodeText.match(/\/(equipment|report)\/([a-f0-9-]+)/)
       if (match) {
-        equipmentId = match[1]
+        equipmentId = match[2]  // match[2] is the UUID
         setDebugInfo(prev => ({ ...prev, extracted: equipmentId, format: 'URL' }))
       }
     }
@@ -167,7 +167,7 @@ export default function QRScanner({ onClose }) {
             )}
           </div>
 
-          {/* Debug Info Panel - VISIBLE ON MOBILE! */}
+          {/* Debug Info Panel */}
           {debugInfo && (
             <div className="bg-yellow-50 border-2 border-yellow-300 rounded-lg p-4">
               <div className="flex items-start gap-2 mb-3">
