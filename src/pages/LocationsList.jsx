@@ -128,7 +128,11 @@ export default function LocationsList() {
       ) : (
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredLocations.map((location) => (
-            <div key={location.id} className="card hover:shadow-lg transition-shadow">
+            <Link 
+              key={location.id} 
+              to={`/locations/${location.id}`}
+              className="card hover:shadow-lg transition-shadow block"
+            >
               <div className="flex items-start justify-between mb-4">
                 <div className="flex items-center">
                   <div className="w-12 h-12 bg-primary-100 rounded-lg flex items-center justify-center mr-3">
@@ -172,22 +176,27 @@ export default function LocationsList() {
                 {canCreateEdit && (
                   <Link
                     to={`/locations/${location.id}/edit`}
-                    className="text-primary-600 hover:text-primary-700 p-2"
+                    className="text-primary-600 hover:text-primary-700 p-2 relative z-10"
+                    onClick={(e) => e.stopPropagation()}
                   >
                     <Edit className="w-4 h-4" />
                   </Link>
                 )}
                 {canDelete && (
                   <button
-                    onClick={() => handleDelete(location.id, location.name)}
-                    className="text-red-600 hover:text-red-700 p-2"
+                    onClick={(e) => {
+                      e.preventDefault()
+                      e.stopPropagation()
+                      handleDelete(location.id, location.name)
+                    }}
+                    className="text-red-600 hover:text-red-700 p-2 relative z-10"
                     disabled={deleteMutation.isLoading}
                   >
                     <Trash2 className="w-4 h-4" />
                   </button>
                 )}
               </div>
-            </div>
+            </Link>
           ))}
         </div>
       )}
