@@ -97,7 +97,7 @@ export default function ReportIssue() {
         setUploadingImage(false)
       }
       
-      // Create work order for equipment OR issue for location
+      // Create work order for equipment OR location
       if (itemType === 'equipment') {
         // Create work order for equipment
         const { error } = await supabase
@@ -114,16 +114,17 @@ export default function ReportIssue() {
         
         if (error) throw error
       } else {
-        // Create issue for location (anonymous report)
+        // Create work order for location
         const { error } = await supabase
-          .from('issues')
+          .from('work_orders')
           .insert([{
             title: data.title,
             description: `${data.description}\n\n---\nRaportat de: ${data.reporterName}${data.reporterEmail ? `\nEmail: ${data.reporterEmail}` : ''}${imageUrl ? `\n\nPoza: ${imageUrl}` : ''}`,
             location_id: locationId,
             priority: data.priority,
             status: 'open',
-            reported_by: null, // Anonymous report
+            type: 'corrective',
+            image_url: imageUrl,
           }])
         
         if (error) throw error
