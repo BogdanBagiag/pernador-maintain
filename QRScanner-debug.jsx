@@ -9,6 +9,7 @@ export default function QRScanner({ onClose }) {
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
   const [manualCode, setManualCode] = useState('')
+  const scannerRef = useRef(null)
   const html5QrCodeRef = useRef(null)
   const navigate = useNavigate()
 
@@ -28,7 +29,7 @@ export default function QRScanner({ onClose }) {
       html5QrCodeRef.current = new Html5Qrcode("qr-reader")
       
       await html5QrCodeRef.current.start(
-        { facingMode: "environment" },
+        { facingMode: "environment" }, // Use back camera
         {
           fps: 10,
           qrbox: { width: 250, height: 250 }
@@ -37,7 +38,7 @@ export default function QRScanner({ onClose }) {
           handleScanSuccess(decodedText)
         },
         (errorMessage) => {
-          // Ignore scan errors
+          // Ignore scan errors (happens continuously)
         }
       )
     } catch (err) {
@@ -59,104 +60,74 @@ export default function QRScanner({ onClose }) {
   }
 
   const handleScanSuccess = async (qrCodeText) => {
+    // Stop scanning immediately
     await stopScanner()
     setIsScanning(false)
     
-    // Extract ID and determine type from QR code
-    let id = qrCodeText.trim()
-    let type = 'equipment' // default
+    // === DEBUG INFO ===
+    console.log('=== QR CODE DEBUG ===')
+    console.log('Raw QR text:', qrCodeText)
+    console.log('Type:', typeof qrCodeText)
+    console.log('Length:', qrCodeText.length)
+    console.log('=====================')
     
-    // Format 1: Query parameter (?equipment= or ?location=)
-    if (qrCodeText.includes('?equipment=')) {
-      const match = qrCodeText.match(/[?&]equipment=([a-f0-9-]+)/)
+    // Try to extract equipment ID from QR code
+    let equipmentId = qrCodeText.trim()
+    
+    // Format 1: Full URL
+    if (qrCodeText.includes('/equipment/')) {
+      const match = qrCodeText.match(/\/equipment\/([a-f0-9-]+)/)
       if (match) {
-        id = match[1]
-        type = 'equipment'
-      }
-    } else if (qrCodeText.includes('?location=')) {
-      const match = qrCodeText.match(/[?&]location=([a-f0-9-]+)/)
-      if (match) {
-        id = match[1]
-        type = 'location'
+        equipmentId = match[1]
+        console.log('Extracted from URL:', equipmentId)
       }
     }
-    // Format 2: URL path
-    else if (qrCodeText.includes('/equipment/') || qrCodeText.includes('/report/')) {
-      const match = qrCodeText.match(/\/(equipment|report)\/([a-f0-9-]+)/)
-      if (match) {
-        id = match[2]
-        type = 'equipment'
-      }
-    } else if (qrCodeText.includes('/locations/')) {
-      const match = qrCodeText.match(/\/locations\/([a-f0-9-]+)/)
-      if (match) {
-        id = match[1]
-        type = 'location'
-      }
-    }
-    // Format 3: JSON
+    // Format 2: JSON
     else if (qrCodeText.trim().startsWith('{')) {
       try {
         const parsed = JSON.parse(qrCodeText)
-        id = parsed.id || parsed.equipment_id || parsed.location_id || qrCodeText
-        type = parsed.type || (parsed.location_id ? 'location' : 'equipment')
+        equipmentId = parsed.id || parsed.equipment_id || parsed.equipmentId || qrCodeText
+        console.log('Extracted from JSON:', equipmentId)
       } catch (e) {
-        // Use raw text if JSON parse fails
+        console.log('JSON parse failed, using raw text')
       }
     }
-    // Format 4: Direct ID - need to determine type by checking database
+    // Format 3: Direct ID (already set)
+    else {
+      console.log('Using direct ID:', equipmentId)
+    }
     
+    // Verify equipment exists
     setSuccess('QR scanat! Verificare...')
     
-    // Try to find in equipment first, then location
-    let item = null
-    let itemType = type
+    console.log('Querying database with ID:', equipmentId)
     
-    if (type === 'equipment') {
-      const { data: equipment } = await supabase
-        .from('equipment')
-        .select('id, name')
-        .eq('id', id)
-        .single()
-      
-      if (equipment) {
-        item = equipment
-        itemType = 'equipment'
-      }
-    }
+    const { data: equipment, error: dbError } = await supabase
+      .from('equipment')
+      .select('id, name, serial_number')
+      .eq('id', equipmentId)
+      .single()
     
-    if (!item && (type === 'location' || type === 'equipment')) {
-      const { data: location } = await supabase
-        .from('locations')
-        .select('id, name')
-        .eq('id', id)
-        .single()
-      
-      if (location) {
-        item = location
-        itemType = 'location'
-      }
-    }
+    console.log('Database response:', { equipment, dbError })
     
-    if (!item) {
-      setError('Element negăsit! Verifică codul QR și încearcă din nou.')
+    if (dbError || !equipment) {
+      console.error('Equipment not found!', { dbError, equipmentId })
+      setError(`Echipament negăsit! ID: ${equipmentId.substring(0, 20)}...`)
       setSuccess('')
+      // Restart scanner
       setTimeout(() => {
         setError('')
         startScanner()
-      }, 2000)
+      }, 3000)
       return
     }
     
-    setSuccess(`✅ ${item.name} identificat!`)
+    setSuccess(`✅ ${equipment.name} identificat!`)
+    console.log('Success! Equipment found:', equipment)
     
-    // Navigate based on type
+    // Navigate to equipment detail
     setTimeout(() => {
-      if (itemType === 'location') {
-        navigate(`/locations/${item.id}`)
-      } else {
-        navigate(`/equipment/${item.id}`)
-      }
+      navigate(`/equipment/${equipment.id}`)
       onClose()
     }, 1000)
   }
@@ -230,7 +201,7 @@ export default function QRScanner({ onClose }) {
                 type="text"
                 value={manualCode}
                 onChange={(e) => setManualCode(e.target.value)}
-                placeholder="ID echipament sau locație"
+                placeholder="ID echipament sau cod QR"
                 className="flex-1 px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               />
               <button
@@ -246,8 +217,15 @@ export default function QRScanner({ onClose }) {
           {/* Instructions */}
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
             <p className="text-sm text-blue-800">
-              💡 <strong>Instrucțiuni:</strong> Scanează QR code-ul de pe echipament sau locație. 
-              Vei fi redirecționat automat.
+              💡 <strong>Instrucțiuni:</strong> Poziționează QR code-ul echipamentului în cadru. 
+              Scanarea se face automat.
+            </p>
+          </div>
+
+          {/* Debug Info */}
+          <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
+            <p className="text-xs text-gray-600">
+              🐛 <strong>Debug mode:</strong> Deschide Console (F12) pentru a vedea detalii despre QR scanat.
             </p>
           </div>
         </div>

@@ -2,12 +2,21 @@ import { useEffect, useRef } from 'react'
 import QRCode from 'qrcode'
 import { Download, Printer } from 'lucide-react'
 
-export default function QRCodeGenerator({ equipmentId, equipmentName }) {
+export default function QRCodeGenerator({ id, name, type = 'equipment', equipmentId, equipmentName }) {
   const canvasRef = useRef(null)
-  const reportUrl = `${window.location.origin}/report/${equipmentId}`
+  
+  // Support old props for backward compatibility
+  const actualId = id || equipmentId
+  const actualName = name || equipmentName
+  const actualType = type
+  
+  // Generate URL based on type
+  const reportUrl = actualType === 'location' 
+    ? `${window.location.origin}/report?location=${actualId}`
+    : `${window.location.origin}/report/${actualId}`
 
   useEffect(() => {
-    if (canvasRef.current && equipmentId) {
+    if (canvasRef.current && actualId) {
       QRCode.toCanvas(
         canvasRef.current,
         reportUrl,
@@ -24,13 +33,13 @@ export default function QRCodeGenerator({ equipmentId, equipmentName }) {
         }
       )
     }
-  }, [equipmentId, reportUrl])
+  }, [actualId, reportUrl])
 
   const handleDownload = () => {
     if (canvasRef.current) {
       const url = canvasRef.current.toDataURL('image/png')
       const link = document.createElement('a')
-      link.download = `QR-${equipmentName || equipmentId}.png`
+      link.download = `QR-${actualName || actualId}.png`
       link.href = url
       link.click()
     }
@@ -42,12 +51,13 @@ export default function QRCodeGenerator({ equipmentId, equipmentName }) {
 
     const printWindow = window.open('', '_blank')
     const img = canvas.toDataURL('image/png')
+    const typeLabel = actualType === 'location' ? 'Locație' : 'Echipament'
     
     printWindow.document.write(`
       <!DOCTYPE html>
       <html>
         <head>
-          <title>QR Code - ${equipmentName || 'Equipment'}</title>
+          <title>QR Code - ${actualName || typeLabel}</title>
           <style>
             body {
               margin: 0;
@@ -66,6 +76,11 @@ export default function QRCodeGenerator({ equipmentId, equipmentName }) {
             h2 {
               margin: 0 0 10px 0;
               font-size: 24px;
+            }
+            .type-label {
+              font-size: 12px;
+              color: #666;
+              margin-bottom: 10px;
             }
             p {
               margin: 10px 0 0 0;
@@ -88,9 +103,10 @@ export default function QRCodeGenerator({ equipmentId, equipmentName }) {
         </head>
         <body>
           <div class="qr-container">
-            <h2>${equipmentName || 'Equipment'}</h2>
+            <div class="type-label">${typeLabel}</div>
+            <h2>${actualName || typeLabel}</h2>
             <img src="${img}" alt="QR Code" />
-            <p>Scan to report issue</p>
+            <p>Scanează pentru a raporta probleme</p>
           </div>
           <script>
             window.onload = function() {
@@ -104,39 +120,37 @@ export default function QRCodeGenerator({ equipmentId, equipmentName }) {
     printWindow.document.close()
   }
 
+  const typeLabel = actualType === 'location' ? 'această locație' : 'acest echipament'
+
   return (
-    <div className="card">
-      <h3 className="text-lg font-semibold text-gray-900 mb-4">QR Code</h3>
+    <div className="flex flex-col items-center">
+      <canvas ref={canvasRef} className="border border-gray-200 rounded-lg" />
       
-      <div className="flex flex-col items-center">
-        <canvas ref={canvasRef} className="border border-gray-200 rounded-lg" />
-        
-        <p className="text-sm text-gray-600 mt-4 text-center">
-          Scan this code to report issues with this equipment
+      <p className="text-sm text-gray-600 mt-4 text-center">
+        Scanează acest cod pentru a raporta probleme cu {typeLabel}
+      </p>
+
+      <div className="flex items-center space-x-3 mt-4">
+        <button
+          onClick={handleDownload}
+          className="btn-secondary inline-flex items-center"
+        >
+          <Download className="w-4 h-4 mr-2" />
+          Download
+        </button>
+        <button
+          onClick={handlePrint}
+          className="btn-secondary inline-flex items-center"
+        >
+          <Printer className="w-4 h-4 mr-2" />
+          Print
+        </button>
+      </div>
+
+      <div className="mt-4 p-3 bg-gray-50 rounded-lg w-full">
+        <p className="text-xs text-gray-500 font-mono break-all">
+          {reportUrl}
         </p>
-
-        <div className="flex items-center space-x-3 mt-4">
-          <button
-            onClick={handleDownload}
-            className="btn-secondary inline-flex items-center"
-          >
-            <Download className="w-4 h-4 mr-2" />
-            Download
-          </button>
-          <button
-            onClick={handlePrint}
-            className="btn-secondary inline-flex items-center"
-          >
-            <Printer className="w-4 h-4 mr-2" />
-            Print
-          </button>
-        </div>
-
-        <div className="mt-4 p-3 bg-gray-50 rounded-lg w-full">
-          <p className="text-xs text-gray-500 font-mono break-all">
-            {reportUrl}
-          </p>
-        </div>
       </div>
     </div>
   )

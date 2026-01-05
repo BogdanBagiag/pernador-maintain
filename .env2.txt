@@ -1,0 +1,4 @@
+```env
+VITE_SUPABASE_URL=https://fjwtshswivothknotlzs.supabase.co
+VITE_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZqd3RzaHN3aXZvdGhrbm90bHpzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njc0MjI2NTMsImV4cCI6MjA4Mjk5ODY1M30.RAqXQ2J7TEe1pblXYPvkwvWoOHdpS5Kp5VWpQ2IrnPs
+```
