@@ -14,7 +14,7 @@ export default function ScanPage() {
           <h1 className="text-3xl font-bold text-gray-900">Scanare QR Code</h1>
         </div>
         <p className="text-gray-600">
-          Identifică rapid echipamentele prin scanarea codului QR
+          Identifică rapid echipamentele și locațiile prin scanarea codului QR
         </p>
       </div>
 
@@ -37,11 +37,11 @@ export default function ScanPage() {
                 </li>
                 <li className="flex items-start gap-2">
                   <span className="font-bold">3.</span>
-                  <span>Poziționează QR code-ul echipamentului în cadru</span>
+                  <span>Poziționează QR code-ul în cadru</span>
                 </li>
                 <li className="flex items-start gap-2">
                   <span className="font-bold">4.</span>
-                  <span>Scanarea se face automat - vei fi redirecționat la detaliile echipamentului</span>
+                  <span>Scanarea se face automat - vei fi redirecționat la detalii</span>
                 </li>
               </ul>
             </div>
@@ -67,7 +67,7 @@ export default function ScanPage() {
             </div>
             <h3 className="font-semibold text-gray-900 mb-1">Identificare Rapidă</h3>
             <p className="text-sm text-gray-600">
-              Scanează și identifică echipamentul în secunde
+              Scanează echipamente și locații în secunde
             </p>
           </div>
 
@@ -77,7 +77,7 @@ export default function ScanPage() {
             </div>
             <h3 className="font-semibold text-gray-900 mb-1">Acces Instant</h3>
             <p className="text-sm text-gray-600">
-              Vezi imediat detalii, WO-uri active și istoric
+              Vezi imediat detalii, probleme și istoric
             </p>
           </div>
 
@@ -99,7 +99,7 @@ export default function ScanPage() {
             <li>• Asigură-te că QR code-ul este curat și vizibil</li>
             <li>• Folosește lumină naturală sau bună iluminare</li>
             <li>• Ține telefonul stabil pentru scanare mai rapidă</li>
-            <li>• Fiecare echipament are QR code unic printat</li>
+            <li>• Fiecare echipament și locație are QR code unic</li>
           </ul>
         </div>
       </div>

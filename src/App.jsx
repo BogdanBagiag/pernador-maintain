@@ -23,6 +23,7 @@ import UserManagement from './pages/UserManagement'
 import LocationsList from './pages/LocationsList'
 import LocationForm from './pages/LocationForm'
 import LocationDetail from './pages/LocationDetail'
+import ScanPage from './pages/ScanPage'
 import ReportIssue from './pages/ReportIssue'
 
 // Components
@@ -123,6 +124,9 @@ function App() {
                       <Route path="/locations/new" element={<LocationForm />} />
                       <Route path="/locations/:id" element={<LocationDetail />} />
                       <Route path="/locations/:id/edit" element={<LocationForm />} />
+                      
+                      {/* Scan Route */}
+                      <Route path="/scan" element={<ScanPage />} />
                       
                       {/* Other Routes */}
                       <Route path="/schedules" element={<MaintenanceSchedules />} />
