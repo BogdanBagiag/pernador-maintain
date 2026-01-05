@@ -75,7 +75,7 @@ function App() {
           <Router>
           <Routes>
             {/* Public Routes */}
-            <Route path="/" element={<LandingPage />} />
+            <Route path="/" element={<Navigate to="/login" replace />} />
             <Route
               path="/login"
               element={
