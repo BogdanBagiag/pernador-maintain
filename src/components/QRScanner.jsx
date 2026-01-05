@@ -150,12 +150,12 @@ export default function QRScanner({ onClose }) {
     
     setSuccess(`✅ ${item.name} identificat!`)
     
-    // Navigate based on type
+    // Redirect DIRECT la raportare (public, no auth required)
     setTimeout(() => {
       if (itemType === 'location') {
-        navigate(`/locations/${item.id}`)
+        navigate(`/report-issue?location=${item.id}`)
       } else {
-        navigate(`/equipment/${item.id}`)
+        navigate(`/report/${item.id}`)
       }
       onClose()
     }, 1000)
@@ -247,7 +247,7 @@ export default function QRScanner({ onClose }) {
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
             <p className="text-sm text-blue-800">
               💡 <strong>Instrucțiuni:</strong> Scanează QR code-ul de pe echipament sau locație. 
-              Vei fi redirecționat automat.
+              Vei fi redirecționat direct la formularul de raportare.
             </p>
           </div>
         </div>
