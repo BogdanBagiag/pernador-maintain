@@ -95,8 +95,10 @@ function App() {
               }
             />
             
-            {/* Public Report Route (No Auth Required) */}
+            {/* Public Report Routes (No Auth Required) */}
             <Route path="/report/:equipmentId" element={<ReportIssue />} />
+            <Route path="/report-issue" element={<ReportIssue />} />
+
 
             {/* Protected Routes */}
             <Route
