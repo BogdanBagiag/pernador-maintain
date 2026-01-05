@@ -41,7 +41,15 @@ self.addEventListener('fetch', (event) => {
           
           caches.open(CACHE_NAME)
             .then((cache) => {
-              cache.put(event.request, responseToCache)
+              // Ignore chrome-extension and other unsupported schemes
+              if (event.request.url.startsWith('chrome-extension://') || 
+                  event.request.url.startsWith('moz-extension://')) {
+                return
+              }
+              cache.put(event.request, responseToCache).catch(err => {
+                // Silently catch cache errors
+                console.debug('Cache put failed:', err.message)
+              })
             })
           
           return response
