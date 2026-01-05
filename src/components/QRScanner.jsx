@@ -2,15 +2,13 @@ import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Html5Qrcode } from 'html5-qrcode'
 import { supabase } from '../lib/supabase'
-import { X, Camera, AlertCircle, Loader2, Info } from 'lucide-react'
+import { X, Camera, AlertCircle, Loader2 } from 'lucide-react'
 
 export default function QRScanner({ onClose }) {
   const [isScanning, setIsScanning] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
   const [manualCode, setManualCode] = useState('')
-  const [debugInfo, setDebugInfo] = useState(null)
-  const scannerRef = useRef(null)
   const html5QrCodeRef = useRef(null)
   const navigate = useNavigate()
 
@@ -26,7 +24,6 @@ export default function QRScanner({ onClose }) {
     try {
       setIsScanning(true)
       setError('')
-      setDebugInfo(null)
       
       html5QrCodeRef.current = new Html5Qrcode("qr-reader")
       
@@ -65,22 +62,14 @@ export default function QRScanner({ onClose }) {
     await stopScanner()
     setIsScanning(false)
     
-    // Show what was scanned
-    setDebugInfo({
-      raw: qrCodeText,
-      length: qrCodeText.length,
-      type: typeof qrCodeText
-    })
-    
-    // Try to extract equipment ID from QR code
+    // Extract equipment ID from QR code
     let equipmentId = qrCodeText.trim()
     
     // Format 1: Full URL (equipment or report path)
     if (qrCodeText.includes('/equipment/') || qrCodeText.includes('/report/')) {
       const match = qrCodeText.match(/\/(equipment|report)\/([a-f0-9-]+)/)
       if (match) {
-        equipmentId = match[2]  // match[2] is the UUID
-        setDebugInfo(prev => ({ ...prev, extracted: equipmentId, format: 'URL' }))
+        equipmentId = match[2]
       }
     }
     // Format 2: JSON
@@ -88,15 +77,11 @@ export default function QRScanner({ onClose }) {
       try {
         const parsed = JSON.parse(qrCodeText)
         equipmentId = parsed.id || parsed.equipment_id || parsed.equipmentId || qrCodeText
-        setDebugInfo(prev => ({ ...prev, extracted: equipmentId, format: 'JSON' }))
       } catch (e) {
-        setDebugInfo(prev => ({ ...prev, format: 'JSON (failed)' }))
+        // Use raw text if JSON parse fails
       }
     }
-    // Format 3: Direct ID
-    else {
-      setDebugInfo(prev => ({ ...prev, extracted: equipmentId, format: 'Direct ID' }))
-    }
+    // Format 3: Direct ID - already set
     
     setSuccess('QR scanat! Verificare...')
     
@@ -107,20 +92,23 @@ export default function QRScanner({ onClose }) {
       .single()
     
     if (dbError || !equipment) {
-      setDebugInfo(prev => ({ ...prev, dbError: dbError?.message || 'Not found' }))
-      setError(`Echipament negăsit! Verifică detaliile mai jos.`)
+      setError('Echipament negăsit! Verifică codul QR și încearcă din nou.')
       setSuccess('')
-      // Keep debug info visible
+      // Restart scanner after 2 seconds
+      setTimeout(() => {
+        setError('')
+        startScanner()
+      }, 2000)
       return
     }
     
     setSuccess(`✅ ${equipment.name} identificat!`)
-    setDebugInfo(prev => ({ ...prev, found: equipment.name }))
     
+    // Navigate to equipment detail
     setTimeout(() => {
       navigate(`/equipment/${equipment.id}`)
       onClose()
-    }, 1500)
+    }, 1000)
   }
 
   const handleManualSubmit = async (e) => {
@@ -132,8 +120,8 @@ export default function QRScanner({ onClose }) {
   }
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-75 z-50 flex items-center justify-center p-4 overflow-y-auto">
-      <div className="bg-white rounded-lg max-w-lg w-full p-6 relative my-8">
+    <div className="fixed inset-0 bg-black bg-opacity-75 z-50 flex items-center justify-center p-4">
+      <div className="bg-white rounded-lg max-w-lg w-full p-6 relative">
         {/* Header */}
         <div className="flex justify-between items-center mb-4">
           <div className="flex items-center gap-2">
@@ -167,50 +155,6 @@ export default function QRScanner({ onClose }) {
             )}
           </div>
 
-          {/* Debug Info Panel */}
-          {debugInfo && (
-            <div className="bg-yellow-50 border-2 border-yellow-300 rounded-lg p-4">
-              <div className="flex items-start gap-2 mb-3">
-                <Info className="w-5 h-5 text-yellow-700 flex-shrink-0 mt-0.5" />
-                <h3 className="font-bold text-yellow-900">🔍 Info Scanare:</h3>
-              </div>
-              <div className="space-y-2 text-sm">
-                <div className="bg-white rounded p-2">
-                  <span className="font-semibold text-gray-700">Text QR:</span>
-                  <p className="text-xs text-gray-600 break-all mt-1">{debugInfo.raw}</p>
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                  <div className="bg-white rounded p-2">
-                    <span className="font-semibold text-gray-700">Lungime:</span>
-                    <p className="text-gray-600">{debugInfo.length}</p>
-                  </div>
-                  <div className="bg-white rounded p-2">
-                    <span className="font-semibold text-gray-700">Format:</span>
-                    <p className="text-gray-600">{debugInfo.format || 'Unknown'}</p>
-                  </div>
-                </div>
-                {debugInfo.extracted && (
-                  <div className="bg-white rounded p-2">
-                    <span className="font-semibold text-gray-700">ID Extras:</span>
-                    <p className="text-xs text-gray-600 break-all mt-1">{debugInfo.extracted}</p>
-                  </div>
-                )}
-                {debugInfo.dbError && (
-                  <div className="bg-red-100 rounded p-2">
-                    <span className="font-semibold text-red-700">Eroare DB:</span>
-                    <p className="text-xs text-red-600 mt-1">{debugInfo.dbError}</p>
-                  </div>
-                )}
-                {debugInfo.found && (
-                  <div className="bg-green-100 rounded p-2">
-                    <span className="font-semibold text-green-700">✅ Găsit:</span>
-                    <p className="text-green-600 mt-1">{debugInfo.found}</p>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-
           {/* Success Message */}
           {success && (
             <div className="flex items-center gap-2 bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg">
@@ -236,13 +180,13 @@ export default function QRScanner({ onClose }) {
                 type="text"
                 value={manualCode}
                 onChange={(e) => setManualCode(e.target.value)}
-                placeholder="ID echipament"
-                className="flex-1 px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                placeholder="ID echipament sau cod QR"
+                className="flex-1 px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               />
               <button
                 type="submit"
                 disabled={!manualCode.trim()}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Caută
               </button>
@@ -252,7 +196,8 @@ export default function QRScanner({ onClose }) {
           {/* Instructions */}
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
             <p className="text-sm text-blue-800">
-              💡 <strong>Instrucțiuni:</strong> Poziționează QR code-ul în cadru. Info despre scanare apare mai sus.
+              💡 <strong>Instrucțiuni:</strong> Poziționează QR code-ul echipamentului în cadru. 
+              Scanarea se face automat.
             </p>
           </div>
         </div>
