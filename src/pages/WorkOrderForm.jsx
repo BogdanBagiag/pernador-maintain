@@ -132,18 +132,24 @@ export default function WorkOrderForm() {
       // Send email notification if work order was assigned
       if (wasAssigned && data.assigned_to) {
         try {
-          const { data: emailResult, error: emailError } = await supabase.functions.invoke('send-email', {
-            body: {
+          const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-email`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'x-secret-token': 'pernador-email-secret-2026'
+            },
+            body: JSON.stringify({
               type: 'wo_assigned',
               work_order_id: workOrderId,
               user_id: data.assigned_to
-            }
+            })
           })
           
-          if (emailError) {
-            console.error('Email notification error:', emailError)
+          if (response.ok) {
+            const result = await response.json()
+            console.log('Email notification sent successfully:', result)
           } else {
-            console.log('Email notification sent successfully:', emailResult)
+            console.error('Email notification failed:', await response.text())
           }
         } catch (emailError) {
           // Don't fail the whole operation if email fails
