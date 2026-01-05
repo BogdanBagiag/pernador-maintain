@@ -51,6 +51,14 @@ export default function WorkOrderDetail() {
             serial_number,
             location:locations(name, building)
           ),
+          location:locations(
+            id,
+            name,
+            building,
+            floor,
+            room,
+            address
+          ),
           assigned_to_user:profiles!work_orders_assigned_to_fkey(id, full_name, email),
           created_by_user:profiles!work_orders_created_by_fkey(id, full_name, email)
         `)
@@ -327,6 +335,34 @@ export default function WorkOrderDetail() {
                         {workOrder.equipment.location.building && ` - ${workOrder.equipment.location.building}`}
                       </span>
                     </p>
+                  )}
+                </div>
+              </Link>
+            </div>
+          )}
+
+          {/* Location Info (when no equipment) */}
+          {!workOrder.equipment && workOrder.location && (
+            <div className="card">
+              <h2 className="text-lg sm:text-xl font-semibold text-gray-900 mb-4">Location</h2>
+              <Link
+                to={`/locations/${workOrder.location.id}`}
+                className="flex items-start space-x-3 sm:space-x-4 p-3 sm:p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+              >
+                <MapPin className="w-6 h-6 sm:w-8 sm:h-8 text-primary-600 mt-1 flex-shrink-0" />
+                <div className="min-w-0 flex-1">
+                  <p className="font-medium text-gray-900 break-words">{workOrder.location.name}</p>
+                  {workOrder.location.building && (
+                    <p className="text-sm text-gray-600">Building: {workOrder.location.building}</p>
+                  )}
+                  {workOrder.location.floor && (
+                    <p className="text-sm text-gray-600">Floor: {workOrder.location.floor}</p>
+                  )}
+                  {workOrder.location.room && (
+                    <p className="text-sm text-gray-600">Room: {workOrder.location.room}</p>
+                  )}
+                  {workOrder.location.address && (
+                    <p className="text-sm text-gray-600 mt-1 break-words">{workOrder.location.address}</p>
                   )}
                 </div>
               </Link>

@@ -25,12 +25,15 @@ export default function WorkOrderForm() {
   
   const isEditing = !!id
   const preSelectedEquipment = searchParams.get('equipment')
+  const preSelectedLocation = searchParams.get('location')
   const preSelectedType = searchParams.get('type')
 
   const [formData, setFormData] = useState({
     title: '',
     description: '',
+    source_type: preSelectedEquipment ? 'equipment' : preSelectedLocation ? 'location' : 'equipment',
     equipment_id: preSelectedEquipment || '',
+    location_id: preSelectedLocation || '',
     type: preSelectedType || 'corrective',
     priority: 'medium',
     status: 'open',
@@ -48,6 +51,19 @@ export default function WorkOrderForm() {
       const { data, error } = await supabase
         .from('equipment')
         .select('id, name, serial_number')
+        .order('name')
+      if (error) throw error
+      return data
+    },
+  })
+
+  // Fetch locations list
+  const { data: locations } = useQuery({
+    queryKey: ['locations-list'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('locations')
+        .select('id, name, building, floor')
         .order('name')
       if (error) throw error
       return data
@@ -89,7 +105,9 @@ export default function WorkOrderForm() {
       setFormData({
         title: workOrder.title || '',
         description: workOrder.description || '',
+        source_type: workOrder.equipment_id ? 'equipment' : 'location',
         equipment_id: workOrder.equipment_id || '',
+        location_id: workOrder.location_id || '',
         type: workOrder.type || 'corrective',
         priority: workOrder.priority || 'medium',
         status: workOrder.status || 'open',
@@ -154,8 +172,12 @@ export default function WorkOrderForm() {
       newErrors.title = 'Title is required'
     }
 
-    if (!formData.equipment_id) {
+    if (formData.source_type === 'equipment' && !formData.equipment_id) {
       newErrors.equipment_id = 'Equipment is required'
+    }
+
+    if (formData.source_type === 'location' && !formData.location_id) {
+      newErrors.location_id = 'Location is required'
     }
 
     if (!formData.type) {
@@ -179,10 +201,18 @@ export default function WorkOrderForm() {
 
     const dataToSave = {
       title: formData.title.trim(),
-      equipment_id: formData.equipment_id,
       type: formData.type,
       priority: formData.priority,
       status: formData.status,
+    }
+
+    // Add equipment_id OR location_id based on source_type
+    if (formData.source_type === 'equipment') {
+      dataToSave.equipment_id = formData.equipment_id
+      dataToSave.location_id = null
+    } else {
+      dataToSave.location_id = formData.location_id
+      dataToSave.equipment_id = null
     }
 
     // Add optional fields only if they have values
@@ -259,33 +289,98 @@ export default function WorkOrderForm() {
             )}
           </div>
 
-          {/* Equipment */}
+          {/* Source Type Selector */}
           <div>
-            <label htmlFor="equipment_id" className="block text-sm font-medium text-gray-700 mb-1">
-              Equipment <span className="text-red-500">*</span>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Work Order For <span className="text-red-500">*</span>
             </label>
-            <div className="relative">
-              <Wrench className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
-              <select
-                id="equipment_id"
-                name="equipment_id"
-                required
-                value={formData.equipment_id}
-                onChange={handleChange}
-                className={`input pl-10 ${errors.equipment_id ? 'border-red-500' : ''}`}
-              >
-                <option value="">Select equipment...</option>
-                {equipment?.map((eq) => (
-                  <option key={eq.id} value={eq.id}>
-                    {eq.name} {eq.serial_number && `(SN: ${eq.serial_number})`}
-                  </option>
-                ))}
-              </select>
+            <div className="flex gap-4">
+              <label className="flex items-center cursor-pointer">
+                <input
+                  type="radio"
+                  name="source_type"
+                  value="equipment"
+                  checked={formData.source_type === 'equipment'}
+                  onChange={handleChange}
+                  className="mr-2"
+                />
+                <Wrench className="w-4 h-4 mr-1" />
+                Equipment
+              </label>
+              <label className="flex items-center cursor-pointer">
+                <input
+                  type="radio"
+                  name="source_type"
+                  value="location"
+                  checked={formData.source_type === 'location'}
+                  onChange={handleChange}
+                  className="mr-2"
+                />
+                <MapPin className="w-4 h-4 mr-1" />
+                Location
+              </label>
             </div>
-            {errors.equipment_id && (
-              <p className="text-sm text-red-600 mt-1">{errors.equipment_id}</p>
-            )}
           </div>
+
+          {/* Equipment Selector (shown when source_type is equipment) */}
+          {formData.source_type === 'equipment' && (
+            <div>
+              <label htmlFor="equipment_id" className="block text-sm font-medium text-gray-700 mb-1">
+                Equipment <span className="text-red-500">*</span>
+              </label>
+              <div className="relative">
+                <Wrench className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <select
+                  id="equipment_id"
+                  name="equipment_id"
+                  required
+                  value={formData.equipment_id}
+                  onChange={handleChange}
+                  className={`input pl-10 ${errors.equipment_id ? 'border-red-500' : ''}`}
+                >
+                  <option value="">Select equipment...</option>
+                  {equipment?.map((eq) => (
+                    <option key={eq.id} value={eq.id}>
+                      {eq.name} {eq.serial_number && `(SN: ${eq.serial_number})`}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              {errors.equipment_id && (
+                <p className="text-sm text-red-600 mt-1">{errors.equipment_id}</p>
+              )}
+            </div>
+          )}
+
+          {/* Location Selector (shown when source_type is location) */}
+          {formData.source_type === 'location' && (
+            <div>
+              <label htmlFor="location_id" className="block text-sm font-medium text-gray-700 mb-1">
+                Location <span className="text-red-500">*</span>
+              </label>
+              <div className="relative">
+                <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <select
+                  id="location_id"
+                  name="location_id"
+                  required
+                  value={formData.location_id}
+                  onChange={handleChange}
+                  className={`input pl-10 ${errors.location_id ? 'border-red-500' : ''}`}
+                >
+                  <option value="">Select location...</option>
+                  {locations?.map((loc) => (
+                    <option key={loc.id} value={loc.id}>
+                      {loc.name} {loc.building && `- ${loc.building}`} {loc.floor && `(Floor ${loc.floor})`}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              {errors.location_id && (
+                <p className="text-sm text-red-600 mt-1">{errors.location_id}</p>
+              )}
+            </div>
+          )}
 
           {/* Type and Priority */}
           <div className="grid md:grid-cols-2 gap-4">

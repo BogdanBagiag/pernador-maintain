@@ -20,7 +20,7 @@ export default function WorkOrderList() {
   const [statusFilter, setStatusFilter] = useState('all')
   const [priorityFilter, setPriorityFilter] = useState('all')
 
-  // Fetch work orders with equipment info
+  // Fetch work orders with equipment and location info
   const { data: workOrders, isLoading } = useQuery({
     queryKey: ['work-orders'],
     queryFn: async () => {
@@ -29,6 +29,7 @@ export default function WorkOrderList() {
         .select(`
           *,
           equipment:equipment(id, name, serial_number),
+          location:locations(id, name, building, floor, room),
           assigned_to_user:profiles!work_orders_assigned_to_fkey(id, full_name)
         `)
         .order('created_at', { ascending: false })
@@ -43,6 +44,8 @@ export default function WorkOrderList() {
     const matchesSearch = 
       wo.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       wo.equipment?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      wo.location?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      wo.location?.building?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       wo.description?.toLowerCase().includes(searchTerm.toLowerCase())
     
     const matchesStatus = statusFilter === 'all' || wo.status === statusFilter
@@ -327,7 +330,7 @@ export default function WorkOrderList() {
 
                 {/* Content */}
                 <div className="flex-1 min-w-0">
-                  {/* Title and Equipment */}
+                  {/* Title and Equipment/Location */}
                   <div className="mb-3">
                     <h3 className="text-lg font-semibold text-gray-900 mb-2">
                       {wo.title}
@@ -336,6 +339,13 @@ export default function WorkOrderList() {
                       <p className="text-sm text-gray-600">
                         Equipment: <span className="font-medium">{wo.equipment.name}</span>
                         {wo.equipment.serial_number && ` (SN: ${wo.equipment.serial_number})`}
+                      </p>
+                    )}
+                    {wo.location && (
+                      <p className="text-sm text-gray-600">
+                        Location: <span className="font-medium">{wo.location.name}</span>
+                        {wo.location.building && ` - ${wo.location.building}`}
+                        {wo.location.floor && ` (Floor ${wo.location.floor})`}
                       </p>
                     )}
                   </div>
