@@ -128,76 +128,64 @@ export default function LocationsList() {
       ) : (
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredLocations.map((location) => (
-            <div key={location.id} className="card hover:shadow-lg transition-shadow relative">
-              {/* Make whole card clickable */}
-              <Link 
-                to={`/locations/${location.id}`}
-                className="absolute inset-0 z-0"
-              />
-              
-              <div className="relative z-10">
-                <div className="flex items-start justify-between mb-4">
-                  <div className="flex items-center">
-                    <div className="w-12 h-12 bg-primary-100 rounded-lg flex items-center justify-center mr-3">
-                      <Building className="w-6 h-6 text-primary-600" />
-                    </div>
-                    <div>
-                      <h3 className="text-lg font-semibold text-gray-900">
-                        {location.name}
-                      </h3>
-                      {location.building && (
-                        <p className="text-sm text-gray-600">
-                          {location.building}
-                        </p>
-                      )}
-                    </div>
+            <div key={location.id} className="card hover:shadow-lg transition-shadow">
+              <div className="flex items-start justify-between mb-4">
+                <div className="flex items-center">
+                  <div className="w-12 h-12 bg-primary-100 rounded-lg flex items-center justify-center mr-3">
+                    <Building className="w-6 h-6 text-primary-600" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-900">
+                      {location.name}
+                    </h3>
+                    {location.building && (
+                      <p className="text-sm text-gray-600">
+                        {location.building}
+                      </p>
+                    )}
                   </div>
                 </div>
+              </div>
 
-                {location.description && (
-                  <p className="text-sm text-gray-600 mb-3">
-                    {location.description}
-                  </p>
-                )}
+              {location.description && (
+                <p className="text-sm text-gray-600 mb-3">
+                  {location.description}
+                </p>
+              )}
 
-                {location.address && (
-                  <div className="flex items-start text-sm text-gray-600 mb-2">
-                    <MapPin className="w-4 h-4 mr-1 mt-0.5 flex-shrink-0" />
-                    <span>{location.address}</span>
-                  </div>
-                )}
-
-                {(location.floor || location.room) && (
-                  <div className="text-sm text-gray-600 mb-4">
-                    {location.floor && `Floor: ${location.floor}`}
-                    {location.floor && location.room && ' • '}
-                    {location.room && `Room: ${location.room}`}
-                  </div>
-                )}
-
-                <div className="flex items-center justify-end space-x-2 pt-4 border-t border-gray-200">
-                  {canCreateEdit && (
-                    <Link
-                      to={`/locations/${location.id}/edit`}
-                      className="text-primary-600 hover:text-primary-700 p-2 relative z-20"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <Edit className="w-4 h-4" />
-                    </Link>
-                  )}
-                  {canDelete && (
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        handleDelete(location.id, location.name)
-                      }}
-                      className="text-red-600 hover:text-red-700 p-2 relative z-20"
-                      disabled={deleteMutation.isLoading}
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  )}
+              {location.address && (
+                <div className="flex items-start text-sm text-gray-600 mb-2">
+                  <MapPin className="w-4 h-4 mr-1 mt-0.5 flex-shrink-0" />
+                  <span>{location.address}</span>
                 </div>
+              )}
+
+              {(location.floor || location.room) && (
+                <div className="text-sm text-gray-600 mb-4">
+                  {location.floor && `Floor: ${location.floor}`}
+                  {location.floor && location.room && ' • '}
+                  {location.room && `Room: ${location.room}`}
+                </div>
+              )}
+
+              <div className="flex items-center justify-end space-x-2 pt-4 border-t border-gray-200">
+                {canCreateEdit && (
+                  <Link
+                    to={`/locations/${location.id}/edit`}
+                    className="text-primary-600 hover:text-primary-700 p-2"
+                  >
+                    <Edit className="w-4 h-4" />
+                  </Link>
+                )}
+                {canDelete && (
+                  <button
+                    onClick={() => handleDelete(location.id, location.name)}
+                    className="text-red-600 hover:text-red-700 p-2"
+                    disabled={deleteMutation.isLoading}
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                )}
               </div>
             </div>
           ))}
