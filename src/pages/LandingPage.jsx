@@ -1,131 +1,134 @@
-import { Link } from 'react-router-dom'
-import { Wrench, CheckCircle, Smartphone, BarChart3, Calendar, Users } from 'lucide-react'
+import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { Wrench, Mail, Lock, ArrowRight } from 'lucide-react'
+import { supabase } from '../lib/supabase'
+import LoadingSpinner from '../components/LoadingSpinner'
 
 export default function LandingPage() {
-  const features = [
-    {
-      icon: CheckCircle,
-      title: 'Work Order Management',
-      description: 'Create, assign, and track maintenance work orders efficiently',
-    },
-    {
-      icon: Calendar,
-      title: 'Preventive Maintenance',
-      description: 'Schedule and automate recurring maintenance tasks',
-    },
-    {
-      icon: Wrench,
-      title: 'Equipment Tracking',
-      description: 'Complete registry of all your equipment and assets',
-    },
-    {
-      icon: BarChart3,
-      title: 'Reports & Analytics',
-      description: 'Get insights with comprehensive reporting tools',
-    },
-    {
-      icon: Smartphone,
-      title: 'Mobile Ready',
-      description: 'Access from any device, anywhere, anytime',
-    },
-    {
-      icon: Users,
-      title: 'Team Collaboration',
-      description: 'Keep your entire team in sync and informed',
-    },
-  ]
+  const navigate = useNavigate()
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [error, setError] = useState('')
+  const [loading, setLoading] = useState(false)
+
+  const handleLogin = async (e) => {
+    e.preventDefault()
+    setError('')
+    setLoading(true)
+
+    try {
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      })
+
+      if (error) throw error
+      navigate('/dashboard')
+    } catch (error) {
+      setError(error.message || 'Eroare la autentificare')
+    } finally {
+      setLoading(false)
+    }
+  }
 
   return (
-    <div className="min-h-screen bg-white">
-      {/* Header */}
-      <header className="border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex justify-between items-center">
-            <div className="flex items-center space-x-2">
-              <Wrench className="w-8 h-8 text-primary-600" />
-              <span className="text-2xl font-bold text-gray-900">Pernador Maintain</span>
-            </div>
-            <div className="flex items-center space-x-4">
-              <Link to="/login" className="text-gray-700 hover:text-gray-900">
-                Sign in
-              </Link>
-              <Link to="/register" className="btn-primary">
-                Get Started
-              </Link>
-            </div>
+    <div className="min-h-screen bg-gradient-to-br from-primary-50 via-white to-primary-50 flex items-center justify-center px-4">
+      <div className="max-w-md w-full">
+        {/* Logo & Title */}
+        <div className="text-center mb-8">
+          <div className="inline-flex items-center justify-center w-20 h-20 bg-primary-600 rounded-2xl mb-6 shadow-lg">
+            <Wrench className="w-12 h-12 text-white" />
           </div>
+          <h1 className="text-4xl font-bold text-gray-900 mb-2">
+            Pernador Maintenance
+          </h1>
+          <p className="text-lg text-gray-600">
+            Sistem Management Mentenanță
+          </p>
         </div>
-      </header>
 
-      {/* Hero Section */}
-      <section className="py-20 bg-gradient-to-br from-primary-50 to-primary-100">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center">
-            <h1 className="text-5xl font-bold text-gray-900 mb-6">
-              Streamline Your Equipment Maintenance
-            </h1>
-            <p className="text-xl text-gray-600 mb-8 max-w-3xl mx-auto">
-              A powerful, easy-to-use maintenance management system designed to help you
-              track equipment, manage work orders, and optimize your maintenance operations.
-            </p>
-            <Link to="/register" className="btn-primary text-lg px-8 py-3 inline-block">
-              Start Free Trial
-            </Link>
-          </div>
-        </div>
-      </section>
-
-      {/* Features Section */}
-      <section className="py-20">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-16">
-            <h2 className="text-4xl font-bold text-gray-900 mb-4">
-              Everything You Need
-            </h2>
-            <p className="text-xl text-gray-600">
-              Powerful features to manage your maintenance operations
-            </p>
-          </div>
-
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {features.map((feature, index) => (
-              <div key={index} className="card hover:shadow-lg transition-shadow">
-                <feature.icon className="w-12 h-12 text-primary-600 mb-4" />
-                <h3 className="text-xl font-semibold text-gray-900 mb-2">
-                  {feature.title}
-                </h3>
-                <p className="text-gray-600">
-                  {feature.description}
-                </p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* CTA Section */}
-      <section className="py-20 bg-primary-600">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <h2 className="text-4xl font-bold text-white mb-4">
-            Ready to Get Started?
+        {/* Login Card */}
+        <div className="bg-white rounded-2xl shadow-xl p-8 border border-gray-100">
+          <h2 className="text-2xl font-bold text-gray-900 mb-6 text-center">
+            Autentificare
           </h2>
-          <p className="text-xl text-primary-100 mb-8">
-            Join companies that trust Pernador Maintain for their maintenance management
-          </p>
-          <Link to="/register" className="bg-white text-primary-600 px-8 py-3 rounded-lg font-semibold hover:bg-gray-100 transition-colors inline-block">
-            Create Free Account
-          </Link>
-        </div>
-      </section>
 
-      {/* Footer */}
-      <footer className="border-t border-gray-200 py-8">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <p className="text-center text-gray-600">
-            © 2025 Pernador Maintain. All rights reserved.
+          {error && (
+            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+              <p className="text-sm text-red-600">{error}</p>
+            </div>
+          )}
+
+          <form onSubmit={handleLogin} className="space-y-4">
+            {/* Email */}
+            <div>
+              <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
+                Email
+              </label>
+              <div className="relative">
+                <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <input
+                  id="email"
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="input pl-10"
+                  placeholder="email@company.com"
+                  required
+                />
+              </div>
+            </div>
+
+            {/* Password */}
+            <div>
+              <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
+                Parolă
+              </label>
+              <div className="relative">
+                <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <input
+                  id="password"
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="input pl-10"
+                  placeholder="••••••••"
+                  required
+                />
+              </div>
+            </div>
+
+            {/* Submit Button */}
+            <button
+              type="submit"
+              disabled={loading}
+              className="btn-primary w-full flex items-center justify-center text-lg py-4 rounded-xl mt-6"
+            >
+              {loading ? (
+                <LoadingSpinner size="sm" />
+              ) : (
+                <>
+                  Intră în cont
+                  <ArrowRight className="w-5 h-5 ml-2" />
+                </>
+              )}
+            </button>
+          </form>
+
+          <div className="mt-6 pt-6 border-t border-gray-200">
+            <p className="text-sm text-gray-600 text-center">
+              Sistem intern Pernador
+            </p>
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="mt-8 text-center">
+          <p className="text-sm text-gray-500">
+            © {new Date().getFullYear()} Pernador. Toate drepturile rezervate.
           </p>
         </div>
-      </footer>
+      </div>
     </div>
   )
 }
