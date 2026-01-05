@@ -22,9 +22,9 @@ import Settings from './pages/Settings'
 import UserManagement from './pages/UserManagement'
 import LocationsList from './pages/LocationsList'
 import LocationForm from './pages/LocationForm'
-import ReportIssue from './pages/ReportIssue'
-import ScanPage from './pages/ScanPage'
 import LocationDetail from './pages/LocationDetail'
+import ReportIssue from './pages/ReportIssue'
+
 // Components
 import Layout from './components/Layout'
 import LoadingSpinner from './components/LoadingSpinner'
@@ -121,6 +121,7 @@ function App() {
                       {/* Location Routes */}
                       <Route path="/locations" element={<LocationsList />} />
                       <Route path="/locations/new" element={<LocationForm />} />
+                      <Route path="/locations/:id" element={<LocationDetail />} />
                       <Route path="/locations/:id/edit" element={<LocationForm />} />
                       
                       {/* Other Routes */}
@@ -130,8 +131,6 @@ function App() {
                       <Route path="/reports" element={<Reports />} />
                       <Route path="/users" element={<UserManagement />} />
                       <Route path="/settings" element={<Settings />} />
-                      <Route path="/scan" element={<ScanPage />} />
-                      <Route path="locations/:id" element={<LocationDetail />} />
                     </Routes>
                   </Layout>
                 </ProtectedRoute>
