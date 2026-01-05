@@ -123,52 +123,58 @@ export default function LocationDetail() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex justify-between items-start">
-        <div className="flex items-center gap-4">
-          <button
-            onClick={() => navigate('/locations')}
-            className="btn-secondary"
-          >
-            <ArrowLeft className="w-4 h-4" />
-          </button>
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">{location.name}</h1>
-            <div className="flex items-center gap-2 text-gray-600 mt-1">
-              <Building className="w-4 h-4" />
-              <span>{location.building}</span>
-              {location.floor && <span>• Etaj {location.floor}</span>}
-              {location.room && <span>• Camera {location.room}</span>}
-            </div>
+      <div>
+        {/* Back Button */}
+        <button
+          onClick={() => navigate('/locations')}
+          className="btn-secondary mb-4 inline-flex items-center"
+        >
+          <ArrowLeft className="w-4 h-4 mr-2" />
+          Înapoi
+        </button>
+
+        {/* Title */}
+        <div className="mb-4">
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">{location.name}</h1>
+          <div className="flex items-center gap-2 text-gray-600 text-sm sm:text-base">
+            <Building className="w-4 h-4 flex-shrink-0" />
+            <span>{location.building}</span>
+            {location.floor && <span>• Etaj {location.floor}</span>}
+            {location.room && <span>• Camera {location.room}</span>}
           </div>
         </div>
         
-        <div className="flex gap-2">
+        {/* Action Buttons - Mobile Responsive */}
+        <div className="flex flex-col sm:flex-row gap-2">
           <Link
             to={`/report-issue?location=${id}`}
-            className="btn-secondary inline-flex items-center gap-2"
+            className="btn-secondary flex-1 sm:flex-none inline-flex items-center justify-center gap-2"
           >
             <AlertTriangle className="w-4 h-4" />
-            Raportează Problemă
+            <span className="whitespace-nowrap">Raportează Problemă</span>
           </Link>
-          {canEdit && (
-            <Link
-              to={`/locations/${id}/edit`}
-              className="btn-secondary inline-flex items-center gap-2"
-            >
-              <Edit className="w-4 h-4" />
-              Editează
-            </Link>
-          )}
-          {canDelete && (
-            <button
-              onClick={handleDelete}
-              disabled={deleteMutation.isPending}
-              className="btn-danger inline-flex items-center gap-2"
-            >
-              <Trash2 className="w-4 h-4" />
-              Șterge
-            </button>
-          )}
+          
+          <div className="flex gap-2">
+            {canEdit && (
+              <Link
+                to={`/locations/${id}/edit`}
+                className="btn-secondary flex-1 sm:flex-none inline-flex items-center justify-center gap-2"
+              >
+                <Edit className="w-4 h-4" />
+                <span>Editează</span>
+              </Link>
+            )}
+            {canDelete && (
+              <button
+                onClick={handleDelete}
+                disabled={deleteMutation.isPending}
+                className="btn-danger flex-1 sm:flex-none inline-flex items-center justify-center gap-2"
+              >
+                <Trash2 className="w-4 h-4" />
+                <span>Șterge</span>
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
@@ -178,7 +184,7 @@ export default function LocationDetail() {
           {/* Details Card */}
           <div className="card">
             <h2 className="text-lg font-semibold text-gray-900 mb-4">Detalii Locație</h2>
-            <dl className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <dl className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <dt className="text-sm text-gray-600">Nume</dt>
                 <dd className="text-base font-medium text-gray-900">{location.name}</dd>
@@ -196,13 +202,13 @@ export default function LocationDetail() {
                 <dd className="text-base font-medium text-gray-900">{location.room || '-'}</dd>
               </div>
               {location.address && (
-                <div className="md:col-span-2">
+                <div className="sm:col-span-2">
                   <dt className="text-sm text-gray-600">Adresă</dt>
                   <dd className="text-base font-medium text-gray-900">{location.address}</dd>
                 </div>
               )}
               {location.description && (
-                <div className="md:col-span-2">
+                <div className="sm:col-span-2">
                   <dt className="text-sm text-gray-600">Descriere</dt>
                   <dd className="text-base text-gray-700">{location.description}</dd>
                 </div>
@@ -225,14 +231,14 @@ export default function LocationDetail() {
                     to={`/equipment/${item.id}`}
                     className="flex items-center justify-between p-3 border rounded-lg hover:bg-gray-50 transition-colors"
                   >
-                    <div className="flex items-center gap-3">
-                      <Wrench className="w-5 h-5 text-gray-400" />
-                      <div>
-                        <p className="font-medium text-gray-900">{item.name}</p>
-                        <p className="text-sm text-gray-600">{item.serial_number}</p>
+                    <div className="flex items-center gap-3 min-w-0 flex-1">
+                      <Wrench className="w-5 h-5 text-gray-400 flex-shrink-0" />
+                      <div className="min-w-0">
+                        <p className="font-medium text-gray-900 truncate">{item.name}</p>
+                        <p className="text-sm text-gray-600 truncate">{item.serial_number}</p>
                       </div>
                     </div>
-                    <span className={`badge ${item.status === 'operational' ? 'badge-success' : 'badge-warning'}`}>
+                    <span className={`badge ${item.status === 'operational' ? 'badge-success' : 'badge-warning'} whitespace-nowrap ml-2`}>
                       {item.status}
                     </span>
                   </Link>
@@ -257,10 +263,10 @@ export default function LocationDetail() {
                 {issues.map((issue) => (
                   <div
                     key={issue.id}
-                    className="flex items-center justify-between p-3 border rounded-lg"
+                    className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-3 border rounded-lg gap-2"
                   >
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-1">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex flex-wrap items-center gap-2 mb-1">
                         <span className={`badge ${getStatusColor(issue.status)}`}>
                           {issue.status}
                         </span>
@@ -268,8 +274,8 @@ export default function LocationDetail() {
                           {issue.priority}
                         </span>
                       </div>
-                      <p className="font-medium text-gray-900">{issue.title}</p>
-                      <p className="text-sm text-gray-600">
+                      <p className="font-medium text-gray-900 break-words">{issue.title}</p>
+                      <p className="text-sm text-gray-600 break-words">
                         Raportată de {issue.reported_by?.full_name || 'Unknown'} • {new Date(issue.created_at).toLocaleDateString('ro-RO')}
                       </p>
                     </div>
