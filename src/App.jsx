@@ -101,6 +101,9 @@ function App() {
             <Route path="/report/:equipmentId" element={<ReportIssue />} />
             <Route path="/report-issue" element={<ReportIssue />} />
             
+            {/* Legacy route for old location QR codes - redirect to new format */}
+            <Route path="/report" element={<ReportIssue />} />
+            
             {/* Public Scan Route (No Auth Required) */}
             <Route path="/scan" element={<PublicScanWrapper />} />
             

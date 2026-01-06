@@ -12,7 +12,7 @@ export default function QRCodeGenerator({ id, name, type = 'equipment', equipmen
   
   // Generate URL based on type
   const reportUrl = actualType === 'location' 
-    ? `${window.location.origin}/report?location=${actualId}`
+    ? `${window.location.origin}/locations/${actualId}`
     : `${window.location.origin}/report/${actualId}`
 
   useEffect(() => {
