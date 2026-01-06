@@ -17,5 +17,10 @@ Next Features (Opționale):
 📈 Analytics și trends
 🤖 AI pentru predictive maintenance
 
-re_aSAdmUp9_71wj9v5AnzvUdsS2b6CweVko
+Public Key:
+BDhNZ1BydQMC7HLf3F_Ga68RgpnDfyROQEiBIsUZ1vmL7OqExU0sKIFuV4lKw5jnQBrhs0ITMEzJfNFDlU3CRjI
 
+Private Key:
+VtyivM358rz4PHgsHR_yMejxNkICBc-mapLazuaQjME
+
+referinta proiect - fjwtshswivothknotlzs
