@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
-import { Plus, Search, Download, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react'
+import { Plus, Search, Download, ArrowUpDown, ArrowUp, ArrowDown, AlertTriangle } from 'lucide-react'
 import LoadingSpinner from '../components/LoadingSpinner'
 import EquipmentImportModal from '../components/EquipmentImportModal'
 
@@ -11,6 +11,7 @@ export default function EquipmentList() {
   const [sortField, setSortField] = useState('name')
   const [sortDirection, setSortDirection] = useState('asc')
   const [showImportModal, setShowImportModal] = useState(false)
+  const [filterTab, setFilterTab] = useState('all') // all, missing_serial, missing_manufacturer, missing_model, missing_location
 
   const { data: equipment, isLoading, refetch } = useQuery({
     queryKey: ['equipment'],
@@ -45,6 +46,17 @@ export default function EquipmentList() {
       eq.serial_number?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       eq.model?.toLowerCase().includes(searchQuery.toLowerCase())
     )
+
+    // Apply filter tabs
+    if (filterTab === 'missing_serial') {
+      filtered = filtered.filter(eq => !eq.serial_number || eq.serial_number.trim() === '')
+    } else if (filterTab === 'missing_manufacturer') {
+      filtered = filtered.filter(eq => !eq.manufacturer || eq.manufacturer.trim() === '')
+    } else if (filterTab === 'missing_model') {
+      filtered = filtered.filter(eq => !eq.model || eq.model.trim() === '')
+    } else if (filterTab === 'missing_location') {
+      filtered = filtered.filter(eq => !eq.location_id)
+    }
 
     return filtered.sort((a, b) => {
       let aVal = a[sortField]
@@ -87,6 +99,15 @@ export default function EquipmentList() {
 
   const sortedEquipment = getSortedData()
 
+  // Calculate statistics for filter tabs
+  const stats = {
+    total: equipment?.length || 0,
+    missingSerial: equipment?.filter(eq => !eq.serial_number || eq.serial_number.trim() === '').length || 0,
+    missingManufacturer: equipment?.filter(eq => !eq.manufacturer || eq.manufacturer.trim() === '').length || 0,
+    missingModel: equipment?.filter(eq => !eq.model || eq.model.trim() === '').length || 0,
+    missingLocation: equipment?.filter(eq => !eq.location_id).length || 0,
+  }
+
   return (
     <div>
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-8">
@@ -107,6 +128,108 @@ export default function EquipmentList() {
             Add Equipment
           </Link>
         </div>
+      </div>
+
+      {/* Filter Tabs */}
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
+        {/* All */}
+        <button
+          onClick={() => setFilterTab('all')}
+          className={`p-4 rounded-lg border-2 transition-all ${
+            filterTab === 'all'
+              ? 'border-blue-400 bg-blue-100 ring-2 ring-blue-300'
+              : 'border-blue-200 bg-blue-50 hover:border-blue-400'
+          }`}
+        >
+          <div className="flex items-center justify-between mb-2">
+            <span className={`text-2xl font-bold ${filterTab === 'all' ? 'text-blue-900' : 'text-blue-700'}`}>
+              {stats.total}
+            </span>
+          </div>
+          <p className={`text-sm font-medium ${filterTab === 'all' ? 'text-blue-800' : 'text-blue-600'}`}>
+            Toate
+          </p>
+        </button>
+
+        {/* Missing Serial */}
+        <button
+          onClick={() => setFilterTab('missing_serial')}
+          className={`p-4 rounded-lg border-2 transition-all ${
+            filterTab === 'missing_serial'
+              ? 'border-red-400 bg-red-100 ring-2 ring-red-300'
+              : 'border-red-200 bg-red-50 hover:border-red-400'
+          }`}
+        >
+          <div className="flex items-center justify-between mb-2">
+            <span className={`text-2xl font-bold ${filterTab === 'missing_serial' ? 'text-red-900' : 'text-red-700'}`}>
+              {stats.missingSerial}
+            </span>
+            <AlertTriangle className={`w-6 h-6 ${filterTab === 'missing_serial' ? 'text-red-700' : 'text-red-400'} opacity-50`} />
+          </div>
+          <p className={`text-sm font-medium ${filterTab === 'missing_serial' ? 'text-red-800' : 'text-red-600'}`}>
+            Fără Serie
+          </p>
+        </button>
+
+        {/* Missing Manufacturer */}
+        <button
+          onClick={() => setFilterTab('missing_manufacturer')}
+          className={`p-4 rounded-lg border-2 transition-all ${
+            filterTab === 'missing_manufacturer'
+              ? 'border-orange-400 bg-orange-100 ring-2 ring-orange-300'
+              : 'border-orange-200 bg-orange-50 hover:border-orange-400'
+          }`}
+        >
+          <div className="flex items-center justify-between mb-2">
+            <span className={`text-2xl font-bold ${filterTab === 'missing_manufacturer' ? 'text-orange-900' : 'text-orange-700'}`}>
+              {stats.missingManufacturer}
+            </span>
+            <AlertTriangle className={`w-6 h-6 ${filterTab === 'missing_manufacturer' ? 'text-orange-700' : 'text-orange-400'} opacity-50`} />
+          </div>
+          <p className={`text-sm font-medium ${filterTab === 'missing_manufacturer' ? 'text-orange-800' : 'text-orange-600'}`}>
+            Fără Marcă
+          </p>
+        </button>
+
+        {/* Missing Model */}
+        <button
+          onClick={() => setFilterTab('missing_model')}
+          className={`p-4 rounded-lg border-2 transition-all ${
+            filterTab === 'missing_model'
+              ? 'border-yellow-400 bg-yellow-100 ring-2 ring-yellow-300'
+              : 'border-yellow-200 bg-yellow-50 hover:border-yellow-400'
+          }`}
+        >
+          <div className="flex items-center justify-between mb-2">
+            <span className={`text-2xl font-bold ${filterTab === 'missing_model' ? 'text-yellow-900' : 'text-yellow-700'}`}>
+              {stats.missingModel}
+            </span>
+            <AlertTriangle className={`w-6 h-6 ${filterTab === 'missing_model' ? 'text-yellow-700' : 'text-yellow-400'} opacity-50`} />
+          </div>
+          <p className={`text-sm font-medium ${filterTab === 'missing_model' ? 'text-yellow-800' : 'text-yellow-600'}`}>
+            Fără Model
+          </p>
+        </button>
+
+        {/* Missing Location */}
+        <button
+          onClick={() => setFilterTab('missing_location')}
+          className={`p-4 rounded-lg border-2 transition-all ${
+            filterTab === 'missing_location'
+              ? 'border-purple-400 bg-purple-100 ring-2 ring-purple-300'
+              : 'border-purple-200 bg-purple-50 hover:border-purple-400'
+          }`}
+        >
+          <div className="flex items-center justify-between mb-2">
+            <span className={`text-2xl font-bold ${filterTab === 'missing_location' ? 'text-purple-900' : 'text-purple-700'}`}>
+              {stats.missingLocation}
+            </span>
+            <AlertTriangle className={`w-6 h-6 ${filterTab === 'missing_location' ? 'text-purple-700' : 'text-purple-400'} opacity-50`} />
+          </div>
+          <p className={`text-sm font-medium ${filterTab === 'missing_location' ? 'text-purple-800' : 'text-purple-600'}`}>
+            Fără Locație
+          </p>
+        </button>
       </div>
 
       {/* Search */}
