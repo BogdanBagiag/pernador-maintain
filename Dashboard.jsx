@@ -106,7 +106,8 @@ export default function Dashboard() {
           *,
           equipment:equipment(id, name, location:locations(name))
         `)
-        .order('next_scheduled_date', { ascending: true })
+        .eq('is_active', true)
+        .order('next_due_date', { ascending: true })
       if (error) throw error
       return data
     },
@@ -138,17 +139,31 @@ export default function Dashboard() {
   const now = new Date()
   const sevenDaysFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000)
   
+  console.log('🔍 Schedules data:', schedules?.length, 'total schedules')
+  console.log('📅 Current date:', now.toISOString())
+  console.log('📅 7 days from now:', sevenDaysFromNow.toISOString())
+  
   const upcomingSchedules = schedules?.filter(s => {
-    if (!s.next_scheduled_date) return false
-    const scheduleDate = new Date(s.next_scheduled_date)
-    return scheduleDate >= now && scheduleDate <= sevenDaysFromNow
+    if (!s.next_due_date) return false
+    const scheduleDate = new Date(s.next_due_date)
+    const isUpcoming = scheduleDate >= now && scheduleDate <= sevenDaysFromNow
+    if (isUpcoming) {
+      console.log('✅ Upcoming:', s.title || s.description, scheduleDate.toISOString())
+    }
+    return isUpcoming
   }) || []
   
   const overdueSchedules = schedules?.filter(s => {
-    if (!s.next_scheduled_date) return false
-    const scheduleDate = new Date(s.next_scheduled_date)
-    return scheduleDate < now
+    if (!s.next_due_date) return false
+    const scheduleDate = new Date(s.next_due_date)
+    const isOverdue = scheduleDate < now
+    if (isOverdue) {
+      console.log('⚠️ Overdue:', s.title || s.description, scheduleDate.toISOString())
+    }
+    return isOverdue
   }) || []
+  
+  console.log('📊 Result: Upcoming:', upcomingSchedules.length, 'Overdue:', overdueSchedules.length)
 
   // Equipment by status
   const equipmentByStatus = equipment?.reduce((acc, eq) => {
@@ -374,7 +389,7 @@ export default function Dashboard() {
           <h2 className="text-2xl font-bold text-gray-900">Mentenanță Preventivă</h2>
         </div>
         <div className="grid grid-cols-2 lg:grid-cols-2 gap-4">
-          <div className="card bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200">
+          <Link to="/schedules" className="card hover:shadow-lg transition-shadow bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-blue-600 font-medium mb-1">Următoarele 7 Zile</p>
@@ -382,9 +397,9 @@ export default function Dashboard() {
               </div>
               <Calendar className="w-10 h-10 text-blue-600 opacity-50" />
             </div>
-          </div>
+          </Link>
 
-          <div className="card bg-gradient-to-br from-red-50 to-red-100 border-red-200">
+          <Link to="/schedules" className="card hover:shadow-lg transition-shadow bg-gradient-to-br from-red-50 to-red-100 border-red-200">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-red-600 font-medium mb-1">Întârziate</p>
@@ -392,31 +407,37 @@ export default function Dashboard() {
               </div>
               <AlertTriangle className="w-10 h-10 text-red-600 opacity-50" />
             </div>
-          </div>
+          </Link>
         </div>
       </div>
 
-      {/* Main Stats */}
-      <div className="grid grid-cols-2 lg:grid-cols-2 gap-4">
-        <Link to="/equipment" className="card hover:shadow-lg transition-shadow bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-blue-600 font-medium mb-1">Total Equipment</p>
-              <p className="text-3xl font-bold text-blue-900">{totalEquipment}</p>
+      {/* Equipment and Locations Section */}
+      <div className="mb-6">
+        <div className="flex items-center gap-2 mb-4">
+          <Wrench className="w-6 h-6 text-gray-700" />
+          <h2 className="text-2xl font-bold text-gray-900">Echipamente și Locații</h2>
+        </div>
+        <div className="grid grid-cols-2 lg:grid-cols-2 gap-4">
+          <Link to="/equipment" className="card hover:shadow-lg transition-shadow bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-blue-600 font-medium mb-1">Total Echipamente</p>
+                <p className="text-3xl font-bold text-blue-900">{totalEquipment}</p>
+              </div>
+              <Wrench className="w-10 h-10 text-blue-600 opacity-50" />
             </div>
-            <Wrench className="w-10 h-10 text-blue-600 opacity-50" />
-          </div>
-        </Link>
+          </Link>
 
-        <Link to="/locations" className="card hover:shadow-lg transition-shadow bg-gradient-to-br from-purple-50 to-purple-100 border-purple-200">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-purple-600 font-medium mb-1">Locations</p>
-              <p className="text-3xl font-bold text-purple-900">{totalLocations}</p>
+          <Link to="/locations" className="card hover:shadow-lg transition-shadow bg-gradient-to-br from-purple-50 to-purple-100 border-purple-200">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-purple-600 font-medium mb-1">Total Locații</p>
+                <p className="text-3xl font-bold text-purple-900">{totalLocations}</p>
+              </div>
+              <MapPin className="w-10 h-10 text-purple-600 opacity-50" />
             </div>
-            <MapPin className="w-10 h-10 text-purple-600 opacity-50" />
-          </div>
-        </Link>
+          </Link>
+        </div>
       </div>
 
       {/* Secondary Stats */}
@@ -539,16 +560,16 @@ export default function Dashboard() {
                       <div>
                         <p className="font-medium text-gray-900">{schedule.equipment?.name || 'N/A'}</p>
                         <p className="text-sm text-gray-600">
-                          {schedule.equipment?.location?.name || 'N/A'} • {schedule.task_description}
+                          {schedule.equipment?.location?.name || 'N/A'} • {schedule.title || schedule.description || 'N/A'}
                         </p>
                       </div>
                     </div>
                     <div className="text-right">
                       <p className="text-sm font-medium text-blue-600">
-                        {new Date(schedule.next_scheduled_date).toLocaleDateString('ro-RO')}
+                        {new Date(schedule.next_due_date).toLocaleDateString('ro-RO')}
                       </p>
                       <p className="text-xs text-gray-600">
-                        {Math.ceil((new Date(schedule.next_scheduled_date) - now) / (1000 * 60 * 60 * 24))} zile
+                        {Math.ceil((new Date(schedule.next_due_date) - now) / (1000 * 60 * 60 * 24))} zile
                       </p>
                     </div>
                   </Link>
@@ -569,16 +590,16 @@ export default function Dashboard() {
                       <div>
                         <p className="font-medium text-gray-900">{schedule.equipment?.name || 'N/A'}</p>
                         <p className="text-sm text-gray-600">
-                          {schedule.equipment?.location?.name || 'N/A'} • {schedule.task_description}
+                          {schedule.equipment?.location?.name || 'N/A'} • {schedule.title || schedule.description || 'N/A'}
                         </p>
                       </div>
                     </div>
                     <div className="text-right">
                       <p className="text-sm font-medium text-red-600">
-                        {new Date(schedule.next_scheduled_date).toLocaleDateString('ro-RO')}
+                        {new Date(schedule.next_due_date).toLocaleDateString('ro-RO')}
                       </p>
                       <p className="text-xs text-gray-600">
-                        Întârziere: {Math.abs(Math.ceil((new Date(schedule.next_scheduled_date) - now) / (1000 * 60 * 60 * 24)))} zile
+                        Întârziere: {Math.abs(Math.ceil((new Date(schedule.next_due_date) - now) / (1000 * 60 * 60 * 24)))} zile
                       </p>
                     </div>
                   </Link>
