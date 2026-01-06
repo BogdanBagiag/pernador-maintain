@@ -98,6 +98,9 @@ function App() {
             {/* Public Report Routes (No Auth Required) */}
             <Route path="/report/:equipmentId" element={<ReportIssue />} />
             <Route path="/report-issue" element={<ReportIssue />} />
+            
+            {/* Public Scan Route (No Auth Required) */}
+            <Route path="/scan" element={<ScanPage />} />
 
 
             {/* Protected Routes */}
@@ -126,9 +129,6 @@ function App() {
                       <Route path="/locations/new" element={<LocationForm />} />
                       <Route path="/locations/:id" element={<LocationDetail />} />
                       <Route path="/locations/:id/edit" element={<LocationForm />} />
-                      
-                      {/* Scan Route */}
-                      <Route path="/scan" element={<ScanPage />} />
                       
                       {/* Other Routes */}
                       <Route path="/schedules" element={<MaintenanceSchedules />} />
