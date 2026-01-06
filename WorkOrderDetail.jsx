@@ -120,7 +120,6 @@ export default function WorkOrderDetail() {
       queryClient.invalidateQueries({ queryKey: ['work-orders'] })
       setShowReassignModal(false)
       
-      console.log('🔄 Reassignment completed, newUserId:', newUserId)
       
       // Send notification
       if (workOrder) {
@@ -129,26 +128,19 @@ export default function WorkOrderDetail() {
           
           if (newUserId) {
             // Assigned to specific user
-            console.log('🔔 Notifying specific user:', newUserId)
             const assignedUser = users?.find(u => u.id === newUserId)
-            console.log('✅ Found user:', assignedUser?.full_name)
             if (assignedUser) {
               await notifyWorkOrderAssigned(workOrder, assignedUser)
-              console.log('✅ Notification sent!')
             }
           } else {
             // Unassigned - notify all admins & technicians
-            console.log('🔔 Notifying all admins & technicians')
             const allUsers = users?.filter(u => ['admin', 'technician'].includes(u.role))
-            console.log('✅ Found users:', allUsers?.length, allUsers?.map(u => u.full_name))
             if (allUsers && allUsers.length > 0) {
               await Promise.all(
                 allUsers.map(u => {
-                  console.log('📤 Sending to:', u.full_name)
                   return notifyWorkOrderAssigned(workOrder, u)
                 })
               )
-              console.log('✅ All notifications sent!')
             }
           }
         } catch (err) {

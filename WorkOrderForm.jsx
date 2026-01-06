@@ -159,7 +159,6 @@ export default function WorkOrderForm() {
       // Send push notification
       if (wasAssigned && assignedUserId) {
         // Specific assignment - notify only assigned user
-        console.log('🔔 Notifying assigned user:', assignedUserId)
         try {
           const { data: assignedUser } = await supabase
             .from('profiles')
@@ -168,7 +167,6 @@ export default function WorkOrderForm() {
             .single()
           
           if (assignedUser) {
-            console.log('✅ Found user:', assignedUser.full_name)
             await notifyWorkOrderAssigned(workOrderData, assignedUser)
           }
         } catch (err) {
@@ -176,30 +174,25 @@ export default function WorkOrderForm() {
         }
       } else if (!isEditing && !assignedUserId) {
         // New work order without assignment - notify all admins & technicians
-        console.log('🔔 Notifying all admins & technicians (no assignment)')
         try {
           const { data: users } = await supabase
             .from('profiles')
             .select('*')
             .in('role', ['admin', 'technician'])
           
-          console.log('✅ Found users:', users?.length, users?.map(u => u.full_name))
           
           if (users && users.length > 0) {
             // Notify all
             await Promise.all(
               users.map(u => {
-                console.log('📤 Sending to:', u.full_name)
                 return notifyWorkOrderAssigned(workOrderData, u)
               })
             )
-            console.log('✅ All notifications sent!')
           }
         } catch (err) {
           console.error('❌ Notification error:', err)
         }
       } else {
-        console.log('ℹ️ No notification needed (editing without assignment change)')
       }
     },
     onSuccess: () => {
