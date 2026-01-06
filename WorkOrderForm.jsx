@@ -3,6 +3,7 @@ import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
+import { notifyWorkOrderAssigned } from '../lib/notifications'
 import { 
   ArrowLeft, 
   Save, 
@@ -124,18 +125,23 @@ export default function WorkOrderForm() {
     mutationFn: async (data) => {
       let workOrderId = id
       let wasAssigned = false
+      let assignedUserId = null
+      let workOrderData = null
       
       if (isEditing) {
         // Check if assigned_to changed
         const oldAssignedTo = workOrder?.assigned_to
         const newAssignedTo = data.assigned_to
         wasAssigned = newAssignedTo && newAssignedTo !== oldAssignedTo
+        assignedUserId = newAssignedTo
         
         const { error } = await supabase
           .from('work_orders')
           .update(data)
           .eq('id', id)
         if (error) throw error
+        
+        workOrderData = { ...workOrder, ...data }
       } else {
         const { data: newWO, error } = await supabase
           .from('work_orders')
@@ -146,9 +152,44 @@ export default function WorkOrderForm() {
         
         workOrderId = newWO.id
         wasAssigned = !!data.assigned_to
+        assignedUserId = data.assigned_to
+        workOrderData = newWO
       }
       
-      // Email notifications disabled - can be implemented later with queue system
+      // Send push notification
+      if (wasAssigned && assignedUserId) {
+        // Specific assignment - notify only assigned user
+        try {
+          const { data: assignedUser } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', assignedUserId)
+            .single()
+          
+          if (assignedUser) {
+            await notifyWorkOrderAssigned(workOrderData, assignedUser)
+          }
+        } catch (err) {
+          console.error('Notification error:', err)
+        }
+      } else if (!isEditing && !assignedUserId) {
+        // New work order without assignment - notify all admins & technicians
+        try {
+          const { data: users } = await supabase
+            .from('profiles')
+            .select('*')
+            .in('role', ['admin', 'technician'])
+          
+          if (users && users.length > 0) {
+            // Notify all
+            await Promise.all(
+              users.map(u => notifyWorkOrderAssigned(workOrderData, u))
+            )
+          }
+        } catch (err) {
+          console.error('Notification error:', err)
+        }
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['work-orders'] })

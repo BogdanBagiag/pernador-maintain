@@ -25,10 +25,14 @@ export const sendPushNotification = async ({
 export const notifyWorkOrderAssigned = async (workOrder, assignedUser) => {
   if (!assignedUser?.id) return
 
+  const title = workOrder.assigned_to 
+    ? '🔧 Nou Work Order Asignat' 
+    : '🔔 Work Order Nou (Neasignat)'
+
   // Send to backend (which will try to send push)
   await sendPushNotification({
     userId: assignedUser.id,
-    title: '🔧 Nou Work Order Asignat',
+    title,
     body: `${workOrder.title} - Prioritate: ${workOrder.priority}`,
     url: `/work-orders/${workOrder.id}`,
     tag: `wo-assigned-${workOrder.id}`,
@@ -39,7 +43,7 @@ export const notifyWorkOrderAssigned = async (workOrder, assignedUser) => {
   if ('serviceWorker' in navigator) {
     try {
       const registration = await navigator.serviceWorker.ready
-      await registration.showNotification('🔧 Nou Work Order Asignat', {
+      await registration.showNotification(title, {
         body: `${workOrder.title} - Prioritate: ${workOrder.priority}`,
         icon: '/icon-192.png',
         badge: '/icon-192.png',
