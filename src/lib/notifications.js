@@ -25,7 +25,8 @@ export const sendPushNotification = async ({
 export const notifyWorkOrderAssigned = async (workOrder, assignedUser) => {
   if (!assignedUser?.id) return
 
-  return sendPushNotification({
+  // Send to backend (which will try to send push)
+  await sendPushNotification({
     userId: assignedUser.id,
     title: '🔧 Nou Work Order Asignat',
     body: `${workOrder.title} - Prioritate: ${workOrder.priority}`,
@@ -33,6 +34,23 @@ export const notifyWorkOrderAssigned = async (workOrder, assignedUser) => {
     tag: `wo-assigned-${workOrder.id}`,
     workOrderId: workOrder.id
   })
+
+  // Also show local notification immediately
+  if ('serviceWorker' in navigator) {
+    try {
+      const registration = await navigator.serviceWorker.ready
+      await registration.showNotification('🔧 Nou Work Order Asignat', {
+        body: `${workOrder.title} - Prioritate: ${workOrder.priority}`,
+        icon: '/icon-192.png',
+        badge: '/icon-192.png',
+        data: { url: `/work-orders/${workOrder.id}` },
+        tag: `wo-assigned-${workOrder.id}`,
+        requireInteraction: false
+      })
+    } catch (err) {
+      console.error('Local notification error:', err)
+    }
+  }
 }
 
 // Helper: notify when work order status changes
