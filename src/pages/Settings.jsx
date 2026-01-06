@@ -2,8 +2,10 @@ import { useState } from 'react'
 import { useLanguage } from '../contexts/LanguageContext'
 import { useAuth } from '../contexts/AuthContext'
 import { supabase } from '../lib/supabase'
-import { Globe, Lock, User, Check, AlertCircle } from 'lucide-react'
+import { Globe, Lock, User, Check, AlertCircle, Bell } from 'lucide-react'
 import LoadingSpinner from '../components/LoadingSpinner'
+import PushNotificationToggle from '../components/PushNotificationToggle'
+import TestNotificationButton from '../components/TestNotificationButton'
 
 export default function Settings() {
   const { language, setLanguage, t } = useLanguage()
@@ -140,6 +142,34 @@ export default function Settings() {
                   </div>
                 </div>
               </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Push Notifications */}
+        <div className="card">
+          <h2 className="text-xl font-semibold text-gray-900 mb-6 flex items-center">
+            <Bell className="w-6 h-6 mr-2" />
+            Notificări Push
+          </h2>
+          
+          <div className="space-y-4">
+            <p className="text-sm text-gray-600 mb-4">
+              Primește notificări instant pentru work orders noi, statusuri actualizate și comentarii.
+            </p>
+            
+            <PushNotificationToggle />
+            
+            <div className="mt-4 pt-4 border-t border-gray-200">
+              <p className="text-sm font-medium text-gray-700 mb-3">Testează Notificările:</p>
+              <TestNotificationButton />
+            </div>
+            
+            <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+              <p className="text-xs text-blue-800">
+                💡 <strong>Info:</strong> Notificările funcționează pe desktop și mobil. 
+                Trebuie să permiți notificările în browser-ul tău.
+              </p>
             </div>
           </div>
         </div>
