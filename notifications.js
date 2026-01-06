@@ -23,12 +23,6 @@ export const sendPushNotification = async ({
 
 // Helper: notify when work order is assigned
 export const notifyWorkOrderAssigned = async (workOrder, assignedUser) => {
-    workOrderId: workOrder?.id,
-    workOrderTitle: workOrder?.title,
-    userId: assignedUser?.id,
-    userName: assignedUser?.full_name
-  })
-  
   if (!assignedUser?.id) {
     return
   }
@@ -61,9 +55,8 @@ export const notifyWorkOrderAssigned = async (workOrder, assignedUser) => {
         requireInteraction: true  // ← Stay visible!
       })
     } catch (err) {
-      console.error('❌ Local notification error:', err)
+      console.error('Local notification error:', err)
     }
-  } else {
   }
 }
 
