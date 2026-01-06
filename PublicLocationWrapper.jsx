@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import { useParams, Navigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import LocationDetail from './LocationDetail'
+import Layout from '../components/Layout'
 import LoadingSpinner from '../components/LoadingSpinner'
 
 export default function PublicLocationWrapper() {
@@ -21,6 +22,10 @@ export default function PublicLocationWrapper() {
     return <Navigate to={`/report-issue?location=${id}`} replace />
   }
 
-  // If authenticated, show normal location details page
-  return <LocationDetail />
+  // If authenticated, show normal location details page WITH Layout
+  return (
+    <Layout>
+      <LocationDetail />
+    </Layout>
+  )
 }
