@@ -23,11 +23,23 @@ export const sendPushNotification = async ({
 
 // Helper: notify when work order is assigned
 export const notifyWorkOrderAssigned = async (workOrder, assignedUser) => {
-  if (!assignedUser?.id) return
+  console.log('📨 notifyWorkOrderAssigned called:', {
+    workOrderId: workOrder?.id,
+    workOrderTitle: workOrder?.title,
+    userId: assignedUser?.id,
+    userName: assignedUser?.full_name
+  })
+  
+  if (!assignedUser?.id) {
+    console.log('❌ No assigned user ID')
+    return
+  }
 
   const title = workOrder.assigned_to 
     ? '🔧 Nou Work Order Asignat' 
     : '🔔 Work Order Nou (Neasignat)'
+
+  console.log('📤 Sending notification:', title)
 
   // Send to backend (which will try to send push)
   await sendPushNotification({
@@ -42,6 +54,7 @@ export const notifyWorkOrderAssigned = async (workOrder, assignedUser) => {
   // Also show local notification immediately
   if ('serviceWorker' in navigator) {
     try {
+      console.log('🔔 Showing local notification via service worker')
       const registration = await navigator.serviceWorker.ready
       await registration.showNotification(title, {
         body: `${workOrder.title} - Prioritate: ${workOrder.priority}`,
@@ -49,11 +62,14 @@ export const notifyWorkOrderAssigned = async (workOrder, assignedUser) => {
         badge: '/icon-192.png',
         data: { url: `/work-orders/${workOrder.id}` },
         tag: `wo-assigned-${workOrder.id}`,
-        requireInteraction: false
+        requireInteraction: true  // ← Stay visible!
       })
+      console.log('✅ Local notification shown!')
     } catch (err) {
-      console.error('Local notification error:', err)
+      console.error('❌ Local notification error:', err)
     }
+  } else {
+    console.log('❌ Service worker not available')
   }
 }
 
