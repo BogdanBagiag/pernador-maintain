@@ -125,10 +125,16 @@ export default function EquipmentForm() {
         return
       }
 
+      // Convert empty date strings to null for PostgreSQL
+      const dataToSubmit = {
+        ...formData,
+        purchase_date: formData.purchase_date || null,
+      }
+
       if (isEditMode) {
-        await updateMutation.mutateAsync(formData)
+        await updateMutation.mutateAsync(dataToSubmit)
       } else {
-        await createMutation.mutateAsync(formData)
+        await createMutation.mutateAsync(dataToSubmit)
       }
     } catch (err) {
       setError(err.message || 'Failed to save equipment')
@@ -288,7 +294,7 @@ export default function EquipmentForm() {
           {/* Purchase Date */}
           <div>
             <label htmlFor="purchase_date" className="block text-sm font-medium text-gray-700 mb-1">
-              Purchase Date
+              Purchase Date <span className="text-gray-400 text-xs">(optional)</span>
             </label>
             <input
               id="purchase_date"
