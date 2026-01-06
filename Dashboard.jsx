@@ -20,6 +20,7 @@ export default function Dashboard() {
   const [dateRange, setDateRange] = useState('all') // all, 7days, 30days, 90days, custom
   const [customStartDate, setCustomStartDate] = useState('')
   const [customEndDate, setCustomEndDate] = useState('')
+  const [maintenanceTab, setMaintenanceTab] = useState('upcoming') // upcoming, overdue
 
   // Calculate date filter
   const getDateFilter = () => {
@@ -95,7 +96,23 @@ export default function Dashboard() {
     },
   })
 
-  if (loadingEquipment || loadingWorkOrders || loadingLocations) {
+  // Fetch maintenance schedules for preventive maintenance tracking
+  const { data: schedules, isLoading: loadingSchedules } = useQuery({
+    queryKey: ['dashboard-schedules'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('maintenance_schedules')
+        .select(`
+          *,
+          equipment:equipment(id, name, location:locations(name))
+        `)
+        .order('next_scheduled_date', { ascending: true })
+      if (error) throw error
+      return data
+    },
+  })
+
+  if (loadingEquipment || loadingWorkOrders || loadingLocations || loadingSchedules) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <LoadingSpinner size="lg" />
@@ -116,6 +133,22 @@ export default function Dashboard() {
   const inProgressCount = statusCounts.in_progress || 0
   const completedCount = statusCounts.completed || 0
   const totalWorkOrders = workOrders?.length || 0
+
+  // Maintenance schedule statistics
+  const now = new Date()
+  const sevenDaysFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000)
+  
+  const upcomingSchedules = schedules?.filter(s => {
+    if (!s.next_scheduled_date) return false
+    const scheduleDate = new Date(s.next_scheduled_date)
+    return scheduleDate >= now && scheduleDate <= sevenDaysFromNow
+  }) || []
+  
+  const overdueSchedules = schedules?.filter(s => {
+    if (!s.next_scheduled_date) return false
+    const scheduleDate = new Date(s.next_scheduled_date)
+    return scheduleDate < now
+  }) || []
 
   // Equipment by status
   const equipmentByStatus = equipment?.reduce((acc, eq) => {
@@ -305,8 +338,66 @@ export default function Dashboard() {
         )}
       </div>
 
+      {/* Work Orders Section */}
+      <div className="mb-6">
+        <div className="flex items-center gap-2 mb-4">
+          <ClipboardList className="w-6 h-6 text-gray-700" />
+          <h2 className="text-2xl font-bold text-gray-900">Ordine de Lucru</h2>
+        </div>
+        <div className="grid grid-cols-2 lg:grid-cols-2 gap-4">
+          <Link to="/work-orders?status=open" className="card hover:shadow-lg transition-shadow bg-gradient-to-br from-orange-50 to-orange-100 border-orange-200">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-orange-600 font-medium mb-1">Deschise</p>
+                <p className="text-3xl font-bold text-orange-900">{openCount}</p>
+              </div>
+              <ClipboardList className="w-10 h-10 text-orange-600 opacity-50" />
+            </div>
+          </Link>
+
+          <Link to="/work-orders?status=completed" className="card hover:shadow-lg transition-shadow bg-gradient-to-br from-green-50 to-green-100 border-green-200">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-green-600 font-medium mb-1">Finalizate</p>
+                <p className="text-3xl font-bold text-green-900">{completedCount}</p>
+              </div>
+              <CheckCircle className="w-10 h-10 text-green-600 opacity-50" />
+            </div>
+          </Link>
+        </div>
+      </div>
+
+      {/* Maintenance Schedule Section */}
+      <div className="mb-6">
+        <div className="flex items-center gap-2 mb-4">
+          <Calendar className="w-6 h-6 text-gray-700" />
+          <h2 className="text-2xl font-bold text-gray-900">Mentenanță Preventivă</h2>
+        </div>
+        <div className="grid grid-cols-2 lg:grid-cols-2 gap-4">
+          <div className="card bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-blue-600 font-medium mb-1">Următoarele 7 Zile</p>
+                <p className="text-3xl font-bold text-blue-900">{upcomingSchedules.length}</p>
+              </div>
+              <Calendar className="w-10 h-10 text-blue-600 opacity-50" />
+            </div>
+          </div>
+
+          <div className="card bg-gradient-to-br from-red-50 to-red-100 border-red-200">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-red-600 font-medium mb-1">Întârziate</p>
+                <p className="text-3xl font-bold text-red-900">{overdueSchedules.length}</p>
+              </div>
+              <AlertTriangle className="w-10 h-10 text-red-600 opacity-50" />
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* Main Stats */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-2 gap-4">
         <Link to="/equipment" className="card hover:shadow-lg transition-shadow bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200">
           <div className="flex items-center justify-between">
             <div>
@@ -324,26 +415,6 @@ export default function Dashboard() {
               <p className="text-3xl font-bold text-purple-900">{totalLocations}</p>
             </div>
             <MapPin className="w-10 h-10 text-purple-600 opacity-50" />
-          </div>
-        </Link>
-
-        <Link to="/work-orders?status=open" className="card hover:shadow-lg transition-shadow bg-gradient-to-br from-orange-50 to-orange-100 border-orange-200">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-orange-600 font-medium mb-1">Open Work Orders</p>
-              <p className="text-3xl font-bold text-orange-900">{openCount}</p>
-            </div>
-            <ClipboardList className="w-10 h-10 text-orange-600 opacity-50" />
-          </div>
-        </Link>
-
-        <Link to="/work-orders?status=completed" className="card hover:shadow-lg transition-shadow bg-gradient-to-br from-green-50 to-green-100 border-green-200">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-green-600 font-medium mb-1">Completed</p>
-              <p className="text-3xl font-bold text-green-900">{completedCount}</p>
-            </div>
-            <CheckCircle className="w-10 h-10 text-green-600 opacity-50" />
           </div>
         </Link>
       </div>
@@ -416,6 +487,107 @@ export default function Dashboard() {
           </div>
         )}
       </div>
+
+      {/* Maintenance Schedule Details */}
+      {(upcomingSchedules.length > 0 || overdueSchedules.length > 0) && (
+        <div className="card">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-semibold text-gray-900">Detalii Mentenanță Preventivă</h2>
+            <Link to="/schedules" className="text-primary-600 hover:text-primary-700 text-sm font-medium">
+              Vezi Toate
+            </Link>
+          </div>
+
+          {/* Tabs */}
+          <div className="flex gap-2 mb-4 border-b">
+            <button
+              onClick={() => setMaintenanceTab('upcoming')}
+              className={`px-4 py-2 font-medium transition-colors ${
+                maintenanceTab === 'upcoming'
+                  ? 'text-blue-600 border-b-2 border-blue-600'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              Următoarele 7 Zile ({upcomingSchedules.length})
+            </button>
+            <button
+              onClick={() => setMaintenanceTab('overdue')}
+              className={`px-4 py-2 font-medium transition-colors ${
+                maintenanceTab === 'overdue'
+                  ? 'text-red-600 border-b-2 border-red-600'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              Întârziate ({overdueSchedules.length})
+            </button>
+          </div>
+
+          {/* Content */}
+          <div className="space-y-3">
+            {maintenanceTab === 'upcoming' ? (
+              upcomingSchedules.length === 0 ? (
+                <p className="text-gray-600 text-center py-8">Nicio mentenanță programată în următoarele 7 zile</p>
+              ) : (
+                upcomingSchedules.map((schedule) => (
+                  <Link
+                    key={schedule.id}
+                    to={`/schedules`}
+                    className="flex items-center justify-between p-3 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors border border-blue-200"
+                  >
+                    <div className="flex items-center space-x-3">
+                      <Calendar className="w-5 h-5 text-blue-600" />
+                      <div>
+                        <p className="font-medium text-gray-900">{schedule.equipment?.name || 'N/A'}</p>
+                        <p className="text-sm text-gray-600">
+                          {schedule.equipment?.location?.name || 'N/A'} • {schedule.task_description}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-sm font-medium text-blue-600">
+                        {new Date(schedule.next_scheduled_date).toLocaleDateString('ro-RO')}
+                      </p>
+                      <p className="text-xs text-gray-600">
+                        {Math.ceil((new Date(schedule.next_scheduled_date) - now) / (1000 * 60 * 60 * 24))} zile
+                      </p>
+                    </div>
+                  </Link>
+                ))
+              )
+            ) : (
+              overdueSchedules.length === 0 ? (
+                <p className="text-gray-600 text-center py-8">Nicio mentenanță întârziată</p>
+              ) : (
+                overdueSchedules.map((schedule) => (
+                  <Link
+                    key={schedule.id}
+                    to={`/schedules`}
+                    className="flex items-center justify-between p-3 bg-red-50 rounded-lg hover:bg-red-100 transition-colors border border-red-200"
+                  >
+                    <div className="flex items-center space-x-3">
+                      <AlertTriangle className="w-5 h-5 text-red-600" />
+                      <div>
+                        <p className="font-medium text-gray-900">{schedule.equipment?.name || 'N/A'}</p>
+                        <p className="text-sm text-gray-600">
+                          {schedule.equipment?.location?.name || 'N/A'} • {schedule.task_description}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-sm font-medium text-red-600">
+                        {new Date(schedule.next_scheduled_date).toLocaleDateString('ro-RO')}
+                      </p>
+                      <p className="text-xs text-gray-600">
+                        Întârziere: {Math.abs(Math.ceil((new Date(schedule.next_scheduled_date) - now) / (1000 * 60 * 60 * 24)))} zile
+                      </p>
+                    </div>
+                  </Link>
+                ))
+              )
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Recent Activity */}
       <div className="card">
