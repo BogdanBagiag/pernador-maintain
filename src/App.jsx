@@ -24,6 +24,7 @@ import LocationsList from './pages/LocationsList'
 import LocationForm from './pages/LocationForm'
 import LocationDetail from './pages/LocationDetail'
 import PublicLocationWrapper from './pages/PublicLocationWrapper'
+import PublicScanWrapper from './pages/PublicScanWrapper'
 import ScanPage from './pages/ScanPage'
 import ReportIssue from './pages/ReportIssue'
 
@@ -101,7 +102,7 @@ function App() {
             <Route path="/report-issue" element={<ReportIssue />} />
             
             {/* Public Scan Route (No Auth Required) */}
-            <Route path="/scan" element={<ScanPage />} />
+            <Route path="/scan" element={<PublicScanWrapper />} />
             
             {/* Public Location Route - Smart Redirect */}
             <Route path="/locations/:id" element={<PublicLocationWrapper />} />
