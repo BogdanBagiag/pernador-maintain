@@ -1,5 +1,5 @@
 // Service Worker for PWA
-const CACHE_NAME = 'pernador-maintenance-v2' // ← Schimbat versiunea
+const CACHE_NAME = 'pernador-maintenance-v3' // ← Versiune actualizată
 const urlsToCache = [
   '/',
   '/index.html',
@@ -34,7 +34,12 @@ self.addEventListener('fetch', (event) => {
   // Don't cache HTML pages - always fetch fresh
   if (event.request.mode === 'navigate' || 
       event.request.destination === 'document') {
-    event.respondWith(fetch(event.request))
+    event.respondWith(
+      fetch(event.request).catch(() => {
+        // Fallback to cache or offline page if network fails
+        return caches.match(event.request)
+      })
+    )
     return
   }
 

@@ -2,7 +2,6 @@ import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
-import { useTranslation } from '../contexts/LanguageContext'
 import { 
   Wrench, 
   MapPin, 
