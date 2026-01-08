@@ -110,11 +110,11 @@ export default function QRCodeBulkPrint({ equipment, onClose }) {
   const getSizeClasses = () => {
     switch (layout.size) {
       case 'large':
-        return 'w-64 h-64'
+        return 'w-64 h-64' // 256px pentru 2 per pagină
       case 'medium':
-        return 'w-48 h-48'
+        return 'w-48 h-48' // 192px pentru 4-6 per pagină
       case 'small':
-        return 'w-40 h-40'
+        return 'w-32 h-32' // 128px pentru 8 per pagină (redus de la 160px)
       default:
         return 'w-48 h-48'
     }
@@ -125,11 +125,24 @@ export default function QRCodeBulkPrint({ equipment, onClose }) {
       case 'large':
         return 'p-8'
       case 'medium':
-        return 'p-6'
-      case 'small':
         return 'p-4'
+      case 'small':
+        return 'p-2' // Redus de la p-4
       default:
-        return 'p-6'
+        return 'p-4'
+    }
+  }
+
+  const getGapSize = () => {
+    switch (layout.size) {
+      case 'large':
+        return '1rem'
+      case 'medium':
+        return '0.75rem'
+      case 'small':
+        return '0.5rem' // Gap mai mic pentru 8 coduri
+      default:
+        return '1rem'
     }
   }
 
@@ -304,7 +317,6 @@ export default function QRCodeBulkPrint({ equipment, onClose }) {
             
             .qr-grid {
               display: grid;
-              gap: 1rem;
               width: 100%;
             }
             
@@ -329,6 +341,7 @@ export default function QRCodeBulkPrint({ equipment, onClose }) {
               className="qr-grid"
               style={{
                 gridTemplateColumns: `repeat(${layout.cols}, 1fr)`,
+                gap: getGapSize(),
               }}
             >
               {pageEquipment.map((eq) => {
@@ -348,13 +361,13 @@ export default function QRCodeBulkPrint({ equipment, onClose }) {
                       className={`${getSizeClasses()} object-contain`}
                       style={{ display: 'block', margin: '0 auto' }}
                     />
-                    <div className="mt-3 text-center space-y-1" style={{ width: '100%' }}>
+                    <div className="mt-2 text-center space-y-1" style={{ width: '100%' }}>
                       <p 
                         className="font-bold text-gray-900 break-words" 
                         style={{ 
-                          fontSize: layout.size === 'small' ? '12px' : '14px',
-                          lineHeight: '1.4',
-                          margin: '0 0 4px 0'
+                          fontSize: layout.size === 'small' ? '10px' : layout.size === 'medium' ? '12px' : '14px',
+                          lineHeight: '1.3',
+                          margin: '0 0 2px 0'
                         }}
                       >
                         {eq.name}
@@ -363,9 +376,9 @@ export default function QRCodeBulkPrint({ equipment, onClose }) {
                         <p 
                           className="text-gray-600" 
                           style={{ 
-                            fontSize: layout.size === 'small' ? '10px' : '11px',
-                            lineHeight: '1.3',
-                            margin: '2px 0'
+                            fontSize: layout.size === 'small' ? '9px' : layout.size === 'medium' ? '10px' : '11px',
+                            lineHeight: '1.2',
+                            margin: '1px 0'
                           }}
                         >
                           Inv: {eq.inventory_number}
@@ -375,9 +388,9 @@ export default function QRCodeBulkPrint({ equipment, onClose }) {
                         <p 
                           className="text-gray-600" 
                           style={{ 
-                            fontSize: layout.size === 'small' ? '10px' : '11px',
-                            lineHeight: '1.3',
-                            margin: '2px 0'
+                            fontSize: layout.size === 'small' ? '9px' : layout.size === 'medium' ? '10px' : '11px',
+                            lineHeight: '1.2',
+                            margin: '1px 0'
                           }}
                         >
                           S/N: {eq.serial_number}
@@ -387,9 +400,9 @@ export default function QRCodeBulkPrint({ equipment, onClose }) {
                         <p 
                           className="text-gray-500" 
                           style={{ 
-                            fontSize: layout.size === 'small' ? '9px' : '10px',
-                            lineHeight: '1.3',
-                            margin: '2px 0'
+                            fontSize: layout.size === 'small' ? '8px' : layout.size === 'medium' ? '9px' : '10px',
+                            lineHeight: '1.2',
+                            margin: '1px 0'
                           }}
                         >
                           {eq.manufacturer} {eq.model}
