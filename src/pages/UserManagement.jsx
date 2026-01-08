@@ -13,9 +13,11 @@ import {
   Check,
   X,
   AlertCircle,
-  Key
+  Key,
+  Eye
 } from 'lucide-react'
 import LoadingSpinner from '../components/LoadingSpinner'
+import UserActivityModal from '../components/UserActivityModal'
 
 export default function UserManagement() {
   const { user, profile } = useAuth()
@@ -25,6 +27,7 @@ export default function UserManagement() {
   const [editingUser, setEditingUser] = useState(null)
   const [showDeletedUsers, setShowDeletedUsers] = useState(false)
   const [resetPasswordUser, setResetPasswordUser] = useState(null)
+  const [viewingUser, setViewingUser] = useState(null)
 
   // Fetch active users
   const { data: users, isLoading } = useQuery({
@@ -354,8 +357,15 @@ export default function UserManagement() {
                         </button>
                       </div>
                     ) : (
-                      // Active users - show Edit, Reset Password and Delete
+                      // Active users - show View Activity, Edit, Reset Password and Delete
                       <div className="flex items-center justify-end gap-2">
+                        <button
+                          onClick={() => setViewingUser(userData)}
+                          className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
+                          title="View user activity"
+                        >
+                          <Eye className="w-4 h-4" />
+                        </button>
                         <button
                           onClick={() => setEditingUser(userData.id)}
                           disabled={userData.id === user.id}
@@ -399,6 +409,14 @@ export default function UserManagement() {
         <ResetPasswordModal 
           user={resetPasswordUser} 
           onClose={() => setResetPasswordUser(null)} 
+        />
+      )}
+
+      {/* User Activity Modal */}
+      {viewingUser && (
+        <UserActivityModal
+          userData={viewingUser}
+          onClose={() => setViewingUser(null)}
         />
       )}
     </div>

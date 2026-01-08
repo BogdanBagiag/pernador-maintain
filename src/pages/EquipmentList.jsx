@@ -2,9 +2,10 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
-import { Plus, Search, Download, ArrowUpDown, ArrowUp, ArrowDown, AlertTriangle } from 'lucide-react'
+import { Plus, Search, Download, ArrowUpDown, ArrowUp, ArrowDown, AlertTriangle, Printer } from 'lucide-react'
 import LoadingSpinner from '../components/LoadingSpinner'
 import EquipmentImportModal from '../components/EquipmentImportModal'
+import QRCodeBulkPrint from '../components/QRCodeBulkPrint'
 
 export default function EquipmentList() {
   const [searchQuery, setSearchQuery] = useState('')
@@ -12,6 +13,8 @@ export default function EquipmentList() {
   const [sortDirection, setSortDirection] = useState('asc')
   const [showImportModal, setShowImportModal] = useState(false)
   const [filterTab, setFilterTab] = useState('all') // all, missing_serial, missing_manufacturer, missing_model, missing_location
+  const [selectedEquipment, setSelectedEquipment] = useState([])
+  const [showQRPrintModal, setShowQRPrintModal] = useState(false)
 
   const { data: equipment, isLoading, refetch } = useQuery({
     queryKey: ['equipment'],
@@ -80,6 +83,41 @@ export default function EquipmentList() {
     return sortDirection === 'asc' ? <ArrowUp className="w-4 h-4" /> : <ArrowDown className="w-4 h-4" />
   }
 
+  // Handle equipment selection
+  const handleSelectAll = () => {
+    if (selectedEquipment.length === sortedEquipment.length) {
+      setSelectedEquipment([])
+    } else {
+      setSelectedEquipment(sortedEquipment.map(eq => eq.id))
+    }
+  }
+
+  const handleSelectEquipment = (equipmentId) => {
+    if (selectedEquipment.includes(equipmentId)) {
+      setSelectedEquipment(selectedEquipment.filter(id => id !== equipmentId))
+    } else {
+      setSelectedEquipment([...selectedEquipment, equipmentId])
+    }
+  }
+
+  const handlePrintQRCodes = () => {
+    if (selectedEquipment.length === 0) {
+      alert('Selectați cel puțin un echipament pentru a printa coduri QR')
+      return
+    }
+    setShowQRPrintModal(true)
+  }
+
+  const handleCloseQRModal = () => {
+    setShowQRPrintModal(false)
+    // Optionally reset selection after printing
+    // setSelectedEquipment([])
+  }
+
+  const getSelectedEquipmentData = () => {
+    return equipment.filter(eq => selectedEquipment.includes(eq.id))
+  }
+
   const getStatusColor = (status) => {
     switch (status) {
       case 'operational': return 'bg-green-100 text-green-800 border-green-200'
@@ -110,12 +148,28 @@ export default function EquipmentList() {
 
   return (
     <div>
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-8">
+      <div className="print:hidden flex flex-col sm:flex-row sm:items-center sm:justify-between mb-8">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Equipment</h1>
-          <p className="text-gray-600 mt-1">{sortedEquipment.length} total equipment</p>
+          <p className="text-gray-600 mt-1">
+            {sortedEquipment.length} total equipment
+            {selectedEquipment.length > 0 && (
+              <span className="ml-2 text-blue-600 font-medium">
+                · {selectedEquipment.length} selectate
+              </span>
+            )}
+          </p>
         </div>
-        <div className="flex gap-3 mt-4 sm:mt-0">
+        <div className="flex flex-wrap gap-3 mt-4 sm:mt-0">
+          {selectedEquipment.length > 0 && (
+            <button
+              onClick={handlePrintQRCodes}
+              className="btn-secondary inline-flex items-center"
+            >
+              <Printer className="w-5 h-5 mr-2" />
+              Printează QR ({selectedEquipment.length})
+            </button>
+          )}
           <button
             onClick={() => setShowImportModal(true)}
             className="btn-secondary inline-flex items-center"
@@ -131,7 +185,7 @@ export default function EquipmentList() {
       </div>
 
       {/* Filter Tabs */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
+      <div className="print:hidden grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
         {/* All */}
         <button
           onClick={() => setFilterTab('all')}
@@ -233,7 +287,7 @@ export default function EquipmentList() {
       </div>
 
       {/* Search */}
-      <div className="card mb-6">
+      <div className="print:hidden card mb-6">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
           <input
@@ -248,15 +302,23 @@ export default function EquipmentList() {
 
       {/* Table */}
       {sortedEquipment.length === 0 ? (
-        <div className="card text-center py-12">
+        <div className="print:hidden card text-center py-12">
           <p className="text-gray-600">No equipment found</p>
         </div>
       ) : (
-        <div className="card overflow-hidden">
+        <div className="print:hidden card overflow-hidden">
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
+                  <th className="px-6 py-3 text-left">
+                    <input
+                      type="checkbox"
+                      checked={selectedEquipment.length === sortedEquipment.length && sortedEquipment.length > 0}
+                      onChange={handleSelectAll}
+                      className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 cursor-pointer"
+                    />
+                  </th>
                   <th
                     onClick={() => handleSort('inventory_number')}
                     className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
@@ -328,6 +390,14 @@ export default function EquipmentList() {
               <tbody className="bg-white divide-y divide-gray-200">
                 {sortedEquipment.map((eq) => (
                   <tr key={eq.id} className="hover:bg-gray-50 transition-colors">
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <input
+                        type="checkbox"
+                        checked={selectedEquipment.includes(eq.id)}
+                        onChange={() => handleSelectEquipment(eq.id)}
+                        className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 cursor-pointer"
+                      />
+                    </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       {eq.inventory_number || '-'}
                     </td>
@@ -377,6 +447,14 @@ export default function EquipmentList() {
         <EquipmentImportModal
           onClose={() => setShowImportModal(false)}
           onSuccess={() => refetch()}
+        />
+      )}
+
+      {/* QR Code Bulk Print Modal */}
+      {showQRPrintModal && (
+        <QRCodeBulkPrint
+          equipment={getSelectedEquipmentData()}
+          onClose={handleCloseQRModal}
         />
       )}
     </div>
