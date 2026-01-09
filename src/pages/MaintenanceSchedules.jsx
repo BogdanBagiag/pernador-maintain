@@ -217,8 +217,8 @@ export default function MaintenanceSchedules() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-8">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Programe Mentenanță</h1>
-          <p className="text-gray-600 mt-1">Gestionează programele de mentenanță preventivă</p>
+          <h1 className="text-3xl font-bold text-gray-900">Programe MentenanÈ›Äƒ</h1>
+          <p className="text-gray-600 mt-1">GestioneazÄƒ programele de mentenanÈ›Äƒ preventivÄƒ</p>
         </div>
         <button
           onClick={() => {
@@ -250,7 +250,7 @@ export default function MaintenanceSchedules() {
             <Clock className={`w-6 h-6 ${statusFilter === 'upcoming' ? 'text-yellow-700' : 'text-yellow-400'} opacity-50`} />
           </div>
           <p className={`text-sm font-medium ${statusFilter === 'upcoming' ? 'text-yellow-800' : 'text-yellow-600'}`}>
-            Următoarele 7 Zile
+            UrmÄƒtoarele 7 Zile
           </p>
         </button>
 
@@ -290,7 +290,7 @@ export default function MaintenanceSchedules() {
             <AlertCircle className={`w-6 h-6 ${statusFilter === 'overdue' ? 'text-red-700' : 'text-red-400'} opacity-50`} />
           </div>
           <p className={`text-sm font-medium ${statusFilter === 'overdue' ? 'text-red-800' : 'text-red-600'}`}>
-            Întârziate
+            ÃŽntÃ¢rziate
           </p>
         </button>
 
@@ -310,7 +310,7 @@ export default function MaintenanceSchedules() {
             <Pause className={`w-6 h-6 ${statusFilter === 'inactive' ? 'text-gray-700' : 'text-gray-400'} opacity-50`} />
           </div>
           <p className={`text-sm font-medium ${statusFilter === 'inactive' ? 'text-gray-800' : 'text-gray-600'}`}>
-            În Pauză
+            ÃŽn PauzÄƒ
           </p>
         </button>
 
@@ -338,7 +338,7 @@ export default function MaintenanceSchedules() {
       {/* Completed Filter */}
       <div className="card mb-6">
         <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center gap-2 flex-shrink-0">
             <Filter className="w-5 h-5 text-gray-400" />
             <span className="font-medium text-gray-700">Additional Filters:</span>
           </div>
@@ -404,7 +404,9 @@ export default function MaintenanceSchedules() {
 
             return (
               <div key={schedule.id} className={cardClass}>
-                <div className="flex items-start justify-between">
+                {/* Flex column pe mobil, row pe desktop */}
+                <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
+                  {/* Content - flex-1 pentru a ocupa spațiul disponibil */}
                   <div className="flex-1">
                     <div className="flex items-start space-x-4">
                       <div className={`p-2 rounded-lg ${
@@ -455,13 +457,13 @@ export default function MaintenanceSchedules() {
 
                           {hasProcedure && (
                             <span className="badge bg-purple-100 text-purple-800 border-purple-200">
-                              📋 Procedure
+                              ðŸ“‹ Procedure
                             </span>
                           )}
 
                           {hasChecklist && (
                             <span className="badge bg-blue-100 text-blue-800 border-blue-200">
-                              ✓ Checklist
+                              âœ“ Checklist
                             </span>
                           )}
 
@@ -489,8 +491,9 @@ export default function MaintenanceSchedules() {
                     </div>
                   </div>
 
-                  <div className="flex flex-col items-end space-y-2 ml-4">
-                    <div className="text-right">
+                  {/* Next Due + Buttons - row pe mobil (jos), col pe desktop (lateral) */}
+                  <div className="flex flex-row md:flex-col items-center md:items-end justify-between md:justify-start gap-3 md:gap-2 pt-4 md:pt-0 mt-4 md:mt-0 border-t md:border-t-0 border-gray-200 md:ml-4">
+                    <div className="text-left md:text-right">
                       <p className="text-sm text-gray-600">Next Due:</p>
                       <p className={`text-lg font-semibold ${
                         overdue ? 'text-red-600' :
@@ -506,19 +509,19 @@ export default function MaintenanceSchedules() {
                           'text-gray-500'
                         }`}>
                           {overdue ? (
-                            <>⚠️ {Math.abs(daysUntil)} days overdue</>
+                            <>âš ï¸ {Math.abs(daysUntil)} days overdue</>
                           ) : daysUntil === 0 ? (
-                            <>🔔 Due today!</>
+                            <>ðŸ”” Due today!</>
                           ) : daysUntil <= 7 ? (
-                            <>⏰ In {daysUntil} days</>
+                            <>â° In {daysUntil} days</>
                           ) : (
-                            <>✓ In {daysUntil} days</>
+                            <>âœ“ In {daysUntil} days</>
                           )}
                         </p>
                       )}
                     </div>
 
-                    <div className="flex items-center space-x-2">
+                    <div className="flex items-center gap-2 flex-shrink-0">
                       {schedule.is_active && (
                         <button
                           onClick={() => {
