@@ -2,9 +2,10 @@ import { useParams, useNavigate, Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
-import { ArrowLeft, Edit, MapPin, Calendar, Hash, Building, Trash2, Shield, AlertCircle } from 'lucide-react'
+import { ArrowLeft, Edit, MapPin, Calendar, Hash, Building, Trash2, Shield, AlertCircle, Upload, Download, FileText, File, X } from 'lucide-react'
 import LoadingSpinner from '../components/LoadingSpinner'
 import QRCodeGenerator from '../components/QRCodeGenerator'
+import { useState } from 'react'
 
 export default function EquipmentDetail() {
   const { id } = useParams()
@@ -15,6 +16,12 @@ export default function EquipmentDetail() {
   // Check permissions
   const canEdit = profile?.role === 'admin' || profile?.role === 'manager'
   const canDelete = profile?.role === 'admin'
+
+  // State for file attachments
+  const [uploadingFile, setUploadingFile] = useState(false)
+  const [uploadError, setUploadError] = useState('')
+  const [selectedFile, setSelectedFile] = useState(null)
+  const [documentType, setDocumentType] = useState('other')
 
   // Delete mutation
   const deleteMutation = useMutation({
@@ -37,6 +44,67 @@ export default function EquipmentDetail() {
     }
   }
 
+  // Handle file selection
+  const handleFileSelect = (e) => {
+    const file = e.target.files[0]
+    if (!file) return
+
+    // Validate file size (2MB = 2097152 bytes)
+    const maxSize = 2 * 1024 * 1024
+    if (file.size > maxSize) {
+      setUploadError('Fișierul este prea mare. Maxim 2MB.')
+      setSelectedFile(null)
+      return
+    }
+
+    setSelectedFile(file)
+    setUploadError('')
+  }
+
+  // Handle file upload
+  const handleFileUpload = async () => {
+    if (!selectedFile) return
+
+    setUploadingFile(true)
+    setUploadError('')
+
+    uploadMutation.mutate({
+      file: selectedFile,
+      documentType: documentType
+    })
+  }
+
+  // Handle attachment delete
+  const handleAttachmentDelete = (attachment) => {
+    if (window.confirm(`Ștergi ${attachment.file_name}?`)) {
+      deleteAttachmentMutation.mutate({
+        attachmentId: attachment.id,
+        fileUrl: attachment.file_url
+      })
+    }
+  }
+
+  // Get document type label in Romanian
+  const getDocumentTypeLabel = (type) => {
+    const labels = {
+      invoice: 'Factură',
+      warranty: 'Garanție',
+      manual: 'Manual',
+      certificate: 'Certificat',
+      other: 'Altele'
+    }
+    return labels[type] || type
+  }
+
+  // Format file size
+  const formatFileSize = (bytes) => {
+    if (bytes === 0) return '0 B'
+    const k = 1024
+    const sizes = ['B', 'KB', 'MB']
+    const i = Math.floor(Math.log(bytes) / Math.log(k))
+    return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i]
+  }
+
   // Fetch equipment with location
   const { data: equipment, isLoading } = useQuery({
     queryKey: ['equipment', id],
@@ -53,6 +121,105 @@ export default function EquipmentDetail() {
       if (error) throw error
       return data
     },
+  })
+
+  // Fetch equipment attachments
+  const { data: attachments, isLoading: isLoadingAttachments } = useQuery({
+    queryKey: ['equipment-attachments', id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('equipment_attachments')
+        .select(`
+          *,
+          uploader:uploaded_by(full_name, email)
+        `)
+        .eq('equipment_id', id)
+        .order('created_at', { ascending: false })
+      
+      if (error) throw error
+      return data
+    },
+    enabled: !!id,
+  })
+
+  // Upload attachment mutation
+  const uploadMutation = useMutation({
+    mutationFn: async ({ file, documentType }) => {
+      // Upload file to storage
+      const fileExt = file.name.split('.').pop()
+      const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`
+      const filePath = `equipment-attachments/${id}/${fileName}`
+
+      const { error: uploadError } = await supabase.storage
+        .from('maintenance-files')
+        .upload(filePath, file, {
+          cacheControl: '3600',
+          upsert: false
+        })
+
+      if (uploadError) throw uploadError
+
+      // Get public URL
+      const { data: { publicUrl } } = supabase.storage
+        .from('maintenance-files')
+        .getPublicUrl(filePath)
+
+      // Save attachment record
+      const { error: dbError } = await supabase
+        .from('equipment_attachments')
+        .insert({
+          equipment_id: id,
+          file_url: publicUrl,
+          file_name: file.name,
+          file_type: file.type,
+          file_size: file.size,
+          document_type: documentType,
+          uploaded_by: profile?.id
+        })
+
+      if (dbError) throw dbError
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries(['equipment-attachments', id])
+      setSelectedFile(null)
+      setDocumentType('other')
+      setUploadError('')
+    },
+    onError: (error) => {
+      setUploadError(error.message || 'Failed to upload file')
+    },
+    onSettled: () => {
+      setUploadingFile(false)
+    }
+  })
+
+  // Delete attachment mutation
+  const deleteAttachmentMutation = useMutation({
+    mutationFn: async ({ attachmentId, fileUrl }) => {
+      // Extract file path from URL
+      const urlParts = fileUrl.split('/maintenance-files/')
+      if (urlParts.length > 1) {
+        const filePath = urlParts[1].split('?')[0] // Remove query params
+        
+        // Delete from storage
+        const { error: storageError } = await supabase.storage
+          .from('maintenance-files')
+          .remove([filePath])
+        
+        if (storageError) console.error('Storage delete error:', storageError)
+      }
+
+      // Delete from database
+      const { error: dbError } = await supabase
+        .from('equipment_attachments')
+        .delete()
+        .eq('id', attachmentId)
+
+      if (dbError) throw dbError
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries(['equipment-attachments', id])
+    }
   })
 
   // Fetch work orders for this equipment
@@ -322,6 +489,188 @@ export default function EquipmentDetail() {
               </div>
             </div>
           )}
+
+          {/* Documente Atașate */}
+          <div className="card">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-semibold text-gray-900">
+                <FileText className="w-5 h-5 inline mr-2" />
+                Documente Atașate
+              </h2>
+            </div>
+
+            {/* Upload Form */}
+            {canEdit && (
+              <div className="mb-6 p-4 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
+                <h3 className="text-sm font-medium text-gray-700 mb-3">
+                  <Upload className="w-4 h-4 inline mr-1" />
+                  Încarcă Document Nou
+                </h3>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Document Type Selector */}
+                  <div>
+                    <label htmlFor="documentType" className="block text-sm font-medium text-gray-700 mb-1">
+                      Tip Document
+                    </label>
+                    <select
+                      id="documentType"
+                      value={documentType}
+                      onChange={(e) => setDocumentType(e.target.value)}
+                      className="input"
+                    >
+                      <option value="invoice">Factură</option>
+                      <option value="warranty">Garanție</option>
+                      <option value="manual">Manual</option>
+                      <option value="certificate">Certificat</option>
+                      <option value="other">Altele</option>
+                    </select>
+                  </div>
+
+                  {/* File Input */}
+                  <div>
+                    <label htmlFor="fileUpload" className="block text-sm font-medium text-gray-700 mb-1">
+                      Fișier (max 2MB)
+                    </label>
+                    <input
+                      id="fileUpload"
+                      type="file"
+                      onChange={handleFileSelect}
+                      className="block w-full text-sm text-gray-500
+                        file:mr-4 file:py-2 file:px-4
+                        file:rounded-lg file:border-0
+                        file:text-sm file:font-semibold
+                        file:bg-primary-50 file:text-primary-700
+                        hover:file:bg-primary-100
+                        cursor-pointer"
+                      accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.gif,.xls,.xlsx"
+                    />
+                  </div>
+                </div>
+
+                {/* Selected File Info */}
+                {selectedFile && (
+                  <div className="mt-3 flex items-center justify-between p-3 bg-white rounded-lg border border-gray-200">
+                    <div className="flex items-center gap-2">
+                      <File className="w-5 h-5 text-primary-600" />
+                      <div>
+                        <p className="text-sm font-medium text-gray-900">{selectedFile.name}</p>
+                        <p className="text-xs text-gray-500">{formatFileSize(selectedFile.size)}</p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => setSelectedFile(null)}
+                      className="p-1 text-gray-400 hover:text-red-600"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                )}
+
+                {/* Upload Button */}
+                {selectedFile && (
+                  <button
+                    onClick={handleFileUpload}
+                    disabled={uploadingFile}
+                    className="btn-primary mt-3"
+                  >
+                    {uploadingFile ? (
+                      <>
+                        <LoadingSpinner size="sm" />
+                        <span className="ml-2">Se încarcă...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Upload className="w-4 h-4 mr-2" />
+                        Încarcă Fișier
+                      </>
+                    )}
+                  </button>
+                )}
+
+                {/* Error Message */}
+                {uploadError && (
+                  <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-lg">
+                    <p className="text-sm text-red-800">{uploadError}</p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Attachments List */}
+            {isLoadingAttachments ? (
+              <div className="flex justify-center py-8">
+                <LoadingSpinner />
+              </div>
+            ) : attachments && attachments.length > 0 ? (
+              <div className="space-y-3">
+                {attachments.map((attachment) => (
+                  <div
+                    key={attachment.id}
+                    className="flex items-center justify-between p-4 bg-white border border-gray-200 rounded-lg hover:border-primary-300 transition-colors"
+                  >
+                    <div className="flex items-center gap-3 flex-1 min-w-0">
+                      <div className="flex-shrink-0">
+                        <FileText className="w-8 h-8 text-primary-600" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-gray-900 truncate">
+                          {attachment.file_name}
+                        </p>
+                        <div className="flex items-center gap-3 text-xs text-gray-500 mt-1">
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-blue-100 text-blue-800 font-medium">
+                            {getDocumentTypeLabel(attachment.document_type)}
+                          </span>
+                          <span>{formatFileSize(attachment.file_size)}</span>
+                          <span>
+                            {new Date(attachment.created_at).toLocaleDateString('ro-RO')}
+                          </span>
+                          {attachment.uploader && (
+                            <span>de {attachment.uploader.full_name}</span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Action Buttons */}
+                    <div className="flex items-center gap-2 ml-4">
+                      {/* Download Button */}
+                      <a
+                        href={attachment.file_url}
+                        download
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="p-2 text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"
+                        title="Descarcă"
+                      >
+                        <Download className="w-5 h-5" />
+                      </a>
+
+                      {/* Delete Button - only for uploader or admin */}
+                      {(attachment.uploaded_by === profile?.id || profile?.role === 'admin') && (
+                        <button
+                          onClick={() => handleAttachmentDelete(attachment)}
+                          disabled={deleteAttachmentMutation.isLoading}
+                          className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                          title="Șterge"
+                        >
+                          <Trash2 className="w-5 h-5" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8 text-gray-500">
+                <FileText className="w-12 h-12 mx-auto mb-3 text-gray-400" />
+                <p>Nu există documente atașate</p>
+                {canEdit && (
+                  <p className="text-sm mt-1">Folosește formularul de mai sus pentru a încărca documente</p>
+                )}
+              </div>
+            )}
+          </div>
 
           {/* Recent Work Orders */}
           <div className="card">
