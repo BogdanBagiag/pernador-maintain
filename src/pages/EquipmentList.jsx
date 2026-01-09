@@ -149,6 +149,37 @@ export default function EquipmentList() {
     }
   }
 
+  // Calculate inspection status
+  const getInspectionInfo = (equipment) => {
+    if (!equipment.inspection_required) {
+      return null
+    }
+
+    // Dacă nu are ultima inspecție, nu putem calcula
+    if (!equipment.last_inspection_date || !equipment.inspection_frequency_months) {
+      return {
+        status: 'missing',
+        message: 'Lipsă date inspecție'
+      }
+    }
+
+    const lastInspection = new Date(equipment.last_inspection_date)
+    const frequencyMonths = parseInt(equipment.inspection_frequency_months)
+    const nextInspection = new Date(lastInspection)
+    nextInspection.setMonth(nextInspection.getMonth() + frequencyMonths)
+    
+    const isOverdue = nextInspection < new Date()
+    const daysUntil = Math.ceil((nextInspection - new Date()) / (1000 * 60 * 60 * 24))
+    
+    return {
+      isOverdue,
+      daysUntil,
+      nextInspection,
+      lastInspection,
+      status: isOverdue ? 'overdue' : daysUntil <= 30 ? 'due_soon' : 'valid'
+    }
+  }
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -448,6 +479,7 @@ export default function EquipmentList() {
                         <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full border ${getStatusColor(eq.status)}`}>
                           {eq.status}
                         </span>
+                        
                         {/* Warranty Badge */}
                         {(() => {
                           const warrantyInfo = getWarrantyInfo(eq)
@@ -468,6 +500,32 @@ export default function EquipmentList() {
                           return (
                             <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full border ${badgeStyles[warrantyInfo.status]}`}>
                               {labels[warrantyInfo.status]}
+                            </span>
+                          )
+                        })()}
+
+                        {/* Inspection Badge */}
+                        {(() => {
+                          const inspectionInfo = getInspectionInfo(eq)
+                          if (!inspectionInfo) return null
+                          
+                          const badgeStyles = {
+                            overdue: 'bg-red-100 text-red-800 border-red-200',
+                            due_soon: 'bg-yellow-100 text-yellow-800 border-yellow-200',
+                            valid: 'bg-green-100 text-green-800 border-green-200',
+                            missing: 'bg-gray-100 text-gray-800 border-gray-200'
+                          }
+                          
+                          const labels = {
+                            overdue: 'Inspecție expirată!',
+                            due_soon: `Inspecție ${inspectionInfo.daysUntil}z`,
+                            valid: 'Inspecție validă',
+                            missing: 'Lipsă inspecție'
+                          }
+                          
+                          return (
+                            <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full border ${badgeStyles[inspectionInfo.status]}`}>
+                              {labels[inspectionInfo.status]}
                             </span>
                           )
                         })()}

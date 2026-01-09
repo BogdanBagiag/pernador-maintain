@@ -2,9 +2,12 @@ import { useParams, useNavigate, Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
-import { ArrowLeft, Edit, MapPin, Calendar, Hash, Building, Trash2, Shield, AlertCircle, Upload, Download, FileText, File, X } from 'lucide-react'
+import { ArrowLeft, Edit, MapPin, Calendar, Hash, Building, Trash2, Shield, AlertCircle, Upload, Download, FileText, File, X, CheckCircle, XCircle, Eye, Edit2 } from 'lucide-react'
 import LoadingSpinner from '../components/LoadingSpinner'
 import QRCodeGenerator from '../components/QRCodeGenerator'
+import InspectionModal from '../components/InspectionModal'
+import ViewInspectionModal from '../components/ViewInspectionModal'
+import EditInspectionModal from '../components/EditInspectionModal'
 import { useState } from 'react'
 
 export default function EquipmentDetail() {
@@ -22,6 +25,11 @@ export default function EquipmentDetail() {
   const [uploadError, setUploadError] = useState('')
   const [selectedFile, setSelectedFile] = useState(null)
   const [documentType, setDocumentType] = useState('other')
+  
+  // State for inspection modals
+  const [showInspectionModal, setShowInspectionModal] = useState(false)
+  const [viewingInspection, setViewingInspection] = useState(null)
+  const [editingInspection, setEditingInspection] = useState(null)
 
   // Delete mutation
   const deleteMutation = useMutation({
@@ -96,6 +104,28 @@ export default function EquipmentDetail() {
     return labels[type] || type
   }
 
+  // Get inspection status label and color
+  const getInspectionStatusInfo = (status) => {
+    const statusInfo = {
+      passed: {
+        label: 'Promovat',
+        icon: <CheckCircle className="w-5 h-5" />,
+        color: 'bg-green-100 text-green-800 border-green-200'
+      },
+      failed: {
+        label: 'Respins',
+        icon: <XCircle className="w-5 h-5" />,
+        color: 'bg-red-100 text-red-800 border-red-200'
+      },
+      conditional: {
+        label: 'Condiționat',
+        icon: <AlertCircle className="w-5 h-5" />,
+        color: 'bg-yellow-100 text-yellow-800 border-yellow-200'
+      }
+    }
+    return statusInfo[status] || statusInfo.passed
+  }
+
   // Format file size
   const formatFileSize = (bytes) => {
     if (bytes === 0) return '0 B'
@@ -135,6 +165,26 @@ export default function EquipmentDetail() {
         `)
         .eq('equipment_id', id)
         .order('created_at', { ascending: false })
+      
+      if (error) throw error
+      return data
+    },
+    enabled: !!id,
+  })
+
+  // Fetch equipment inspections history
+  const { data: inspections, isLoading: isLoadingInspections } = useQuery({
+    queryKey: ['equipment-inspections', id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('equipment_inspections')
+        .select(`
+          *,
+          inspector:inspector_id(full_name, email),
+          creator:created_by(full_name)
+        `)
+        .eq('equipment_id', id)
+        .order('inspection_date', { ascending: false })
       
       if (error) throw error
       return data
@@ -444,6 +494,111 @@ export default function EquipmentDetail() {
                   })()}
                 </div>
               )}
+
+              {/* Periodic Inspection Information */}
+              {equipment.inspection_required && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-500 mb-1">
+                    <AlertCircle className="w-4 h-4 inline mr-1" />
+                    Inspecții Periodice
+                  </label>
+                  {(() => {
+                    if (!equipment.last_inspection_date || !equipment.inspection_frequency_months) {
+                      return (
+                        <div className="space-y-2">
+                          <p className="text-gray-900">
+                            Frecvență: {equipment.inspection_frequency_months ? 
+                              `${equipment.inspection_frequency_months} ${equipment.inspection_frequency_months === 1 ? 'lună' : 'luni'}` : 
+                              'Neconfigurată'}
+                          </p>
+                          <div className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-gray-100 text-gray-800">
+                            <AlertCircle className="w-4 h-4 mr-1" />
+                            Necesită prima inspecție
+                          </div>
+                          {canEdit && (
+                            <button
+                              onClick={() => setShowInspectionModal(true)}
+                              className="mt-2 btn-primary text-sm"
+                            >
+                              <CheckCircle className="w-4 h-4 mr-2" />
+                              Marchează Prima Inspecție
+                            </button>
+                          )}
+                        </div>
+                      )
+                    }
+
+                    const lastInspection = new Date(equipment.last_inspection_date)
+                    const frequencyMonths = parseInt(equipment.inspection_frequency_months)
+                    const nextInspection = new Date(lastInspection)
+                    nextInspection.setMonth(nextInspection.getMonth() + frequencyMonths)
+                    
+                    const isOverdue = nextInspection < new Date()
+                    const daysUntil = Math.ceil((nextInspection - new Date()) / (1000 * 60 * 60 * 24))
+                    const monthsUntil = Math.ceil(daysUntil / 30)
+                    
+                    return (
+                      <div className="space-y-2">
+                        <p className="text-gray-900">
+                          Frecvență: {frequencyMonths} {frequencyMonths === 1 ? 'lună' : 'luni'}
+                        </p>
+                        <p className="text-sm text-gray-600">
+                          Ultima inspecție: {lastInspection.toLocaleDateString('ro-RO', {
+                            year: 'numeric',
+                            month: 'long',
+                            day: 'numeric'
+                          })}
+                        </p>
+                        <div className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
+                          isOverdue 
+                            ? 'bg-red-100 text-red-800' 
+                            : daysUntil <= 30 
+                              ? 'bg-yellow-100 text-yellow-800'
+                              : 'bg-green-100 text-green-800'
+                        }`}>
+                          {isOverdue ? (
+                            <>
+                              <AlertCircle className="w-4 h-4 mr-1" />
+                              Expirată! Scadență: {nextInspection.toLocaleDateString('ro-RO', { 
+                                year: 'numeric', 
+                                month: 'long', 
+                                day: 'numeric' 
+                              })}
+                            </>
+                          ) : daysUntil <= 30 ? (
+                            <>
+                              <AlertCircle className="w-4 h-4 mr-1" />
+                              Scadență: {nextInspection.toLocaleDateString('ro-RO', { 
+                                year: 'numeric', 
+                                month: 'long', 
+                                day: 'numeric' 
+                              })} ({daysUntil} zile)
+                            </>
+                          ) : (
+                            <>
+                              <Shield className="w-4 h-4 mr-1" />
+                              Scadență: {nextInspection.toLocaleDateString('ro-RO', { 
+                                year: 'numeric', 
+                                month: 'long', 
+                                day: 'numeric' 
+                              })} ({monthsUntil} luni)
+                            </>
+                          )}
+                        </div>
+                        {canEdit && (
+                          <button
+                            onClick={() => setShowInspectionModal(true)}
+                            className="mt-2 btn-primary text-sm"
+                          >
+                            <CheckCircle className="w-4 h-4 mr-2" />
+                            Marchează Inspecție Nouă
+                          </button>
+                        )}
+                      </div>
+                    )
+                  })()}
+                </div>
+              )}
             </div>
 
             {equipment.description && (
@@ -487,6 +642,155 @@ export default function EquipmentDetail() {
                   </div>
                 </div>
               </div>
+            </div>
+          )}
+
+          {/* Istoric Inspecții */}
+          {equipment.inspection_required && (
+            <div className="card">
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-xl font-semibold text-gray-900">
+                  <CheckCircle className="w-5 h-5 inline mr-2" />
+                  Istoric Inspecții
+                </h2>
+              </div>
+
+              {isLoadingInspections ? (
+                <div className="flex justify-center py-8">
+                  <LoadingSpinner />
+                </div>
+              ) : inspections && inspections.length > 0 ? (
+                <div className="space-y-4">
+                  {inspections.map((inspection) => {
+                    const statusInfo = getInspectionStatusInfo(inspection.status)
+                    const canEditInspection = profile?.role === 'admin' || inspection.created_by === profile?.id
+                    
+                    return (
+                      <div
+                        key={inspection.id}
+                        className="p-4 bg-white border-2 border-gray-200 rounded-lg hover:border-primary-300 transition-colors"
+                      >
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            {/* Header */}
+                            <div className="flex items-center gap-3 mb-3">
+                              <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold border ${statusInfo.color}`}>
+                                {statusInfo.icon}
+                                <span className="ml-2">{statusInfo.label}</span>
+                              </span>
+                              <p className="text-sm font-medium text-gray-900">
+                                {new Date(inspection.inspection_date).toLocaleDateString('ro-RO', {
+                                  year: 'numeric',
+                                  month: 'long',
+                                  day: 'numeric'
+                                })}
+                              </p>
+                            </div>
+
+                            {/* Inspector */}
+                            <div className="space-y-1 text-sm text-gray-600 mb-3">
+                              {inspection.inspector_name ? (
+                                <p>
+                                  <span className="font-medium">Inspector:</span> {inspection.inspector_name}
+                                </p>
+                              ) : inspection.inspector ? (
+                                <p>
+                                  <span className="font-medium">Inspector:</span> {inspection.inspector.full_name}
+                                </p>
+                              ) : null}
+
+                              {/* Next Inspection */}
+                              {inspection.next_inspection_date && (
+                                <p>
+                                  <span className="font-medium">Următoarea scadență:</span>{' '}
+                                  {new Date(inspection.next_inspection_date).toLocaleDateString('ro-RO', {
+                                    year: 'numeric',
+                                    month: 'long',
+                                    day: 'numeric'
+                                  })}
+                                </p>
+                              )}
+
+                              {/* Findings Preview */}
+                              {inspection.findings && (
+                                <div className="mt-2">
+                                  <p className="font-medium text-gray-700">Observații:</p>
+                                  <p className="text-gray-600 line-clamp-2">{inspection.findings}</p>
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Action Buttons */}
+                            <div className="flex items-center gap-2">
+                              {/* View Details Button */}
+                              <button
+                                onClick={() => setViewingInspection(inspection)}
+                                className="inline-flex items-center px-3 py-1.5 text-sm font-medium text-primary-700 bg-primary-50 rounded-lg hover:bg-primary-100 transition-colors"
+                              >
+                                <Eye className="w-4 h-4 mr-1.5" />
+                                Vizualizare Detalii
+                              </button>
+
+                              {/* Edit Button - only for creator or admin */}
+                              {canEditInspection && (
+                                <button
+                                  onClick={() => setEditingInspection(inspection)}
+                                  className="inline-flex items-center px-3 py-1.5 text-sm font-medium text-blue-700 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors"
+                                >
+                                  <Edit2 className="w-4 h-4 mr-1.5" />
+                                  Editează
+                                </button>
+                              )}
+
+                              {/* Certificate Badge */}
+                              {inspection.certificate_url && (
+                                <span className="inline-flex items-center px-2 py-1 text-xs font-medium text-green-700 bg-green-50 rounded border border-green-200">
+                                  <FileText className="w-3 h-3 mr-1" />
+                                  Cu certificat
+                                </span>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Quick Download Certificate */}
+                          {inspection.certificate_url && (
+                            <a
+                              href={inspection.certificate_url}
+                              download
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="ml-4 p-2 text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"
+                              title="Descarcă Certificat"
+                            >
+                              <Download className="w-5 h-5" />
+                            </a>
+                          )}
+                        </div>
+
+                        {/* Created Info */}
+                        <div className="mt-3 pt-3 border-t border-gray-200 text-xs text-gray-500">
+                          Înregistrat de {inspection.creator?.full_name || 'N/A'} la{' '}
+                          {new Date(inspection.created_at).toLocaleDateString('ro-RO')}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              ) : (
+                <div className="text-center py-8 text-gray-500">
+                  <CheckCircle className="w-12 h-12 mx-auto mb-3 text-gray-400" />
+                  <p>Nu există inspecții înregistrate</p>
+                  {canEdit && (
+                    <button
+                      onClick={() => setShowInspectionModal(true)}
+                      className="mt-3 btn-primary text-sm"
+                    >
+                      <CheckCircle className="w-4 h-4 mr-2" />
+                      Marchează Prima Inspecție
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
           )}
 
@@ -744,6 +1048,36 @@ export default function EquipmentDetail() {
           </div>
         </div>
       </div>
+
+      {/* Inspection Modal */}
+      {showInspectionModal && equipment && (
+        <InspectionModal
+          equipment={equipment}
+          onClose={() => setShowInspectionModal(false)}
+        />
+      )}
+
+      {/* View Inspection Modal */}
+      {viewingInspection && equipment && (
+        <ViewInspectionModal
+          inspection={viewingInspection}
+          equipment={equipment}
+          onClose={() => setViewingInspection(null)}
+          onEdit={() => {
+            setEditingInspection(viewingInspection)
+            setViewingInspection(null)
+          }}
+        />
+      )}
+
+      {/* Edit Inspection Modal */}
+      {editingInspection && equipment && (
+        <EditInspectionModal
+          inspection={editingInspection}
+          equipment={equipment}
+          onClose={() => setEditingInspection(null)}
+        />
+      )}
     </div>
   )
 }

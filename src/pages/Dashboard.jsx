@@ -11,7 +11,8 @@ import {
   AlertTriangle,
   TrendingUp,
   Calendar,
-  Filter
+  Filter,
+  Shield
 } from 'lucide-react'
 import { BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
 import LoadingSpinner from '../components/LoadingSpinner'
@@ -20,6 +21,7 @@ export default function Dashboard() {
   const [dateRange, setDateRange] = useState('all') // all, 7days, 30days, 90days, custom
   const [customStartDate, setCustomStartDate] = useState('')
   const [customEndDate, setCustomEndDate] = useState('')
+  const [inspectionTab, setInspectionTab] = useState('expiringSoon') // valid, expiringSoon, expired
 
   // Calculate date filter
   const getDateFilter = () => {
@@ -112,7 +114,71 @@ export default function Dashboard() {
     },
   })
 
-  if (loadingEquipment || loadingWorkOrders || loadingLocations || loadingSchedules) {
+  // Fetch equipment with inspections
+  const { data: equipmentWithInspections, isLoading: loadingInspections } = useQuery({
+    queryKey: ['dashboard-inspections'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('equipment')
+        .select('id, name, inspection_required, inspection_frequency_months, last_inspection_date, location:locations(name)')
+        .eq('inspection_required', true)
+      if (error) throw error
+      return data
+    },
+  })
+
+  // Process inspections by status
+  const inspectionsByStatus = {
+    valid: [],
+    expiringSoon: [],
+    expired: []
+  }
+
+  if (equipmentWithInspections) {
+    equipmentWithInspections.forEach(eq => {
+      if (!eq.last_inspection_date || !eq.inspection_frequency_months) {
+        inspectionsByStatus.expired.push({
+          ...eq,
+          status: 'missing',
+          message: 'Lipsă date inspecție'
+        })
+        return
+      }
+
+      const lastInspection = new Date(eq.last_inspection_date)
+      const frequencyMonths = parseInt(eq.inspection_frequency_months)
+      const nextInspection = new Date(lastInspection)
+      nextInspection.setMonth(nextInspection.getMonth() + frequencyMonths)
+      
+      const isOverdue = nextInspection < new Date()
+      const daysUntil = Math.ceil((nextInspection - new Date()) / (1000 * 60 * 60 * 24))
+
+      if (isOverdue) {
+        inspectionsByStatus.expired.push({
+          ...eq,
+          nextInspection,
+          daysOverdue: Math.abs(daysUntil),
+          status: 'overdue'
+        })
+      } else if (daysUntil <= 30) {
+        inspectionsByStatus.expiringSoon.push({
+          ...eq,
+          nextInspection,
+          daysUntil,
+          status: 'due_soon'
+        })
+      } else {
+        inspectionsByStatus.valid.push({
+          ...eq,
+          nextInspection,
+          daysUntil,
+          status: 'valid'
+        })
+      }
+    })
+  }
+
+  if (loadingEquipment || loadingWorkOrders || loadingLocations || loadingSchedules || loadingInspections) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <LoadingSpinner size="lg" />
@@ -499,6 +565,222 @@ export default function Dashboard() {
           </div>
         )}
       </div>
+
+      {/* Inspections Section */}
+      {equipmentWithInspections && equipmentWithInspections.length > 0 && (
+        <div className="card">
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-2">
+              <Shield className="w-6 h-6 text-primary-600" />
+              <h2 className="text-xl font-semibold text-gray-900">Inspecții Periodice</h2>
+            </div>
+            <Link to="/equipment" className="text-primary-600 hover:text-primary-700 text-sm font-medium">
+              Vezi Toate
+            </Link>
+          </div>
+
+          {/* Stats Cards */}
+          <div className="grid grid-cols-3 gap-4 mb-6">
+            <div className="bg-green-50 rounded-lg p-4 border border-green-200">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-green-600">Valide</p>
+                  <p className="text-2xl font-bold text-green-900">{inspectionsByStatus.valid.length}</p>
+                </div>
+                <Shield className="w-8 h-8 text-green-400" />
+              </div>
+            </div>
+
+            <div className="bg-yellow-50 rounded-lg p-4 border border-yellow-200">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-yellow-600">Expiră în 30 zile</p>
+                  <p className="text-2xl font-bold text-yellow-900">{inspectionsByStatus.expiringSoon.length}</p>
+                </div>
+                <Clock className="w-8 h-8 text-yellow-400" />
+              </div>
+            </div>
+
+            <div className="bg-red-50 rounded-lg p-4 border border-red-200">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-red-600">Expirate</p>
+                  <p className="text-2xl font-bold text-red-900">{inspectionsByStatus.expired.length}</p>
+                </div>
+                <AlertTriangle className="w-8 h-8 text-red-400" />
+              </div>
+            </div>
+          </div>
+
+          {/* Tabs */}
+          <div className="border-b border-gray-200 mb-4">
+            <div className="flex gap-4">
+              <button
+                onClick={() => setInspectionTab('expiringSoon')}
+                className={`px-4 py-2 font-medium text-sm border-b-2 transition-colors ${
+                  inspectionTab === 'expiringSoon'
+                    ? 'border-yellow-500 text-yellow-700'
+                    : 'border-transparent text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                Expiră în 30 zile ({inspectionsByStatus.expiringSoon.length})
+              </button>
+              <button
+                onClick={() => setInspectionTab('expired')}
+                className={`px-4 py-2 font-medium text-sm border-b-2 transition-colors ${
+                  inspectionTab === 'expired'
+                    ? 'border-red-500 text-red-700'
+                    : 'border-transparent text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                Expirate ({inspectionsByStatus.expired.length})
+              </button>
+              <button
+                onClick={() => setInspectionTab('valid')}
+                className={`px-4 py-2 font-medium text-sm border-b-2 transition-colors ${
+                  inspectionTab === 'valid'
+                    ? 'border-green-500 text-green-700'
+                    : 'border-transparent text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                Valide ({inspectionsByStatus.valid.length})
+              </button>
+            </div>
+          </div>
+
+          {/* Tab Content */}
+          <div className="space-y-3">
+            {inspectionTab === 'expiringSoon' && (
+              inspectionsByStatus.expiringSoon.length > 0 ? (
+                inspectionsByStatus.expiringSoon.map((eq) => (
+                  <Link
+                    key={eq.id}
+                    to={`/equipment/${eq.id}`}
+                    className="block p-4 bg-yellow-50 border border-yellow-200 rounded-lg hover:border-yellow-400 transition-colors"
+                  >
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <h3 className="font-medium text-gray-900">{eq.name}</h3>
+                        <p className="text-sm text-gray-600 mt-1">
+                          {eq.location?.name || 'Fără locație'}
+                        </p>
+                        <div className="flex items-center gap-2 mt-2">
+                          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-800">
+                            <Clock className="w-3 h-3 mr-1" />
+                            {eq.daysUntil} {eq.daysUntil === 1 ? 'zi' : 'zile'} rămase
+                          </span>
+                          <span className="text-xs text-gray-500">
+                            Scadență: {eq.nextInspection.toLocaleDateString('ro-RO', {
+                              year: 'numeric',
+                              month: 'short',
+                              day: 'numeric'
+                            })}
+                          </span>
+                        </div>
+                      </div>
+                      <AlertTriangle className="w-5 h-5 text-yellow-600" />
+                    </div>
+                  </Link>
+                ))
+              ) : (
+                <div className="text-center py-8 text-gray-500">
+                  <Shield className="w-12 h-12 mx-auto mb-2 text-gray-400" />
+                  <p>Nu există inspecții care expiră în următoarele 30 de zile</p>
+                </div>
+              )
+            )}
+
+            {inspectionTab === 'expired' && (
+              inspectionsByStatus.expired.length > 0 ? (
+                inspectionsByStatus.expired.map((eq) => (
+                  <Link
+                    key={eq.id}
+                    to={`/equipment/${eq.id}`}
+                    className="block p-4 bg-red-50 border border-red-200 rounded-lg hover:border-red-400 transition-colors"
+                  >
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <h3 className="font-medium text-gray-900">{eq.name}</h3>
+                        <p className="text-sm text-gray-600 mt-1">
+                          {eq.location?.name || 'Fără locație'}
+                        </p>
+                        <div className="flex items-center gap-2 mt-2">
+                          {eq.status === 'missing' ? (
+                            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold bg-gray-100 text-gray-800">
+                              <AlertTriangle className="w-3 h-3 mr-1" />
+                              {eq.message}
+                            </span>
+                          ) : (
+                            <>
+                              <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-800">
+                                <AlertTriangle className="w-3 h-3 mr-1" />
+                                Expirată cu {eq.daysOverdue} {eq.daysOverdue === 1 ? 'zi' : 'zile'}
+                              </span>
+                              <span className="text-xs text-gray-500">
+                                Scadență: {eq.nextInspection.toLocaleDateString('ro-RO', {
+                                  year: 'numeric',
+                                  month: 'short',
+                                  day: 'numeric'
+                                })}
+                              </span>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                      <AlertTriangle className="w-5 h-5 text-red-600" />
+                    </div>
+                  </Link>
+                ))
+              ) : (
+                <div className="text-center py-8 text-gray-500">
+                  <CheckCircle className="w-12 h-12 mx-auto mb-2 text-gray-400" />
+                  <p>Nu există inspecții expirate</p>
+                </div>
+              )
+            )}
+
+            {inspectionTab === 'valid' && (
+              inspectionsByStatus.valid.length > 0 ? (
+                inspectionsByStatus.valid.slice(0, 10).map((eq) => (
+                  <Link
+                    key={eq.id}
+                    to={`/equipment/${eq.id}`}
+                    className="block p-4 bg-green-50 border border-green-200 rounded-lg hover:border-green-400 transition-colors"
+                  >
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <h3 className="font-medium text-gray-900">{eq.name}</h3>
+                        <p className="text-sm text-gray-600 mt-1">
+                          {eq.location?.name || 'Fără locație'}
+                        </p>
+                        <div className="flex items-center gap-2 mt-2">
+                          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800">
+                            <CheckCircle className="w-3 h-3 mr-1" />
+                            Validă {Math.ceil(eq.daysUntil / 30)} {Math.ceil(eq.daysUntil / 30) === 1 ? 'lună' : 'luni'}
+                          </span>
+                          <span className="text-xs text-gray-500">
+                            Scadență: {eq.nextInspection.toLocaleDateString('ro-RO', {
+                              year: 'numeric',
+                              month: 'short',
+                              day: 'numeric'
+                            })}
+                          </span>
+                        </div>
+                      </div>
+                      <Shield className="w-5 h-5 text-green-600" />
+                    </div>
+                  </Link>
+                ))
+              ) : (
+                <div className="text-center py-8 text-gray-500">
+                  <Shield className="w-12 h-12 mx-auto mb-2 text-gray-400" />
+                  <p>Nu există inspecții valide</p>
+                </div>
+              )
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Maintenance Schedule Details */}
       {recentCompletedMaintenance.length > 0 && (

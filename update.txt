@@ -1,0 +1,7 @@
+3
+
+Vreau sa pot adauga diverse fisiere de maxim 2mb la fiecare echipament spre exemplu selectez Factura si atasez factura, garantie si atasez garantia sau alte documente
+
+4
+
+Vreau un camp pentru inspectii perioadice, de exemplu la compresor se face inspectia o data la an pentru el si are termen de expirare, sa pot gestiona aceste inspectii daca echipamentele au, la cantare la fel se face inspectie anuala

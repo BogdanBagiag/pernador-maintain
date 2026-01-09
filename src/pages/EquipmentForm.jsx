@@ -22,6 +22,9 @@ export default function EquipmentForm() {
     location_id: '',
     purchase_date: '',
     warranty_months: '',
+    inspection_required: false,
+    inspection_frequency_months: '',
+    last_inspection_date: '',
     description: '',
     status: 'operational',
   })
@@ -72,6 +75,9 @@ export default function EquipmentForm() {
         location_id: equipment.location_id || '',
         purchase_date: equipment.purchase_date || '',
         warranty_months: equipment.warranty_months || '',
+        inspection_required: equipment.inspection_required || false,
+        inspection_frequency_months: equipment.inspection_frequency_months || '',
+        last_inspection_date: equipment.last_inspection_date || '',
         description: equipment.description || '',
         status: equipment.status || 'operational',
       })
@@ -134,6 +140,8 @@ export default function EquipmentForm() {
         ...formData,
         purchase_date: formData.purchase_date || null,
         warranty_months: formData.warranty_months ? parseInt(formData.warranty_months) : null,
+        inspection_frequency_months: formData.inspection_frequency_months ? parseInt(formData.inspection_frequency_months) : null,
+        last_inspection_date: formData.last_inspection_date || null,
         serial_number: formData.serial_number?.trim() || null,
         inventory_number: formData.inventory_number?.trim() || null,
       }
@@ -365,6 +373,119 @@ export default function EquipmentForm() {
               </p>
             </div>
           )}
+
+          {/* Inspecții Periodice */}
+          <div className="border-t border-gray-200 pt-6">
+            <h3 className="text-lg font-medium text-gray-900 mb-4">Inspecții Periodice</h3>
+            
+            {/* Checkbox - Necesită Inspecții */}
+            <div className="mb-4">
+              <label className="flex items-center">
+                <input
+                  type="checkbox"
+                  name="inspection_required"
+                  checked={formData.inspection_required}
+                  onChange={(e) => setFormData({
+                    ...formData,
+                    inspection_required: e.target.checked,
+                    // Reset câmpurile dacă se debifează
+                    inspection_frequency_months: e.target.checked ? formData.inspection_frequency_months : '',
+                    last_inspection_date: e.target.checked ? formData.last_inspection_date : ''
+                  })}
+                  className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+                />
+                <span className="ml-2 text-sm font-medium text-gray-700">
+                  Acest echipament necesită inspecții periodice
+                </span>
+              </label>
+              <p className="text-xs text-gray-500 mt-1 ml-6">
+                Ex: Compresoare, cântare, echipamente cu certificare obligatorie
+              </p>
+            </div>
+
+            {/* Câmpuri vizibile doar dacă inspection_required = true */}
+            {formData.inspection_required && (
+              <div className="space-y-4 ml-6 pl-4 border-l-2 border-primary-200">
+                {/* Frecvență și Ultima Inspecție */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Frecvență Inspecție */}
+                  <div>
+                    <label htmlFor="inspection_frequency_months" className="block text-sm font-medium text-gray-700 mb-1">
+                      Frecvență Inspecție (luni) <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      id="inspection_frequency_months"
+                      name="inspection_frequency_months"
+                      type="number"
+                      min="1"
+                      step="1"
+                      value={formData.inspection_frequency_months}
+                      onChange={handleChange}
+                      className="input"
+                      placeholder="ex: 12 (anual), 6 (semestrial)"
+                      required={formData.inspection_required}
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                      12 = anual, 6 = semestrial, 3 = trimestrial
+                    </p>
+                  </div>
+
+                  {/* Ultima Inspecție */}
+                  <div>
+                    <label htmlFor="last_inspection_date" className="block text-sm font-medium text-gray-700 mb-1">
+                      Ultima Inspecție <span className="text-gray-400 text-xs">(opțional)</span>
+                    </label>
+                    <input
+                      id="last_inspection_date"
+                      name="last_inspection_date"
+                      type="date"
+                      value={formData.last_inspection_date}
+                      onChange={handleChange}
+                      className="input"
+                    />
+                  </div>
+                </div>
+
+                {/* Next Inspection Preview */}
+                {formData.last_inspection_date && formData.inspection_frequency_months && parseInt(formData.inspection_frequency_months) > 0 && (
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                    <p className="text-sm text-blue-800">
+                      <span className="font-semibold">📋 Următoarea inspecție:</span>{' '}
+                      {(() => {
+                        const lastInspection = new Date(formData.last_inspection_date)
+                        const frequencyMonths = parseInt(formData.inspection_frequency_months)
+                        const nextInspection = new Date(lastInspection)
+                        nextInspection.setMonth(nextInspection.getMonth() + frequencyMonths)
+                        
+                        const isOverdue = nextInspection < new Date()
+                        const daysUntil = Math.ceil((nextInspection - new Date()) / (1000 * 60 * 60 * 24))
+                        
+                        return (
+                          <span className={isOverdue ? 'text-red-600 font-semibold' : ''}>
+                            {nextInspection.toLocaleDateString('ro-RO', { 
+                              year: 'numeric', 
+                              month: 'long', 
+                              day: 'numeric' 
+                            })}
+                            {isOverdue ? ' (Expirată - Necesită inspecție!)' : ` (${daysUntil} zile rămase)`}
+                          </span>
+                        )
+                      })()}
+                    </p>
+                  </div>
+                )}
+
+                {/* Info pentru prima inspecție */}
+                {!formData.last_inspection_date && (
+                  <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+                    <p className="text-sm text-yellow-800">
+                      ⚠️ Nu există înregistrare pentru ultima inspecție. După salvare, marchează prima inspecție în pagina de detalii.
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
 
           {/* Description */}
           <div>
