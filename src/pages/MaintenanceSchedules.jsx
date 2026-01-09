@@ -217,8 +217,8 @@ export default function MaintenanceSchedules() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-8">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Programe MentenanÈ›Äƒ</h1>
-          <p className="text-gray-600 mt-1">GestioneazÄƒ programele de mentenanÈ›Äƒ preventivÄƒ</p>
+          <h1 className="text-3xl font-bold text-gray-900">Programe Mentenanță</h1>
+          <p className="text-gray-600 mt-1">Gestionează programele de mentenanță preventivă</p>
         </div>
         <button
           onClick={() => {
@@ -250,7 +250,7 @@ export default function MaintenanceSchedules() {
             <Clock className={`w-6 h-6 ${statusFilter === 'upcoming' ? 'text-yellow-700' : 'text-yellow-400'} opacity-50`} />
           </div>
           <p className={`text-sm font-medium ${statusFilter === 'upcoming' ? 'text-yellow-800' : 'text-yellow-600'}`}>
-            UrmÄƒtoarele 7 Zile
+            Următoarele 7 Zile
           </p>
         </button>
 
@@ -290,7 +290,7 @@ export default function MaintenanceSchedules() {
             <AlertCircle className={`w-6 h-6 ${statusFilter === 'overdue' ? 'text-red-700' : 'text-red-400'} opacity-50`} />
           </div>
           <p className={`text-sm font-medium ${statusFilter === 'overdue' ? 'text-red-800' : 'text-red-600'}`}>
-            ÃŽntÃ¢rziate
+            Întârziate
           </p>
         </button>
 
@@ -310,7 +310,7 @@ export default function MaintenanceSchedules() {
             <Pause className={`w-6 h-6 ${statusFilter === 'inactive' ? 'text-gray-700' : 'text-gray-400'} opacity-50`} />
           </div>
           <p className={`text-sm font-medium ${statusFilter === 'inactive' ? 'text-gray-800' : 'text-gray-600'}`}>
-            ÃŽn PauzÄƒ
+            În Pauză
           </p>
         </button>
 
