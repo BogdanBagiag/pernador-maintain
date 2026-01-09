@@ -523,7 +523,7 @@ export default function Dashboard() {
                   <div>
                     <p className="font-medium text-gray-900">{schedule.equipment?.name || 'N/A'}</p>
                     <p className="text-sm text-gray-600">
-                      {schedule.equipment?.location?.name || 'N/A'} • {schedule.title || schedule.description || 'N/A'}
+                      {schedule.equipment?.location?.name || 'N/A'} â€¢ {schedule.title || schedule.description || 'N/A'}
                     </p>
                   </div>
                 </div>

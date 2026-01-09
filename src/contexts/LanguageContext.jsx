@@ -172,7 +172,7 @@ export const translations = {
     'common.filter': 'Filtrare',
     'common.add': 'Adaugă',
     'common.edit': 'Modifică',
-    'common.delete': 'Șterge',
+    'common.delete': 'È˜terge',
     'common.save': 'Salvează',
     'common.cancel': 'Anulează',
     'common.close': 'Închide',
@@ -255,19 +255,19 @@ export const translations = {
     'schedules.additionalFilters': 'Filtre Adiționale:',
     
     // Checklists
-    'checklists.title': 'Șabloane Liste de Verificare',
+    'checklists.title': 'È˜abloane Liste de Verificare',
     'checklists.subtitle': 'Creează și gestionează șabloane de liste reutilizabile',
-    'checklists.new': 'Șablon Nou',
+    'checklists.new': 'È˜ablon Nou',
     'checklists.items': 'elemente de verificat',
     'checklists.noTemplates': 'Încă nu există șabloane',
     'checklists.createFirst': 'Creează primul tău șablon de listă pentru a-l folosi în programările de întreținere',
-    'checklists.templateName': 'Nume Șablon',
+    'checklists.templateName': 'Nume È˜ablon',
     'checklists.addItem': 'Adaugă Element',
     
     // Procedures
-    'procedures.title': 'Șabloane Proceduri',
+    'procedures.title': 'È˜abloane Proceduri',
     'procedures.subtitle': 'Creează și gestionează proceduri pas cu pas cu imagini',
-    'procedures.new': 'Șablon Nou',
+    'procedures.new': 'È˜ablon Nou',
     'procedures.steps': 'pași',
     'procedures.noProcedures': 'Încă nu există șabloane',
     'procedures.createFirst': 'Creează primul tău șablon de procedură cu instrucțiuni pas cu pas',

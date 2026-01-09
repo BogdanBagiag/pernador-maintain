@@ -92,7 +92,7 @@ export default function LandingPage() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   className="input pl-10"
-                  placeholder="••••••••"
+                  placeholder="â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢"
                   required
                 />
               </div>
@@ -125,7 +125,7 @@ export default function LandingPage() {
         {/* Footer */}
         <div className="mt-8 text-center">
           <p className="text-sm text-gray-500">
-            © {new Date().getFullYear()} Pernador. Toate drepturile rezervate.
+            Â© {new Date().getFullYear()} Pernador. Toate drepturile rezervate.
           </p>
         </div>
       </div>
