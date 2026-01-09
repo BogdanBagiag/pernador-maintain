@@ -325,93 +325,93 @@ export default function EquipmentDetail() {
   }
 
   return (
-    <div>
+    <div className="px-2 sm:px-4 lg:px-6 py-3 sm:py-4 lg:py-6 max-w-screen-2xl mx-auto">
       {/* Header */}
-      <div className="mb-8">
+      <div className="mb-3 sm:mb-4 lg:mb-6">
         <button
           onClick={() => navigate('/equipment')}
-          className="flex items-center text-gray-600 hover:text-gray-900 mb-4"
+          className="flex items-center text-gray-600 hover:text-gray-900 mb-2 sm:mb-3 text-xs sm:text-sm"
         >
-          <ArrowLeft className="w-5 h-5 mr-2" />
+          <ArrowLeft className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
           Back to Equipment
         </button>
         
-        <div className="flex items-start justify-between">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900">{equipment.name}</h1>
-            <div className="flex items-center mt-2">
-              <span className={`badge ${getStatusColor(equipment.status)} capitalize`}>
+        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 sm:gap-4">
+          <div className="flex-1 min-w-0">
+            <h1 className="text-lg sm:text-xl lg:text-2xl xl:text-3xl font-bold text-gray-900 break-words leading-tight">{equipment.name}</h1>
+            <div className="flex items-center mt-1.5 sm:mt-2">
+              <span className={`badge ${getStatusColor(equipment.status)} capitalize text-xs`}>
                 {equipment.status}
               </span>
             </div>
           </div>
-          <div className="flex gap-3">
+          <div className="flex flex-row gap-2 shrink-0">
             {canEdit && (
               <Link
                 to={`/equipment/${id}/edit`}
-                className="btn-primary inline-flex items-center"
+                className="btn-primary inline-flex items-center justify-center text-xs sm:text-sm px-2 py-1.5 sm:px-3 sm:py-2"
               >
-                <Edit className="w-5 h-5 mr-2" />
-                Edit
+                <Edit className="w-3 h-3 sm:w-4 sm:h-4" />
+                <span className="ml-1 sm:ml-2">Edit</span>
               </Link>
             )}
             {canDelete && (
               <button
                 onClick={handleDelete}
                 disabled={deleteMutation.isLoading}
-                className="btn-secondary text-red-600 hover:bg-red-50 border-red-300 inline-flex items-center disabled:opacity-50"
+                className="btn-secondary text-red-600 hover:bg-red-50 border-red-300 inline-flex items-center justify-center disabled:opacity-50 text-xs sm:text-sm px-2 py-1.5 sm:px-3 sm:py-2"
               >
-                <Trash2 className="w-5 h-5 mr-2" />
-                Delete
+                <Trash2 className="w-3 h-3 sm:w-4 sm:h-4" />
+                <span className="ml-1 sm:ml-2">Delete</span>
               </button>
             )}
           </div>
         </div>
       </div>
 
-      <div className="grid lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 sm:gap-4 lg:gap-6">
         {/* Main Info */}
-        <div className="lg:col-span-2 space-y-6">
+        <div className="lg:col-span-2 space-y-3 sm:space-y-4 lg:space-y-6">
           {/* Details Card */}
-          <div className="card">
-            <h2 className="text-xl font-semibold text-gray-900 mb-4">Details</h2>
+          <div className="card p-3 sm:p-4 lg:p-6">
+            <h2 className="text-base sm:text-lg font-semibold text-gray-900 mb-3">Details</h2>
             
-            <div className="grid md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
               {equipment.manufacturer && (
                 <div>
-                  <label className="block text-sm font-medium text-gray-500 mb-1">
+                  <label className="block text-xs sm:text-sm font-medium text-gray-500 mb-0.5 sm:mb-1">
                     Brand
                   </label>
-                  <p className="text-gray-900">{equipment.manufacturer}</p>
+                  <p className="text-sm sm:text-base text-gray-900">{equipment.manufacturer}</p>
                 </div>
               )}
 
               {equipment.model && (
                 <div>
-                  <label className="block text-sm font-medium text-gray-500 mb-1">
+                  <label className="block text-xs sm:text-sm font-medium text-gray-500 mb-0.5 sm:mb-1">
                     Model
                   </label>
-                  <p className="text-gray-900">{equipment.model}</p>
+                  <p className="text-sm sm:text-base text-gray-900">{equipment.model}</p>
                 </div>
               )}
 
               {equipment.serial_number && (
                 <div>
-                  <label className="block text-sm font-medium text-gray-500 mb-1">
-                    <Hash className="w-4 h-4 inline mr-1" />
+                  <label className="block text-xs sm:text-sm font-medium text-gray-500 mb-0.5 sm:mb-1">
+                    <Hash className="w-3 h-3 sm:w-4 sm:h-4 inline mr-1" />
                     Serial Number
                   </label>
-                  <p className="text-gray-900 font-mono">{equipment.serial_number}</p>
+                  <p className="text-sm sm:text-base text-gray-900 font-mono break-all">{equipment.serial_number}</p>
                 </div>
               )}
 
               {equipment.inventory_number && (
                 <div>
-                  <label className="block text-sm font-medium text-gray-500 mb-1">
-                    <Hash className="w-4 h-4 inline mr-1" />
+                  <label className="block text-xs sm:text-sm font-medium text-gray-500 mb-0.5 sm:mb-1">
+                    <Hash className="w-3 h-3 sm:w-4 sm:h-4 inline mr-1" />
                     Nr. Inventar
                   </label>
-                  <p className="text-gray-900 font-mono">{equipment.inventory_number}</p>
+                  <p className="text-sm sm:text-base text-gray-900 font-mono break-all">{equipment.inventory_number}</p>
                 </div>
               )}
 
@@ -614,28 +614,28 @@ export default function EquipmentDetail() {
           {/* Location Card */}
           {equipment.location && (
             <div className="card">
-              <h2 className="text-xl font-semibold text-gray-900 mb-4">Location</h2>
+              <h2 className="text-lg sm:text-xl font-semibold text-gray-900 mb-3 sm:mb-4">Location</h2>
               
               <div className="space-y-3">
                 <div className="flex items-start">
-                  <MapPin className="w-5 h-5 text-gray-400 mr-3 mt-0.5" />
-                  <div>
-                    <p className="font-medium text-gray-900">{equipment.location.name}</p>
+                  <MapPin className="w-4 h-4 sm:w-5 sm:h-5 text-gray-400 mr-2 sm:mr-3 mt-0.5 shrink-0" />
+                  <div className="min-w-0 flex-1">
+                    <p className="font-medium text-gray-900 break-words">{equipment.location.name}</p>
                     {equipment.location.building && (
-                      <p className="text-sm text-gray-600 flex items-center mt-1">
-                        <Building className="w-4 h-4 mr-1" />
-                        {equipment.location.building}
+                      <p className="text-sm text-gray-600 flex items-start mt-1">
+                        <Building className="w-3 h-3 sm:w-4 sm:h-4 mr-1 mt-0.5 shrink-0" />
+                        <span className="break-words">{equipment.location.building}</span>
                       </p>
                     )}
                     {(equipment.location.floor || equipment.location.room) && (
-                      <p className="text-sm text-gray-600 mt-1">
+                      <p className="text-sm text-gray-600 mt-1 break-words">
                         {equipment.location.floor && `Floor: ${equipment.location.floor}`}
-                        {equipment.location.floor && equipment.location.room && ' â€¢ '}
+                        {equipment.location.floor && equipment.location.room && ' • '}
                         {equipment.location.room && `Room: ${equipment.location.room}`}
                       </p>
                     )}
                     {equipment.location.address && (
-                      <p className="text-sm text-gray-500 mt-2">
+                      <p className="text-sm text-gray-500 mt-2 break-words">
                         {equipment.location.address}
                       </p>
                     )}
@@ -648,9 +648,9 @@ export default function EquipmentDetail() {
           {/* Istoric Inspecții */}
           {equipment.inspection_required && (
             <div className="card">
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-xl font-semibold text-gray-900">
-                  <CheckCircle className="w-5 h-5 inline mr-2" />
+              <div className="flex items-center justify-between mb-4 sm:mb-6">
+                <h2 className="text-lg sm:text-xl font-semibold text-gray-900">
+                  <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5 inline mr-2" />
                   Istoric Inspecții
                 </h2>
               </div>
@@ -668,27 +668,27 @@ export default function EquipmentDetail() {
                     return (
                       <div
                         key={inspection.id}
-                        className="p-4 bg-white border-2 border-gray-200 rounded-lg hover:border-primary-300 transition-colors"
+                        className="p-3 sm:p-4 bg-white border-2 border-gray-200 rounded-lg hover:border-primary-300 transition-colors"
                       >
-                        <div className="flex items-start justify-between">
-                          <div className="flex-1">
+                        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+                          <div className="flex-1 min-w-0">
                             {/* Header */}
-                            <div className="flex items-center gap-3 mb-3">
-                              <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold border ${statusInfo.color}`}>
+                            <div className="flex flex-wrap items-center gap-2 mb-3">
+                              <span className={`inline-flex items-center px-2 sm:px-3 py-1 rounded-full text-xs sm:text-sm font-semibold border ${statusInfo.color}`}>
                                 {statusInfo.icon}
-                                <span className="ml-2">{statusInfo.label}</span>
+                                <span className="ml-1 sm:ml-2">{statusInfo.label}</span>
                               </span>
-                              <p className="text-sm font-medium text-gray-900">
+                              <p className="text-xs sm:text-sm font-medium text-gray-900">
                                 {new Date(inspection.inspection_date).toLocaleDateString('ro-RO', {
                                   year: 'numeric',
-                                  month: 'long',
+                                  month: 'short',
                                   day: 'numeric'
                                 })}
                               </p>
                             </div>
 
                             {/* Inspector */}
-                            <div className="space-y-1 text-sm text-gray-600 mb-3">
+                            <div className="space-y-1 text-xs sm:text-sm text-gray-600 mb-3">
                               {inspection.inspector_name ? (
                                 <p>
                                   <span className="font-medium">Inspector:</span> {inspection.inspector_name}
@@ -702,10 +702,10 @@ export default function EquipmentDetail() {
                               {/* Next Inspection */}
                               {inspection.next_inspection_date && (
                                 <p>
-                                  <span className="font-medium">Următoarea scadență:</span>{' '}
+                                  <span className="font-medium">Scadență:</span>{' '}
                                   {new Date(inspection.next_inspection_date).toLocaleDateString('ro-RO', {
                                     year: 'numeric',
-                                    month: 'long',
+                                    month: 'short',
                                     day: 'numeric'
                                   })}
                                 </p>
@@ -721,23 +721,24 @@ export default function EquipmentDetail() {
                             </div>
 
                             {/* Action Buttons */}
-                            <div className="flex items-center gap-2">
+                            <div className="flex flex-wrap items-center gap-2">
                               {/* View Details Button */}
                               <button
                                 onClick={() => setViewingInspection(inspection)}
-                                className="inline-flex items-center px-3 py-1.5 text-sm font-medium text-primary-700 bg-primary-50 rounded-lg hover:bg-primary-100 transition-colors"
+                                className="inline-flex items-center px-2 sm:px-3 py-1.5 text-xs sm:text-sm font-medium text-primary-700 bg-primary-50 rounded-lg hover:bg-primary-100 transition-colors"
                               >
-                                <Eye className="w-4 h-4 mr-1.5" />
-                                Vizualizare Detalii
+                                <Eye className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-1.5" />
+                                <span className="hidden sm:inline">Vizualizare</span>
+                                <span className="sm:hidden">Vezi</span>
                               </button>
 
                               {/* Edit Button - only for creator or admin */}
                               {canEditInspection && (
                                 <button
                                   onClick={() => setEditingInspection(inspection)}
-                                  className="inline-flex items-center px-3 py-1.5 text-sm font-medium text-blue-700 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors"
+                                  className="inline-flex items-center px-2 sm:px-3 py-1.5 text-xs sm:text-sm font-medium text-blue-700 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors"
                                 >
-                                  <Edit2 className="w-4 h-4 mr-1.5" />
+                                  <Edit2 className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-1.5" />
                                   Editează
                                 </button>
                               )}
@@ -746,7 +747,8 @@ export default function EquipmentDetail() {
                               {inspection.certificate_url && (
                                 <span className="inline-flex items-center px-2 py-1 text-xs font-medium text-green-700 bg-green-50 rounded border border-green-200">
                                   <FileText className="w-3 h-3 mr-1" />
-                                  Cu certificat
+                                  <span className="hidden sm:inline">Cu certificat</span>
+                                  <span className="sm:hidden">Cert.</span>
                                 </span>
                               )}
                             </div>
@@ -759,7 +761,7 @@ export default function EquipmentDetail() {
                               download
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="ml-4 p-2 text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"
+                              className="flex-shrink-0 p-2 text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"
                               title="Descarcă Certificat"
                             >
                               <Download className="w-5 h-5" />
@@ -795,33 +797,33 @@ export default function EquipmentDetail() {
           )}
 
           {/* Documente Atașate */}
-          <div className="card">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-semibold text-gray-900">
-                <FileText className="w-5 h-5 inline mr-2" />
+          <div className="card p-3 sm:p-4 lg:p-6">
+            <div className="flex items-center justify-between mb-3 sm:mb-4">
+              <h2 className="text-base sm:text-lg font-semibold text-gray-900">
+                <FileText className="w-4 h-4 sm:w-5 sm:h-5 inline mr-1 sm:mr-2" />
                 Documente Atașate
               </h2>
             </div>
 
             {/* Upload Form */}
             {canEdit && (
-              <div className="mb-6 p-4 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
-                <h3 className="text-sm font-medium text-gray-700 mb-3">
-                  <Upload className="w-4 h-4 inline mr-1" />
+              <div className="mb-3 sm:mb-4 p-2.5 sm:p-3 lg:p-4 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
+                <h3 className="text-xs sm:text-sm font-medium text-gray-700 mb-2 sm:mb-3">
+                  <Upload className="w-3 h-3 sm:w-4 sm:h-4 inline mr-1" />
                   Încarcă Document Nou
                 </h3>
                 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-3">
                   {/* Document Type Selector */}
                   <div>
-                    <label htmlFor="documentType" className="block text-sm font-medium text-gray-700 mb-1">
+                    <label htmlFor="documentType" className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
                       Tip Document
                     </label>
                     <select
                       id="documentType"
                       value={documentType}
                       onChange={(e) => setDocumentType(e.target.value)}
-                      className="input"
+                      className="input text-sm"
                     >
                       <option value="invoice">Factură</option>
                       <option value="warranty">Garanție</option>
@@ -833,17 +835,17 @@ export default function EquipmentDetail() {
 
                   {/* File Input */}
                   <div>
-                    <label htmlFor="fileUpload" className="block text-sm font-medium text-gray-700 mb-1">
+                    <label htmlFor="fileUpload" className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
                       Fișier (max 2MB)
                     </label>
                     <input
                       id="fileUpload"
                       type="file"
                       onChange={handleFileSelect}
-                      className="block w-full text-sm text-gray-500
-                        file:mr-4 file:py-2 file:px-4
+                      className="block w-full text-xs sm:text-sm text-gray-500
+                        file:mr-2 sm:file:mr-4 file:py-1.5 sm:file:py-2 file:px-3 sm:file:px-4
                         file:rounded-lg file:border-0
-                        file:text-sm file:font-semibold
+                        file:text-xs sm:file:text-sm file:font-semibold
                         file:bg-primary-50 file:text-primary-700
                         hover:file:bg-primary-100
                         cursor-pointer"
@@ -854,17 +856,17 @@ export default function EquipmentDetail() {
 
                 {/* Selected File Info */}
                 {selectedFile && (
-                  <div className="mt-3 flex items-center justify-between p-3 bg-white rounded-lg border border-gray-200">
-                    <div className="flex items-center gap-2">
-                      <File className="w-5 h-5 text-primary-600" />
-                      <div>
-                        <p className="text-sm font-medium text-gray-900">{selectedFile.name}</p>
+                  <div className="mt-2 sm:mt-3 flex items-center justify-between p-2 sm:p-3 bg-white rounded-lg border border-gray-200">
+                    <div className="flex items-center gap-2 min-w-0 flex-1">
+                      <File className="w-4 h-4 sm:w-5 sm:h-5 text-primary-600 flex-shrink-0" />
+                      <div className="min-w-0 flex-1">
+                        <p className="text-xs sm:text-sm font-medium text-gray-900 truncate">{selectedFile.name}</p>
                         <p className="text-xs text-gray-500">{formatFileSize(selectedFile.size)}</p>
                       </div>
                     </div>
                     <button
                       onClick={() => setSelectedFile(null)}
-                      className="p-1 text-gray-400 hover:text-red-600"
+                      className="p-1 text-gray-400 hover:text-red-600 flex-shrink-0 ml-2"
                     >
                       <X className="w-4 h-4" />
                     </button>
@@ -876,7 +878,7 @@ export default function EquipmentDetail() {
                   <button
                     onClick={handleFileUpload}
                     disabled={uploadingFile}
-                    className="btn-primary mt-3"
+                    className="btn-primary mt-2 sm:mt-3 w-full sm:w-auto text-xs sm:text-sm py-1.5 sm:py-2"
                   >
                     {uploadingFile ? (
                       <>
@@ -885,7 +887,7 @@ export default function EquipmentDetail() {
                       </>
                     ) : (
                       <>
-                        <Upload className="w-4 h-4 mr-2" />
+                        <Upload className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
                         Încarcă Fișier
                       </>
                     )}
@@ -894,8 +896,8 @@ export default function EquipmentDetail() {
 
                 {/* Error Message */}
                 {uploadError && (
-                  <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-lg">
-                    <p className="text-sm text-red-800">{uploadError}</p>
+                  <div className="mt-2 sm:mt-3 p-2 sm:p-3 bg-red-50 border border-red-200 rounded-lg">
+                    <p className="text-xs sm:text-sm text-red-800">{uploadError}</p>
                   </div>
                 )}
               </div>
@@ -903,51 +905,52 @@ export default function EquipmentDetail() {
 
             {/* Attachments List */}
             {isLoadingAttachments ? (
-              <div className="flex justify-center py-8">
+              <div className="flex justify-center py-6 sm:py-8">
                 <LoadingSpinner />
               </div>
             ) : attachments && attachments.length > 0 ? (
-              <div className="space-y-3">
+              <div className="space-y-2 sm:space-y-3">
                 {attachments.map((attachment) => (
                   <div
                     key={attachment.id}
-                    className="flex items-center justify-between p-4 bg-white border border-gray-200 rounded-lg hover:border-primary-300 transition-colors"
+                    className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-2.5 sm:p-3 lg:p-4 bg-white border border-gray-200 rounded-lg hover:border-primary-300 transition-colors gap-2 sm:gap-3"
                   >
-                    <div className="flex items-center gap-3 flex-1 min-w-0">
+                    <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
                       <div className="flex-shrink-0">
-                        <FileText className="w-8 h-8 text-primary-600" />
+                        <FileText className="w-5 h-5 sm:w-6 sm:h-6 lg:w-8 lg:h-8 text-primary-600" />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-gray-900 truncate">
+                        <p className="text-xs sm:text-sm font-medium text-gray-900 truncate">
                           {attachment.file_name}
                         </p>
-                        <div className="flex items-center gap-3 text-xs text-gray-500 mt-1">
-                          <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-blue-100 text-blue-800 font-medium">
+                        <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 text-xs text-gray-500 mt-0.5 sm:mt-1">
+                          <span className="inline-flex items-center px-1.5 sm:px-2 py-0.5 rounded-full bg-blue-100 text-blue-800 font-medium text-xs">
                             {getDocumentTypeLabel(attachment.document_type)}
                           </span>
-                          <span>{formatFileSize(attachment.file_size)}</span>
-                          <span>
+                          <span className="text-xs">{formatFileSize(attachment.file_size)}</span>
+                          <span className="hidden sm:inline text-xs">
                             {new Date(attachment.created_at).toLocaleDateString('ro-RO')}
                           </span>
                           {attachment.uploader && (
-                            <span>de {attachment.uploader.full_name}</span>
+                            <span className="hidden md:inline text-xs">de {attachment.uploader.full_name}</span>
                           )}
                         </div>
                       </div>
                     </div>
 
                     {/* Action Buttons */}
-                    <div className="flex items-center gap-2 ml-4">
+                    <div className="flex items-center gap-1.5 sm:gap-2 justify-end">
                       {/* Download Button */}
                       <a
                         href={attachment.file_url}
                         download
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="p-2 text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"
+                        className="flex items-center gap-1 px-2 py-1.5 sm:px-3 sm:py-2 text-xs sm:text-sm font-medium text-primary-600 bg-primary-50 hover:bg-primary-100 rounded-lg transition-colors"
                         title="Descarcă"
                       >
-                        <Download className="w-5 h-5" />
+                        <Download className="w-3 h-3 sm:w-4 sm:h-4" />
+                        <span className="hidden sm:inline">Descarcă</span>
                       </a>
 
                       {/* Delete Button - only for uploader or admin */}
@@ -955,10 +958,10 @@ export default function EquipmentDetail() {
                         <button
                           onClick={() => handleAttachmentDelete(attachment)}
                           disabled={deleteAttachmentMutation.isLoading}
-                          className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                          className="p-1.5 sm:p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                           title="Șterge"
                         >
-                          <Trash2 className="w-5 h-5" />
+                          <Trash2 className="w-3 h-3 sm:w-4 sm:h-4" />
                         </button>
                       )}
                     </div>
@@ -966,11 +969,11 @@ export default function EquipmentDetail() {
                 ))}
               </div>
             ) : (
-              <div className="text-center py-8 text-gray-500">
-                <FileText className="w-12 h-12 mx-auto mb-3 text-gray-400" />
-                <p>Nu există documente atașate</p>
+              <div className="text-center py-6 sm:py-8 text-gray-500">
+                <FileText className="w-10 h-10 sm:w-12 sm:h-12 mx-auto mb-2 sm:mb-3 text-gray-400" />
+                <p className="text-sm sm:text-base">Nu există documente atașate</p>
                 {canEdit && (
-                  <p className="text-sm mt-1">Folosește formularul de mai sus pentru a încărca documente</p>
+                  <p className="text-xs sm:text-sm mt-1">Folosește formularul de mai sus pentru a încărca documente</p>
                 )}
               </div>
             )}
@@ -1023,24 +1026,24 @@ export default function EquipmentDetail() {
         </div>
 
         {/* Sidebar - QR Code */}
-        <div className="lg:col-span-1">
+        <div className="lg:col-span-1 space-y-3 sm:space-y-4">
           <QRCodeGenerator 
             equipmentId={equipment.id} 
             equipmentName={equipment.name}
           />
           
-          <div className="card mt-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-3">Quick Actions</h3>
+          <div className="card p-3 sm:p-4 lg:p-6">
+            <h3 className="text-sm sm:text-base font-semibold text-gray-900 mb-2 sm:mb-3">Quick Actions</h3>
             <div className="space-y-2">
               <Link
                 to={`/work-orders/new?equipment=${id}`}
-                className="btn-primary w-full"
+                className="btn-primary w-full text-xs sm:text-sm py-2"
               >
                 Create Work Order
               </Link>
               <Link
                 to={`/equipment/${id}/edit`}
-                className="btn-secondary w-full"
+                className="btn-secondary w-full text-xs sm:text-sm py-2"
               >
                 Edit Equipment
               </Link>
