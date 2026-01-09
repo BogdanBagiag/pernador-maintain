@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
-import { Link, useSearchParams } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
+import { Link, useSearchParams, useNavigate } from 'react-router-dom'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { 
   Plus, 
@@ -11,16 +11,27 @@ import {
   CheckCircle,
   XCircle,
   Wrench,
-  Calendar
+  Calendar,
+  Edit,
+  Trash2,
+  Play,
+  Pause
 } from 'lucide-react'
 import LoadingSpinner from '../components/LoadingSpinner'
+import WorkOrderCompletionModal from '../components/WorkOrderCompletionModal'
 
 export default function WorkOrderList() {
+  const navigate = useNavigate()
+  const queryClient = useQueryClient()
   const [searchParams] = useSearchParams()
   const [searchTerm, setSearchTerm] = useState('')
-  const [statusFilter, setStatusFilter] = useState('all')
+  const [statusFilter, setStatusFilter] = useState('open') // Default: Open tab
   const [priorityFilter, setPriorityFilter] = useState('all')
   const [typeFilter, setTypeFilter] = useState('corrective') // Default: doar work orders normale
+  const [showCompletionModal, setShowCompletionModal] = useState(false)
+  const [selectedWorkOrder, setSelectedWorkOrder] = useState(null)
+  const [imageViewerOpen, setImageViewerOpen] = useState(false)
+  const [viewingImage, setViewingImage] = useState(null)
 
   // Set initial status filter from URL query parameter
   useEffect(() => {
@@ -46,6 +57,57 @@ export default function WorkOrderList() {
       
       if (error) throw error
       return data
+    },
+  })
+
+  // Start work mutation (open/on_hold → in_progress)
+  const startWorkMutation = useMutation({
+    mutationFn: async (id) => {
+      const { error } = await supabase
+        .from('work_orders')
+        .update({ status: 'in_progress' })
+        .eq('id', id)
+      
+      if (error) throw error
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries(['work-orders'])
+      // Schimbă automat tab-ul la "In Progress" după start
+      setStatusFilter('in_progress')
+    },
+  })
+
+  // Cancel work order mutation (schimbă status la cancelled în loc să șteargă din DB)
+  const cancelMutation = useMutation({
+    mutationFn: async (id) => {
+      const { error } = await supabase
+        .from('work_orders')
+        .update({ status: 'cancelled' })
+        .eq('id', id)
+      
+      if (error) throw error
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries(['work-orders'])
+      // Schimbă automat tab-ul la "Cancelled" pentru a vedea work order-ul anulat
+      setStatusFilter('cancelled')
+    },
+  })
+
+  // Restore work order mutation (cancelled → open)
+  const restoreMutation = useMutation({
+    mutationFn: async (id) => {
+      const { error } = await supabase
+        .from('work_orders')
+        .update({ status: 'open' })
+        .eq('id', id)
+      
+      if (error) throw error
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries(['work-orders'])
+      // Schimbă automat tab-ul la "Open" pentru a vedea work order-ul restaurat
+      setStatusFilter('open')
     },
   })
 
@@ -169,6 +231,95 @@ export default function WorkOrderList() {
         return 'Inspecție'
       default:
         return type
+    }
+  }
+
+  // Extract image URL from description or image_url field
+  const extractImageUrl = (wo) => {
+    // First check if there's an image_url field directly
+    if (wo.image_url) {
+      return wo.image_url
+    }
+    
+    // Then check description for "Poza: URL" pattern
+    if (wo.description) {
+      const match = wo.description.match(/Poza:\s*(https?:\/\/[^\s]+)/i)
+      if (match && match[1]) {
+        return match[1]
+      }
+    }
+    
+    return null
+  }
+
+  // Get description without the image URL
+  const getDescriptionWithoutImage = (description) => {
+    if (!description) return ''
+    
+    // Remove the "Poza: URL" part from description
+    return description.replace(/\n\nPoza:\s*https?:\/\/[^\s]+/i, '').trim()
+  }
+
+  // Get card color classes based on priority and status
+  const getCardClasses = (wo) => {
+    // Completed and cancelled work orders - neutral gray
+    if (wo.status === 'completed') {
+      return 'card bg-green-50 border-green-200'
+    }
+    if (wo.status === 'cancelled') {
+      return 'card bg-gray-50 border-gray-300'
+    }
+    
+    // Color based on priority for active work orders
+    switch (wo.priority) {
+      case 'critical':
+        return 'card bg-red-50 border-red-300 border-2'
+      case 'high':
+        return 'card bg-orange-50 border-orange-300 border-2'
+      case 'medium':
+        return 'card bg-blue-50 border-blue-200'
+      case 'low':
+        return 'card bg-gray-50 border-gray-200'
+      default:
+        return 'card'
+    }
+  }
+
+  // Get icon background color
+  const getIconBgColor = (wo) => {
+    if (wo.status === 'completed') return 'bg-green-200'
+    if (wo.status === 'cancelled') return 'bg-gray-200'
+    
+    switch (wo.priority) {
+      case 'critical':
+        return 'bg-red-200'
+      case 'high':
+        return 'bg-orange-200'
+      case 'medium':
+        return 'bg-blue-200'
+      case 'low':
+        return 'bg-gray-200'
+      default:
+        return 'bg-gray-200'
+    }
+  }
+
+  // Get icon text color
+  const getIconTextColor = (wo) => {
+    if (wo.status === 'completed') return 'text-green-700'
+    if (wo.status === 'cancelled') return 'text-gray-600'
+    
+    switch (wo.priority) {
+      case 'critical':
+        return 'text-red-700'
+      case 'high':
+        return 'text-orange-700'
+      case 'medium':
+        return 'text-blue-700'
+      case 'low':
+        return 'text-gray-600'
+      default:
+        return 'text-gray-600'
     }
   }
 
@@ -380,7 +531,7 @@ export default function WorkOrderList() {
               ? 'Încearcă să ajustezi filtrele'
               : 'Creează primul work order pentru a începe'}
           </p>
-          {!searchTerm && statusFilter === 'all' && priorityFilter === 'all' && typeFilter === 'corrective' && (
+          {!searchTerm && statusFilter === 'open' && priorityFilter === 'all' && typeFilter === 'corrective' && (
             <Link to="/work-orders/new" className="btn-primary inline-flex items-center">
               <Plus className="w-5 h-5 mr-2" />
               Work Order Nou
@@ -390,79 +541,230 @@ export default function WorkOrderList() {
       ) : (
         <div className="space-y-4">
           {filteredWorkOrders.map((wo) => (
-            <Link
+            <div
               key={wo.id}
-              to={`/work-orders/${wo.id}`}
-              className="block card hover:shadow-lg transition-all duration-200 hover:border-primary-300"
+              className={getCardClasses(wo)}
             >
-              <div className="flex items-start space-x-4">
-                {/* Status Icon */}
-                <div className="flex-shrink-0 mt-1">
-                  {getStatusIcon(wo.status)}
+              {/* Flex column pe mobil, row pe desktop */}
+              <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
+                {/* Content - flex-1 pentru a ocupa spațiul disponibil */}
+                <div className="flex-1">
+                  <div className="flex items-start space-x-4">
+                    {/* Icon colorat cu background */}
+                    <div className={`p-2 rounded-lg ${getIconBgColor(wo)}`}>
+                      <Wrench className={`w-6 h-6 ${getIconTextColor(wo)}`} />
+                    </div>
+
+                    <div className="flex-1">
+                      {/* Title cu link */}
+                      <Link
+                        to={`/work-orders/${wo.id}`}
+                        className="text-lg font-semibold text-gray-900 hover:text-primary-600 mb-2 inline-block"
+                      >
+                        {wo.title}
+                      </Link>
+
+                      {/* Equipment */}
+                      {wo.equipment && (
+                        <p className="text-sm text-gray-600 mb-1">
+                          Equipment: <span className="font-medium">{wo.equipment.name}</span>
+                          {wo.equipment.serial_number && ` (SN: ${wo.equipment.serial_number})`}
+                        </p>
+                      )}
+
+                      {/* Location */}
+                      {wo.location && (
+                        <p className="text-sm text-gray-600 mb-2">
+                          Location: <span className="font-medium">{wo.location.name}</span>
+                          {wo.location.building && ` - ${wo.location.building}`}
+                          {wo.location.floor && ` (Floor ${wo.location.floor})`}
+                        </p>
+                      )}
+
+                      {/* Description */}
+                      {wo.description && (
+                        <p className="text-sm text-gray-600 mb-3 line-clamp-2">
+                          {getDescriptionWithoutImage(wo.description)}
+                        </p>
+                      )}
+
+                      {/* Image Thumbnail - dacă există imagine atașată */}
+                      {extractImageUrl(wo) && (
+                        <div className="mb-3">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              setViewingImage(extractImageUrl(wo))
+                              setImageViewerOpen(true)
+                            }}
+                            className="relative group"
+                          >
+                            <img
+                              src={extractImageUrl(wo)}
+                              alt="Issue photo"
+                              className="h-24 w-24 object-cover rounded-lg border-2 border-gray-200 hover:border-primary-500 transition-all"
+                            />
+                            <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-30 rounded-lg transition-all flex items-center justify-center">
+                              <Search className="w-6 h-6 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+                            </div>
+                          </button>
+                          <p className="text-xs text-gray-500 mt-1">Click pentru a vizualiza</p>
+                        </div>
+                      )}
+
+                      {/* Badges and Meta */}
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className={`badge ${getStatusBadge(wo.status)} capitalize`}>
+                          {wo.status.replace('_', ' ')}
+                        </span>
+                        <span className={`badge ${getPriorityBadge(wo.priority)} capitalize inline-flex items-center`}>
+                          {getPriorityIcon(wo.priority)}
+                          <span className={getPriorityIcon(wo.priority) ? 'ml-1' : ''}>
+                            {wo.priority}
+                          </span>
+                        </span>
+                        {wo.type && (
+                          <span className={`badge ${getTypeBadge(wo.type)} capitalize inline-flex items-center`}>
+                            {getTypeIcon(wo.type)}
+                            <span className={getTypeIcon(wo.type) ? 'ml-1' : ''}>
+                              {getTypeLabel(wo.type)}
+                            </span>
+                          </span>
+                        )}
+                        {wo.assigned_to_user && (
+                          <span className="text-sm text-gray-600">
+                            Assigned: <span className="font-medium">{wo.assigned_to_user.full_name}</span>
+                          </span>
+                        )}
+                        <span className="text-sm text-gray-500 flex items-center">
+                          <Calendar className="w-4 h-4 mr-1" />
+                          {new Date(wo.created_at).toLocaleDateString()}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
                 </div>
 
-                {/* Content */}
-                <div className="flex-1 min-w-0">
-                  {/* Title and Equipment/Location */}
-                  <div className="mb-3">
-                    <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                      {wo.title}
-                    </h3>
-                    {wo.equipment && (
-                      <p className="text-sm text-gray-600">
-                        Equipment: <span className="font-medium">{wo.equipment.name}</span>
-                        {wo.equipment.serial_number && ` (SN: ${wo.equipment.serial_number})`}
-                      </p>
-                    )}
-                    {wo.location && (
-                      <p className="text-sm text-gray-600">
-                        Location: <span className="font-medium">{wo.location.name}</span>
-                        {wo.location.building && ` - ${wo.location.building}`}
-                        {wo.location.floor && ` (Floor ${wo.location.floor})`}
-                      </p>
-                    )}
-                  </div>
-
-                  {/* Description */}
-                  {wo.description && (
-                    <p className="text-sm text-gray-600 mb-3 line-clamp-2">
-                      {wo.description}
-                    </p>
+                {/* Action Buttons - row pe mobil (jos), col pe desktop (lateral) */}
+                <div className="flex flex-row md:flex-col items-center md:items-end justify-end gap-2 pt-4 md:pt-0 mt-4 md:mt-0 border-t md:border-t-0 border-gray-200 md:ml-4">
+                  {/* Start Work Button - pentru open și on_hold */}
+                  {(wo.status === 'open' || wo.status === 'on_hold') && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        startWorkMutation.mutate(wo.id)
+                      }}
+                      disabled={startWorkMutation.isLoading}
+                      className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
+                      title="Start Work"
+                    >
+                      <Play className="w-5 h-5" />
+                    </button>
                   )}
 
-                  {/* Badges and Meta */}
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className={`badge ${getStatusBadge(wo.status)} capitalize`}>
-                      {wo.status.replace('_', ' ')}
-                    </span>
-                    <span className={`badge ${getPriorityBadge(wo.priority)} capitalize inline-flex items-center`}>
-                      {getPriorityIcon(wo.priority)}
-                      <span className={getPriorityIcon(wo.priority) ? 'ml-1' : ''}>
-                        {wo.priority}
-                      </span>
-                    </span>
-                    {wo.type && (
-                      <span className={`badge ${getTypeBadge(wo.type)} capitalize inline-flex items-center`}>
-                        {getTypeIcon(wo.type)}
-                        <span className={getTypeIcon(wo.type) ? 'ml-1' : ''}>
-                          {getTypeLabel(wo.type)}
-                        </span>
-                      </span>
-                    )}
-                    {wo.assigned_to_user && (
-                      <span className="text-sm text-gray-600">
-                        Assigned to: <span className="font-medium">{wo.assigned_to_user.full_name}</span>
-                      </span>
-                    )}
-                    <span className="text-sm text-gray-500 flex items-center ml-auto">
-                      <Calendar className="w-4 h-4 mr-1" />
-                      {new Date(wo.created_at).toLocaleDateString()}
-                    </span>
-                  </div>
+                  {/* Complete Work Order Button - doar pentru in_progress */}
+                  {wo.status === 'in_progress' && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setSelectedWorkOrder(wo)
+                        setShowCompletionModal(true)
+                      }}
+                      className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
+                      title="Complete Work Order"
+                    >
+                      <CheckCircle className="w-5 h-5" />
+                    </button>
+                  )}
+
+                  {/* Restore Button - doar pentru cancelled */}
+                  {wo.status === 'cancelled' && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        if (window.confirm('Restaurezi acest work order? Va fi mutat înapoi în tab-ul "Open".')) {
+                          restoreMutation.mutate(wo.id)
+                        }
+                      }}
+                      disabled={restoreMutation.isLoading}
+                      className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                      title="Restore Work Order"
+                    >
+                      <Play className="w-5 h-5 rotate-180" />
+                    </button>
+                  )}
+
+                  {/* Edit Button - doar pentru work orders nefinalizate */}
+                  {wo.status !== 'completed' && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        navigate(`/work-orders/${wo.id}/edit`)
+                      }}
+                      className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                      title="Edit"
+                    >
+                      <Edit className="w-5 h-5" />
+                    </button>
+                  )}
+
+                  {/* Cancel Button - doar pentru work orders nefinalizate și neanulate */}
+                  {wo.status !== 'completed' && wo.status !== 'cancelled' && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        if (window.confirm('Anulezi acest work order? Îl poți găsi mai târziu în tab-ul "Cancelled".')) {
+                          cancelMutation.mutate(wo.id)
+                        }
+                      }}
+                      disabled={cancelMutation.isLoading}
+                      className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                      title="Cancel Work Order"
+                    >
+                      <Trash2 className="w-5 h-5" />
+                    </button>
+                  )}
                 </div>
               </div>
-            </Link>
+            </div>
           ))}
+        </div>
+      )}
+
+      {/* Completion Modal */}
+      {showCompletionModal && selectedWorkOrder && (
+        <WorkOrderCompletionModal
+          workOrder={selectedWorkOrder}
+          onClose={() => {
+            setShowCompletionModal(false)
+            setSelectedWorkOrder(null)
+          }}
+        />
+      )}
+
+      {/* Image Viewer Modal */}
+      {imageViewerOpen && viewingImage && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-90 flex items-center justify-center z-50 p-4"
+          onClick={() => setImageViewerOpen(false)}
+        >
+          <button
+            onClick={() => setImageViewerOpen(false)}
+            className="absolute top-4 right-4 text-white hover:text-gray-300 p-2"
+          >
+            <XCircle className="w-8 h-8" />
+          </button>
+          <div className="max-w-5xl max-h-full">
+            <img
+              src={viewingImage}
+              alt="Work order issue"
+              className="max-w-full max-h-[90vh] object-contain rounded-lg"
+              onClick={(e) => e.stopPropagation()}
+            />
+            <p className="text-white text-center mt-4 text-sm">
+              Click oriunde pentru a închide
+            </p>
+          </div>
         </div>
       )}
     </div>
