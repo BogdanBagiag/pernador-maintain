@@ -2,7 +2,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
-import { ArrowLeft, Edit, MapPin, Calendar, Hash, Building, Trash2 } from 'lucide-react'
+import { ArrowLeft, Edit, MapPin, Calendar, Hash, Building, Trash2, Shield, AlertCircle } from 'lucide-react'
 import LoadingSpinner from '../components/LoadingSpinner'
 import QRCodeGenerator from '../components/QRCodeGenerator'
 
@@ -202,11 +202,79 @@ export default function EquipmentDetail() {
                 <div>
                   <label className="block text-sm font-medium text-gray-500 mb-1">
                     <Calendar className="w-4 h-4 inline mr-1" />
-                    Purchase Date
+                    Data Achiziție
                   </label>
                   <p className="text-gray-900">
-                    {new Date(equipment.purchase_date).toLocaleDateString()}
+                    {new Date(equipment.purchase_date).toLocaleDateString('ro-RO', {
+                      year: 'numeric',
+                      month: 'long',
+                      day: 'numeric'
+                    })}
                   </p>
+                </div>
+              )}
+
+              {/* Warranty Information */}
+              {equipment.warranty_months && equipment.purchase_date && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-500 mb-1">
+                    <Shield className="w-4 h-4 inline mr-1" />
+                    Garanție
+                  </label>
+                  {(() => {
+                    const purchaseDate = new Date(equipment.purchase_date)
+                    const warrantyMonths = parseInt(equipment.warranty_months)
+                    const expiryDate = new Date(purchaseDate)
+                    expiryDate.setMonth(expiryDate.getMonth() + warrantyMonths)
+                    
+                    const isExpired = expiryDate < new Date()
+                    const daysLeft = Math.ceil((expiryDate - new Date()) / (1000 * 60 * 60 * 24))
+                    const monthsLeft = Math.ceil(daysLeft / 30)
+                    
+                    return (
+                      <div className="space-y-2">
+                        <p className="text-gray-900">
+                          {warrantyMonths} {warrantyMonths === 1 ? 'lună' : 'luni'}
+                        </p>
+                        <div className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
+                          isExpired 
+                            ? 'bg-red-100 text-red-800' 
+                            : daysLeft <= 90 
+                              ? 'bg-yellow-100 text-yellow-800'
+                              : 'bg-green-100 text-green-800'
+                        }`}>
+                          {isExpired ? (
+                            <>
+                              <AlertCircle className="w-4 h-4 mr-1" />
+                              Expirată la {expiryDate.toLocaleDateString('ro-RO', { 
+                                year: 'numeric', 
+                                month: 'long', 
+                                day: 'numeric' 
+                              })}
+                            </>
+                          ) : daysLeft <= 90 ? (
+                            <>
+                              <AlertCircle className="w-4 h-4 mr-1" />
+                              Expiră la {expiryDate.toLocaleDateString('ro-RO', { 
+                                year: 'numeric', 
+                                month: 'long', 
+                                day: 'numeric' 
+                              })} ({daysLeft} zile)
+                            </>
+                          ) : (
+                            <>
+                              <Shield className="w-4 h-4 mr-1" />
+                              Valabilă până la {expiryDate.toLocaleDateString('ro-RO', { 
+                                year: 'numeric', 
+                                month: 'long', 
+                                day: 'numeric' 
+                              })} ({monthsLeft} luni)
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    )
+                  })()}
                 </div>
               )}
             </div>

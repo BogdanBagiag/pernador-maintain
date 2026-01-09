@@ -127,6 +127,28 @@ export default function EquipmentList() {
     }
   }
 
+  // Calculate warranty status
+  const getWarrantyInfo = (equipment) => {
+    if (!equipment.warranty_months || !equipment.purchase_date) {
+      return null
+    }
+
+    const purchaseDate = new Date(equipment.purchase_date)
+    const warrantyMonths = parseInt(equipment.warranty_months)
+    const expiryDate = new Date(purchaseDate)
+    expiryDate.setMonth(expiryDate.getMonth() + warrantyMonths)
+    
+    const isExpired = expiryDate < new Date()
+    const daysLeft = Math.ceil((expiryDate - new Date()) / (1000 * 60 * 60 * 24))
+    
+    return {
+      isExpired,
+      daysLeft,
+      expiryDate,
+      status: isExpired ? 'expired' : daysLeft <= 90 ? 'expiring' : 'valid'
+    }
+  }
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -422,9 +444,34 @@ export default function EquipmentList() {
                       {eq.location?.name || '-'}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full border ${getStatusColor(eq.status)}`}>
-                        {eq.status}
-                      </span>
+                      <div className="flex flex-col gap-1">
+                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full border ${getStatusColor(eq.status)}`}>
+                          {eq.status}
+                        </span>
+                        {/* Warranty Badge */}
+                        {(() => {
+                          const warrantyInfo = getWarrantyInfo(eq)
+                          if (!warrantyInfo) return null
+                          
+                          const badgeStyles = {
+                            expired: 'bg-red-100 text-red-800 border-red-200',
+                            expiring: 'bg-yellow-100 text-yellow-800 border-yellow-200',
+                            valid: 'bg-blue-100 text-blue-800 border-blue-200'
+                          }
+                          
+                          const labels = {
+                            expired: 'Garanție expirată',
+                            expiring: `Garanție ${warrantyInfo.daysLeft}z`,
+                            valid: 'În garanție'
+                          }
+                          
+                          return (
+                            <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full border ${badgeStyles[warrantyInfo.status]}`}>
+                              {labels[warrantyInfo.status]}
+                            </span>
+                          )
+                        })()}
+                      </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                       <Link

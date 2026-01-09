@@ -21,6 +21,7 @@ export default function EquipmentForm() {
     inventory_number: '',
     location_id: '',
     purchase_date: '',
+    warranty_months: '',
     description: '',
     status: 'operational',
   })
@@ -70,6 +71,7 @@ export default function EquipmentForm() {
         inventory_number: equipment.inventory_number || '',
         location_id: equipment.location_id || '',
         purchase_date: equipment.purchase_date || '',
+        warranty_months: equipment.warranty_months || '',
         description: equipment.description || '',
         status: equipment.status || 'operational',
       })
@@ -131,6 +133,7 @@ export default function EquipmentForm() {
       const dataToSubmit = {
         ...formData,
         purchase_date: formData.purchase_date || null,
+        warranty_months: formData.warranty_months ? parseInt(formData.warranty_months) : null,
         serial_number: formData.serial_number?.trim() || null,
         inventory_number: formData.inventory_number?.trim() || null,
       }
@@ -295,20 +298,73 @@ export default function EquipmentForm() {
             )}
           </div>
 
-          {/* Purchase Date */}
-          <div>
-            <label htmlFor="purchase_date" className="block text-sm font-medium text-gray-700 mb-1">
-              Purchase Date <span className="text-gray-400 text-xs">(optional)</span>
-            </label>
-            <input
-              id="purchase_date"
-              name="purchase_date"
-              type="date"
-              value={formData.purchase_date}
-              onChange={handleChange}
-              className="input"
-            />
+          {/* Purchase Date și Warranty */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Purchase Date */}
+            <div>
+              <label htmlFor="purchase_date" className="block text-sm font-medium text-gray-700 mb-1">
+                Data Achiziție <span className="text-gray-400 text-xs">(opțional)</span>
+              </label>
+              <input
+                id="purchase_date"
+                name="purchase_date"
+                type="date"
+                value={formData.purchase_date}
+                onChange={handleChange}
+                className="input"
+              />
+            </div>
+
+            {/* Warranty Period */}
+            <div>
+              <label htmlFor="warranty_months" className="block text-sm font-medium text-gray-700 mb-1">
+                Garanție (luni) <span className="text-gray-400 text-xs">(opțional)</span>
+              </label>
+              <input
+                id="warranty_months"
+                name="warranty_months"
+                type="number"
+                min="0"
+                step="1"
+                value={formData.warranty_months}
+                onChange={handleChange}
+                className="input"
+                placeholder="ex: 12, 24, 36"
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                Număr de luni (ex: 12 luni = 1 an)
+              </p>
+            </div>
           </div>
+
+          {/* Warranty Expiration Info */}
+          {formData.purchase_date && formData.warranty_months && parseInt(formData.warranty_months) > 0 && (
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <p className="text-sm text-blue-800">
+                <span className="font-semibold">Garanția expiră:</span>{' '}
+                {(() => {
+                  const purchaseDate = new Date(formData.purchase_date)
+                  const warrantyMonths = parseInt(formData.warranty_months)
+                  const expiryDate = new Date(purchaseDate)
+                  expiryDate.setMonth(expiryDate.getMonth() + warrantyMonths)
+                  
+                  const isExpired = expiryDate < new Date()
+                  const daysLeft = Math.ceil((expiryDate - new Date()) / (1000 * 60 * 60 * 24))
+                  
+                  return (
+                    <span className={isExpired ? 'text-red-600 font-semibold' : ''}>
+                      {expiryDate.toLocaleDateString('ro-RO', { 
+                        year: 'numeric', 
+                        month: 'long', 
+                        day: 'numeric' 
+                      })}
+                      {isExpired ? ' (Expirată)' : ` (${daysLeft} zile rămase)`}
+                    </span>
+                  )
+                })()}
+              </p>
+            </div>
+          )}
 
           {/* Description */}
           <div>
