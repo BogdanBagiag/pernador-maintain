@@ -20,6 +20,7 @@ export default function WorkOrderList() {
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
   const [priorityFilter, setPriorityFilter] = useState('all')
+  const [typeFilter, setTypeFilter] = useState('corrective') // Default: doar work orders normale
 
   // Set initial status filter from URL query parameter
   useEffect(() => {
@@ -59,15 +60,22 @@ export default function WorkOrderList() {
     
     const matchesStatus = statusFilter === 'all' || wo.status === statusFilter
     const matchesPriority = priorityFilter === 'all' || wo.priority === priorityFilter
+    const matchesType = typeFilter === 'all' || wo.type === typeFilter
 
-    return matchesSearch && matchesStatus && matchesPriority
+    return matchesSearch && matchesStatus && matchesPriority && matchesType
   })
 
-  // Count by status
+  // Count by status - only for work orders matching the type filter
   const statusCounts = workOrders?.reduce((acc, wo) => {
-    acc[wo.status] = (acc[wo.status] || 0) + 1
+    // Only count work orders that match the type filter
+    if (typeFilter === 'all' || wo.type === typeFilter) {
+      acc[wo.status] = (acc[wo.status] || 0) + 1
+    }
     return acc
   }, {}) || {}
+
+  // Calculate total count for the type filter
+  const totalCount = workOrders?.filter(wo => typeFilter === 'all' || wo.type === typeFilter).length || 0
 
   const getStatusIcon = (status) => {
     switch (status) {
@@ -125,6 +133,45 @@ export default function WorkOrderList() {
     return null
   }
 
+  const getTypeBadge = (type) => {
+    switch (type) {
+      case 'corrective':
+        return 'badge-danger' // Roșu - probleme/erori
+      case 'preventive':
+        return 'badge-success' // Verde - mentenanță preventivă
+      case 'inspection':
+        return 'badge-info' // Albastru - inspecții
+      default:
+        return 'badge-secondary'
+    }
+  }
+
+  const getTypeIcon = (type) => {
+    switch (type) {
+      case 'corrective':
+        return <AlertTriangle className="w-4 h-4" />
+      case 'preventive':
+        return <Calendar className="w-4 h-4" />
+      case 'inspection':
+        return <Search className="w-4 h-4" />
+      default:
+        return null
+    }
+  }
+
+  const getTypeLabel = (type) => {
+    switch (type) {
+      case 'corrective':
+        return 'Raportare'
+      case 'preventive':
+        return 'Mentenanță'
+      case 'inspection':
+        return 'Inspecție'
+      default:
+        return type
+    }
+  }
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -167,7 +214,7 @@ export default function WorkOrderList() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs text-gray-600 font-medium">All Orders</p>
-                <p className="text-2xl font-bold text-gray-900">{workOrders?.length || 0}</p>
+                <p className="text-2xl font-bold text-gray-900">{totalCount}</p>
               </div>
               <Filter className="w-8 h-8 text-gray-600 opacity-50" />
             </div>
@@ -267,7 +314,7 @@ export default function WorkOrderList() {
 
       {/* Filters */}
       <div className="card mb-6">
-        <div className="grid md:grid-cols-2 gap-4">
+        <div className="grid md:grid-cols-3 gap-4">
           {/* Search */}
           <div className="relative">
             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -299,6 +346,23 @@ export default function WorkOrderList() {
               <option value="low">Low</option>
             </select>
           </div>
+
+          {/* Type Filter */}
+          <div className="relative">
+            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              <Filter className="h-5 w-5 text-gray-400" />
+            </div>
+            <select
+              value={typeFilter}
+              onChange={(e) => setTypeFilter(e.target.value)}
+              className="input pl-10"
+            >
+              <option value="corrective">Doar Raportări</option>
+              <option value="preventive">Doar Mentenanță Preventivă</option>
+              <option value="inspection">Doar Inspecții</option>
+              <option value="all">Toate Tipurile</option>
+            </select>
+          </div>
         </div>
       </div>
 
@@ -307,19 +371,19 @@ export default function WorkOrderList() {
         <div className="card text-center py-12">
           <Wrench className="w-16 h-16 text-gray-400 mx-auto mb-4" />
           <h3 className="text-lg font-medium text-gray-900 mb-2">
-            {searchTerm || statusFilter !== 'all' || priorityFilter !== 'all' 
-              ? 'No work orders found' 
-              : 'No work orders yet'}
+            {searchTerm || statusFilter !== 'all' || priorityFilter !== 'all' || typeFilter !== 'corrective'
+              ? 'Nu s-au găsit work orders' 
+              : 'Niciun work order încă'}
           </h3>
           <p className="text-gray-600 mb-4">
-            {searchTerm || statusFilter !== 'all' || priorityFilter !== 'all'
-              ? 'Try adjusting your filters'
-              : 'Create your first work order to get started'}
+            {searchTerm || statusFilter !== 'all' || priorityFilter !== 'all' || typeFilter !== 'corrective'
+              ? 'Încearcă să ajustezi filtrele'
+              : 'Creează primul work order pentru a începe'}
           </p>
-          {!searchTerm && statusFilter === 'all' && priorityFilter === 'all' && (
+          {!searchTerm && statusFilter === 'all' && priorityFilter === 'all' && typeFilter === 'corrective' && (
             <Link to="/work-orders/new" className="btn-primary inline-flex items-center">
               <Plus className="w-5 h-5 mr-2" />
-              New Work Order
+              Work Order Nou
             </Link>
           )}
         </div>
@@ -378,8 +442,11 @@ export default function WorkOrderList() {
                       </span>
                     </span>
                     {wo.type && (
-                      <span className="badge badge-secondary capitalize">
-                        {wo.type}
+                      <span className={`badge ${getTypeBadge(wo.type)} capitalize inline-flex items-center`}>
+                        {getTypeIcon(wo.type)}
+                        <span className={getTypeIcon(wo.type) ? 'ml-1' : ''}>
+                          {getTypeLabel(wo.type)}
+                        </span>
                       </span>
                     )}
                     {wo.assigned_to_user && (
