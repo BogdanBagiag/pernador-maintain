@@ -27,6 +27,7 @@ import PublicLocationWrapper from './pages/PublicLocationWrapper'
 import PublicScanWrapper from './pages/PublicScanWrapper'
 import ScanPage from './pages/ScanPage'
 import ReportIssue from './pages/ReportIssue'
+import PendingApproval from './pages/PendingApproval'
 
 // Components
 import Layout from './components/Layout'
@@ -43,7 +44,7 @@ const queryClient = new QueryClient({
 
 // Protected Route wrapper
 function ProtectedRoute({ children }) {
-  const { user, loading } = useAuth()
+  const { user, profile, loading } = useAuth()
 
   if (loading) {
     return <LoadingSpinner />
@@ -51,6 +52,11 @@ function ProtectedRoute({ children }) {
 
   if (!user) {
     return <Navigate to="/login" replace />
+  }
+
+  // Check if user is approved
+  if (profile && profile.is_approved === false) {
+    return <Navigate to="/pending-approval" replace />
   }
 
   return children
@@ -109,6 +115,9 @@ function App() {
             
             {/* Public Location Route - Smart Redirect */}
             <Route path="/locations/:id" element={<PublicLocationWrapper />} />
+
+            {/* Pending Approval Route (Authenticated but not approved) */}
+            <Route path="/pending-approval" element={<PendingApproval />} />
 
 
             {/* Protected Routes */}

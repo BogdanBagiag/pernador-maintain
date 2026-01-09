@@ -75,6 +75,25 @@ export const AuthProvider = ({ children }) => {
       }
     })
     if (error) throw error
+    
+    // Create profile with is_approved=false (awaiting admin approval)
+    if (data.user) {
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .insert({
+          id: data.user.id,
+          email: email,
+          full_name: fullName,
+          role: 'requester',
+          is_approved: false // Needs admin approval
+        })
+      
+      if (profileError) {
+        console.error('Error creating profile:', profileError)
+        // Don't throw - the auth user is created, profile might already exist
+      }
+    }
+    
     return data
   }
 

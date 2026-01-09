@@ -14,7 +14,9 @@ import {
   X,
   AlertCircle,
   Key,
-  Eye
+  Eye,
+  Clock,
+  UserCheck
 } from 'lucide-react'
 import LoadingSpinner from '../components/LoadingSpinner'
 import UserActivityModal from '../components/UserActivityModal'
@@ -26,18 +28,28 @@ export default function UserManagement() {
   const [showInviteModal, setShowInviteModal] = useState(false)
   const [editingUser, setEditingUser] = useState(null)
   const [showDeletedUsers, setShowDeletedUsers] = useState(false)
+  const [showPendingUsers, setShowPendingUsers] = useState(false)
   const [resetPasswordUser, setResetPasswordUser] = useState(null)
   const [viewingUser, setViewingUser] = useState(null)
 
   // Fetch active users
   const { data: users, isLoading } = useQuery({
-    queryKey: ['users', showDeletedUsers],
+    queryKey: ['users', showDeletedUsers, showPendingUsers],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from('profiles')
         .select('*')
-        .eq('is_active', !showDeletedUsers)
         .order('created_at', { ascending: false })
+      
+      if (showPendingUsers) {
+        // Show only pending approval users
+        query = query.eq('is_approved', false).eq('is_active', true)
+      } else {
+        // Show active/deleted users
+        query = query.eq('is_active', !showDeletedUsers)
+      }
+      
+      const { data, error } = await query
       if (error) throw error
       return data
     },
@@ -104,6 +116,48 @@ export default function UserManagement() {
     },
     onError: (error) => {
       alert('Failed to reactivate user: ' + error.message)
+    }
+  })
+
+  // Approve user mutation
+  const approveUserMutation = useMutation({
+    mutationFn: async (userId) => {
+      const { data, error } = await supabase
+        .from('profiles')
+        .update({ is_approved: true })
+        .eq('id', userId)
+        .select()
+      
+      if (error) throw error
+      return data
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['users'] })
+    },
+    onError: (error) => {
+      console.error('Approve user error:', error)
+      alert('Eroare la aprobarea utilizatorului: ' + error.message)
+    }
+  })
+
+  // Reject user mutation (delete account)
+  const rejectUserMutation = useMutation({
+    mutationFn: async (userId) => {
+      const { data, error } = await supabase
+        .from('profiles')
+        .update({ is_active: false })
+        .eq('id', userId)
+        .select()
+      
+      if (error) throw error
+      return data
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['users'] })
+    },
+    onError: (error) => {
+      console.error('Reject user error:', error)
+      alert('Eroare la respingerea utilizatorului: ' + error.message)
     }
   })
 
@@ -184,10 +238,13 @@ export default function UserManagement() {
         <div className="border-b border-gray-200">
           <nav className="-mb-px flex space-x-8">
             <button
-              onClick={() => setShowDeletedUsers(false)}
+              onClick={() => {
+                setShowDeletedUsers(false)
+                setShowPendingUsers(false)
+              }}
               className={`
                 py-4 px-1 border-b-2 font-medium text-sm transition-colors
-                ${!showDeletedUsers
+                ${!showDeletedUsers && !showPendingUsers
                   ? 'border-primary-500 text-primary-600'
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                 }
@@ -195,8 +252,8 @@ export default function UserManagement() {
             >
               <div className="flex items-center">
                 <Users className="w-5 h-5 mr-2" />
-                Active Users
-                {users && !showDeletedUsers && (
+                Utilizatori Activi
+                {users && !showDeletedUsers && !showPendingUsers && (
                   <span className="ml-2 bg-primary-100 text-primary-600 py-0.5 px-2.5 rounded-full text-xs font-medium">
                     {users.length}
                   </span>
@@ -205,7 +262,34 @@ export default function UserManagement() {
             </button>
             
             <button
-              onClick={() => setShowDeletedUsers(true)}
+              onClick={() => {
+                setShowDeletedUsers(false)
+                setShowPendingUsers(true)
+              }}
+              className={`
+                py-4 px-1 border-b-2 font-medium text-sm transition-colors
+                ${showPendingUsers
+                  ? 'border-yellow-500 text-yellow-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }
+              `}
+            >
+              <div className="flex items-center">
+                <Clock className="w-5 h-5 mr-2" />
+                În Așteptare
+                {users && showPendingUsers && (
+                  <span className="ml-2 bg-yellow-100 text-yellow-600 py-0.5 px-2.5 rounded-full text-xs font-medium">
+                    {users.length}
+                  </span>
+                )}
+              </div>
+            </button>
+            
+            <button
+              onClick={() => {
+                setShowDeletedUsers(true)
+                setShowPendingUsers(false)
+              }}
               className={`
                 py-4 px-1 border-b-2 font-medium text-sm transition-colors
                 ${showDeletedUsers
@@ -216,7 +300,7 @@ export default function UserManagement() {
             >
               <div className="flex items-center">
                 <Trash2 className="w-5 h-5 mr-2" />
-                Deleted Users
+                Utilizatori Șterși
                 {users && showDeletedUsers && (
                   <span className="ml-2 bg-red-100 text-red-600 py-0.5 px-2.5 rounded-full text-xs font-medium">
                     {users.length}
@@ -343,7 +427,37 @@ export default function UserManagement() {
                     {new Date(userData.created_at).toLocaleDateString()}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                    {showDeletedUsers ? (
+                    {showPendingUsers ? (
+                      // Pending users - show Approve and Reject buttons
+                      <div className="flex items-center justify-end gap-2">
+                        <button
+                          onClick={() => {
+                            if (window.confirm(`Aprobă contul pentru ${userData.full_name || userData.email}?`)) {
+                              approveUserMutation.mutate(userData.id)
+                            }
+                          }}
+                          disabled={approveUserMutation.isLoading}
+                          className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center"
+                          title="Aprobă utilizatorul"
+                        >
+                          <UserCheck className="w-4 h-4 mr-2" />
+                          Aprobă
+                        </button>
+                        <button
+                          onClick={() => {
+                            if (window.confirm(`Respinge și șterge contul pentru ${userData.full_name || userData.email}?`)) {
+                              rejectUserMutation.mutate(userData.id)
+                            }
+                          }}
+                          disabled={rejectUserMutation.isLoading}
+                          className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center"
+                          title="Respinge utilizatorul"
+                        >
+                          <X className="w-4 h-4 mr-2" />
+                          Respinge
+                        </button>
+                      </div>
+                    ) : showDeletedUsers ? (
                       // Deleted users - show Reactivate button
                       <div className="flex items-center justify-end gap-2">
                         <button
@@ -464,7 +578,7 @@ function ResetPasswordModal({ user, onClose }) {
       // Show instructions instead
       throw new Error('Password reset must be done through Supabase Dashboard')
     } catch (error) {
-      setError('Admin password reset requires Service Role Key configuration.\n\nPlease use Supabase Dashboard:\n1. Go to Authentication → Users\n2. Find user: ' + (user.full_name || user.email) + '\n3. Click "Reset Password"\n4. User will receive reset email')
+      setError('Admin password reset requires Service Role Key configuration.\n\nPlease use Supabase Dashboard:\n1. Go to Authentication â†’ Users\n2. Find user: ' + (user.full_name || user.email) + '\n3. Click "Reset Password"\n4. User will receive reset email')
     } finally {
       setLoading(false)
     }
@@ -496,7 +610,7 @@ function ResetPasswordModal({ user, onClose }) {
                 </button>
               </div>
               <p className="text-xs text-yellow-700 mt-2">
-                ⚠️ Share this password securely with the user
+                âš ï¸ Share this password securely with the user
               </p>
             </div>
 
@@ -533,8 +647,8 @@ function ResetPasswordModal({ user, onClose }) {
                 <p className="font-medium mb-1">{error}</p>
                 {error.includes('Service Role') && (
                   <p className="text-xs mt-2">
-                    Alternative: Go to Supabase Dashboard → Authentication → Users → 
-                    Click user → Reset Password
+                    Alternative: Go to Supabase Dashboard â†’ Authentication â†’ Users â†’ 
+                    Click user â†’ Reset Password
                   </p>
                 )}
               </div>
@@ -705,7 +819,7 @@ function InviteUserModal({ onClose }) {
                   </button>
                 </div>
                 <p className="text-xs text-yellow-700 mt-2">
-                  ⚠️ Save this password - it won't be shown again!
+                  âš ï¸ Save this password - it won't be shown again!
                 </p>
               </div>
 

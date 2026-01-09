@@ -43,9 +43,7 @@ export default function Register() {
     try {
       await signUp(formData.email, formData.password, formData.fullName)
       setSuccess(true)
-      setTimeout(() => {
-        navigate('/dashboard')
-      }, 2000)
+      // Don't auto-redirect - user needs approval first
     } catch (error) {
       setError(error.message || 'Failed to create account')
     } finally {
@@ -73,11 +71,31 @@ export default function Register() {
           )}
 
           {success && (
-            <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg flex items-start">
-              <CheckCircle className="w-5 h-5 text-green-600 mr-2 flex-shrink-0 mt-0.5" />
-              <p className="text-sm text-green-600">
-                Account created successfully! Redirecting...
-              </p>
+            <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+              <div className="flex items-start mb-2">
+                <CheckCircle className="w-5 h-5 text-blue-600 mr-2 flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-sm font-semibold text-blue-900">
+                    Cont creat cu succes!
+                  </p>
+                </div>
+              </div>
+              <div className="ml-7 space-y-2">
+                <p className="text-sm text-blue-800">
+                  Contul tău a fost creat și așteaptă aprobarea unui administrator.
+                </p>
+                <p className="text-sm text-blue-700">
+                  Vei primi acces la aplicație după ce un admin îți va aproba contul.
+                </p>
+                <div className="mt-3 pt-3 border-t border-blue-200">
+                  <Link
+                    to="/login"
+                    className="text-sm font-medium text-blue-600 hover:text-blue-700"
+                  >
+                    ← Înapoi la Login
+                  </Link>
+                </div>
+              </div>
             </div>
           )}
 
@@ -142,7 +160,7 @@ export default function Register() {
                   value={formData.password}
                   onChange={handleChange}
                   className="input pl-10"
-                  placeholder="••••••••"
+                  placeholder="â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢"
                 />
               </div>
               <p className="mt-1 text-xs text-gray-500">Must be at least 6 characters</p>
@@ -165,7 +183,7 @@ export default function Register() {
                   value={formData.confirmPassword}
                   onChange={handleChange}
                   className="input pl-10"
-                  placeholder="••••••••"
+                  placeholder="â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢"
                 />
               </div>
             </div>
