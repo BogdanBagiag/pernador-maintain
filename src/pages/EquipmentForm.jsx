@@ -67,6 +67,7 @@ export default function EquipmentForm() {
         manufacturer: equipment.manufacturer || '',
         model: equipment.model || '',
         serial_number: equipment.serial_number || '',
+        inventory_number: equipment.inventory_number || '',
         location_id: equipment.location_id || '',
         purchase_date: equipment.purchase_date || '',
         description: equipment.description || '',
@@ -126,9 +127,12 @@ export default function EquipmentForm() {
       }
 
       // Convert empty date strings to null for PostgreSQL
+      // Also convert empty serial_number and inventory_number to null to avoid unique constraint violations
       const dataToSubmit = {
         ...formData,
         purchase_date: formData.purchase_date || null,
+        serial_number: formData.serial_number?.trim() || null,
+        inventory_number: formData.inventory_number?.trim() || null,
       }
 
       if (isEditMode) {

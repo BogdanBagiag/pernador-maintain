@@ -188,6 +188,16 @@ export default function EquipmentDetail() {
                 </div>
               )}
 
+              {equipment.inventory_number && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-500 mb-1">
+                    <Hash className="w-4 h-4 inline mr-1" />
+                    Nr. Inventar
+                  </label>
+                  <p className="text-gray-900 font-mono">{equipment.inventory_number}</p>
+                </div>
+              )}
+
               {equipment.purchase_date && (
                 <div>
                   <label className="block text-sm font-medium text-gray-500 mb-1">
@@ -230,7 +240,7 @@ export default function EquipmentDetail() {
                     {(equipment.location.floor || equipment.location.room) && (
                       <p className="text-sm text-gray-600 mt-1">
                         {equipment.location.floor && `Floor: ${equipment.location.floor}`}
-                        {equipment.location.floor && equipment.location.room && ' • '}
+                        {equipment.location.floor && equipment.location.room && ' â€¢ '}
                         {equipment.location.room && `Room: ${equipment.location.room}`}
                       </p>
                     )}
