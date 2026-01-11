@@ -16,6 +16,7 @@ import {
   CheckSquare,
   FileText,
   Users,
+  HelpCircle,
 } from 'lucide-react'
 import { useState } from 'react'
 
@@ -29,6 +30,7 @@ const navigation = [
   { name: 'nav.checklists', href: '/checklist-templates', icon: CheckSquare },
   { name: 'nav.procedures', href: '/procedure-templates', icon: FileText },
   { name: 'nav.reports', href: '/reports', icon: BarChart3 },
+  { name: 'nav.manual', href: '/manual', icon: HelpCircle },
   { name: 'nav.users', href: '/users', icon: Users, adminOnly: true },
   { name: 'nav.settings', href: '/settings', icon: Settings },
 ]
@@ -56,18 +58,18 @@ export default function Layout({ children }) {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 print:bg-white">
+    <div className="min-h-screen bg-gray-50">
       {/* Mobile sidebar backdrop */}
       {sidebarOpen && (
         <div
-          className="print:hidden fixed inset-0 bg-gray-600 bg-opacity-75 z-20 lg:hidden"
+          className="fixed inset-0 bg-gray-600 bg-opacity-75 z-20 lg:hidden"
           onClick={() => setSidebarOpen(false)}
         />
       )}
 
       {/* Sidebar */}
       <div
-        className={`print:hidden fixed inset-y-0 left-0 z-30 w-64 bg-white border-r border-gray-200 transform transition-transform duration-300 ease-in-out lg:translate-x-0 ${
+        className={`fixed inset-y-0 left-0 z-30 w-64 bg-white border-r border-gray-200 transform transition-transform duration-300 ease-in-out lg:translate-x-0 ${
           sidebarOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
@@ -134,9 +136,9 @@ export default function Layout({ children }) {
       </div>
 
       {/* Main content */}
-      <div className="lg:pl-64 print:pl-0">
+      <div className="lg:pl-64">
         {/* Mobile header */}
-        <div className="print:hidden sticky top-0 z-10 flex items-center h-16 bg-white border-b border-gray-200 lg:hidden">
+        <div className="sticky top-0 z-10 flex items-center h-16 bg-white border-b border-gray-200 lg:hidden">
           <button
             onClick={() => setSidebarOpen(true)}
             className="px-4 text-gray-500 hover:text-gray-700"
@@ -150,7 +152,7 @@ export default function Layout({ children }) {
         </div>
 
         {/* Page content */}
-        <main className="p-4 lg:p-8 print:p-0">
+        <main className="p-4 lg:p-8">
           {children}
         </main>
       </div>

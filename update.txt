@@ -1,7 +1,3 @@
-3
+Pram pentru locatii
 
-Vreau sa pot adauga diverse fisiere de maxim 2mb la fiecare echipament spre exemplu selectez Factura si atasez factura, garantie si atasez garantia sau alte documente
-
-4
-
-Vreau un camp pentru inspectii perioadice, de exemplu la compresor se face inspectia o data la an pentru el si are termen de expirare, sa pot gestiona aceste inspectii daca echipamentele au, la cantare la fel se face inspectie anuala
+Adauga filtre cu click ca cele care exista acum la lista equipment si pune sub cele existente aceste taburi Inspecții Periodice Valide, Expira in 30 zile si Expirate iar cand dau click pe el sa imi afiseze in lista de echipamente, acele echipamente cu valide expira sau expirate
