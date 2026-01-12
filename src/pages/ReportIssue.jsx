@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { useQuery, useMutation } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
+import { notifyWorkOrderAssigned } from '../lib/notifications'
 import { AlertTriangle, CheckCircle, Wrench, MapPin, Camera, Upload, X, Building } from 'lucide-react'
 import LoadingSpinner from '../components/LoadingSpinner'
 
@@ -98,9 +99,11 @@ export default function ReportIssue() {
       }
       
       // Create work order for equipment OR location
+      let newWorkOrder = null
+      
       if (itemType === 'equipment') {
         // Create work order for equipment
-        const { error } = await supabase
+        const { data: woData, error } = await supabase
           .from('work_orders')
           .insert([{
             title: data.title,
@@ -111,11 +114,14 @@ export default function ReportIssue() {
             type: 'corrective',
             image_url: imageUrl,
           }])
+          .select()
+          .single()
         
         if (error) throw error
+        newWorkOrder = woData
       } else {
         // Create work order for location
-        const { error } = await supabase
+        const { data: woData, error } = await supabase
           .from('work_orders')
           .insert([{
             title: data.title,
@@ -126,8 +132,33 @@ export default function ReportIssue() {
             type: 'corrective',
             image_url: imageUrl,
           }])
+          .select()
+          .single()
         
         if (error) throw error
+        newWorkOrder = woData
+      }
+      
+      // Send push notifications to ALL active users
+      if (newWorkOrder) {
+        try {
+          const { data: users } = await supabase
+            .from('profiles')
+            .select('*')
+            .in('role', ['admin', 'manager', 'technician'])
+            .eq('is_active', true)
+          
+          if (users && users.length > 0) {
+            // Notify all users
+            await Promise.all(
+              users.map(u => {
+                return notifyWorkOrderAssigned(newWorkOrder, u)
+              })
+            )
+          }
+        } catch (err) {
+          console.error('❌ Notification error:', err)
+        }
       }
     },
     onSuccess: () => {
@@ -239,12 +270,12 @@ export default function ReportIssue() {
             <p className="text-lg font-semibold text-gray-900">{item.name}</p>
             {itemType === 'equipment' && equipment.location && (
               <p className="text-sm text-gray-600 mt-1">
-                📍 {equipment.location.name}
+                ðŸ“ {equipment.location.name}
               </p>
             )}
             {itemType === 'location' && location.building && (
               <p className="text-sm text-gray-600 mt-1">
-                🏢 {location.building}
+                ðŸ¢ {location.building}
               </p>
             )}
           </div>
@@ -295,8 +326,8 @@ export default function ReportIssue() {
               )}
               {itemType === 'location' && (
                 <div className="text-sm text-gray-600 mt-2">
-                  {location.building && <p>🏢 {location.building}</p>}
-                  {location.floor && <p>📍 Etaj {location.floor}</p>}
+                  {location.building && <p>ðŸ¢ {location.building}</p>}
+                  {location.floor && <p>ðŸ“ Etaj {location.floor}</p>}
                   {location.room && <p>🚪 Camera {location.room}</p>}
                 </div>
               )}
