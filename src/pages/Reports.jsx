@@ -451,28 +451,30 @@ export default function Reports() {
 
       {/* Reports List as Expandable Cards */}
       <div className="card">
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
           <h2 className="text-xl font-semibold text-gray-900">
             Rapoarte ({filteredWorkOrders.length})
           </h2>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <button
               onClick={expandAll}
-              className="btn-secondary text-sm inline-flex items-center"
+              className="btn-secondary text-sm inline-flex items-center flex-1 sm:flex-initial justify-center"
             >
               <ChevronDown className="w-4 h-4 mr-1" />
-              Expandeaza Toate
+              <span className="hidden sm:inline">Expandeaza Toate</span>
+              <span className="sm:hidden">Expand</span>
             </button>
             <button
               onClick={collapseAll}
-              className="btn-secondary text-sm inline-flex items-center"
+              className="btn-secondary text-sm inline-flex items-center flex-1 sm:flex-initial justify-center"
             >
               <ChevronUp className="w-4 h-4 mr-1" />
-              Collapseaza Toate
+              <span className="hidden sm:inline">Collapseaza Toate</span>
+              <span className="sm:hidden">Collapse</span>
             </button>
             <button
               onClick={() => window.print()}
-              className="btn-secondary inline-flex items-center"
+              className="btn-secondary inline-flex items-center flex-1 sm:flex-initial justify-center"
             >
               <Download className="w-4 h-4 mr-2" />
               Print
@@ -497,86 +499,89 @@ export default function Reports() {
                 <div key={wo.id} className="border border-gray-200 rounded-lg overflow-hidden hover:border-gray-300 transition-colors">
                   {/* Card Header - Always Visible */}
                   <div 
-                    className="bg-gray-50 p-4 cursor-pointer hover:bg-gray-100 transition-colors"
+                    className="bg-gray-50 p-3 sm:p-4 cursor-pointer hover:bg-gray-100 transition-colors"
                     onClick={() => toggleReport(wo.id)}
                   >
-                    <div className="flex items-center justify-between">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-start gap-3">
-                          <div className="flex-shrink-0 mt-1">
-                            {isExpanded ? (
-                              <ChevronUp className="w-5 h-5 text-gray-600" />
-                            ) : (
-                              <ChevronDown className="w-5 h-5 text-gray-600" />
-                            )}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <h3 className="text-lg font-semibold text-gray-900 mb-2">{wo.title}</h3>
-                            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
-                              {/* Equipment */}
-                              {wo.equipment && (
-                                <div className="flex items-center text-gray-600">
-                                  <Wrench className="w-4 h-4 mr-1 flex-shrink-0" />
-                                  <span className="truncate">{wo.equipment.name}</span>
-                                </div>
-                              )}
-                              {/* Technician */}
-                              {wo.completed_by && (
-                                <div className="flex items-center text-gray-600">
-                                  <User className="w-4 h-4 mr-1 flex-shrink-0" />
-                                  <span className="truncate">{wo.completed_by}</span>
-                                </div>
-                              )}
-                              {/* Date */}
-                              <div className="flex items-center text-gray-600">
-                                <Calendar className="w-4 h-4 mr-1 flex-shrink-0" />
-                                <span>{new Date(wo.completed_date).toLocaleDateString('ro-RO')}</span>
-                              </div>
-                              {/* Hours */}
-                              {wo.actual_hours && (
-                                <div className="flex items-center text-gray-600">
-                                  <Clock className="w-4 h-4 mr-1 flex-shrink-0" />
-                                  <span>{wo.actual_hours}h</span>
-                                </div>
-                              )}
-                            </div>
-                          </div>
+                    <div className="flex flex-col gap-3">
+                      {/* Top Row - Chevron + Title */}
+                      <div className="flex items-start gap-2 sm:gap-3">
+                        <div className="flex-shrink-0 mt-1">
+                          {isExpanded ? (
+                            <ChevronUp className="w-4 h-4 sm:w-5 sm:h-5 text-gray-600" />
+                          ) : (
+                            <ChevronDown className="w-4 h-4 sm:w-5 sm:h-5 text-gray-600" />
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-2 break-words">{wo.title}</h3>
                         </div>
                       </div>
-                      <div className="flex items-center gap-3 ml-4">
-                        {/* Cost Badge */}
-                        {totalCost > 0 && (
-                          <div className="bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm font-semibold">
-                            {totalCost.toFixed(2)} RON
+                      
+                      {/* Info Grid - Equipment, Technician, Date, Hours */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3 text-xs sm:text-sm pl-6 sm:pl-8">
+                        {/* Equipment */}
+                        {wo.equipment && (
+                          <div className="flex items-center text-gray-600">
+                            <Wrench className="w-3 h-3 sm:w-4 sm:h-4 mr-1 flex-shrink-0" />
+                            <span className="truncate">{wo.equipment.name}</span>
                           </div>
                         )}
-                        {/* Complete Report Badge */}
-                        {hasCompleteReport && (
-                          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                            <CheckCircle className="w-3 h-3 mr-1" />
-                            Complet
-                          </span>
+                        {/* Technician */}
+                        {wo.completed_by && (
+                          <div className="flex items-center text-gray-600">
+                            <User className="w-3 h-3 sm:w-4 sm:h-4 mr-1 flex-shrink-0" />
+                            <span className="truncate">{wo.completed_by}</span>
+                          </div>
+                        )}
+                        {/* Date */}
+                        <div className="flex items-center text-gray-600">
+                          <Calendar className="w-3 h-3 sm:w-4 sm:h-4 mr-1 flex-shrink-0" />
+                          <span>{new Date(wo.completed_date).toLocaleDateString('ro-RO')}</span>
+                        </div>
+                        {/* Hours */}
+                        {wo.actual_hours && (
+                          <div className="flex items-center text-gray-600">
+                            <Clock className="w-3 h-3 sm:w-4 sm:h-4 mr-1 flex-shrink-0" />
+                            <span>{wo.actual_hours}h</span>
+                          </div>
                         )}
                       </div>
+                      
+                      {/* Badges Row - Cost & Complete */}
+                      {(totalCost > 0 || hasCompleteReport) && (
+                        <div className="flex flex-wrap items-center gap-2 pl-6 sm:pl-8 pt-2 border-t border-gray-200">
+                          {totalCost > 0 && (
+                            <div className="bg-green-100 text-green-800 px-2 sm:px-3 py-1 rounded-full text-xs sm:text-sm font-semibold">
+                              {totalCost.toFixed(2)} RON
+                            </div>
+                          )}
+                          {hasCompleteReport && (
+                            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                              <CheckCircle className="w-3 h-3 mr-1" />
+                              Complet
+                            </span>
+                          )}
+                        </div>
+                      )}
                     </div>
                   </div>
 
                   {/* Card Body - Expandable Details */}
                   {isExpanded && (
-                    <div className="bg-white p-6 border-t border-gray-200">
-                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <div className="bg-white p-3 sm:p-4 md:p-6 border-t border-gray-200">
+                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
                         {/* Left Column */}
-                        <div className="space-y-4">
+                        <div className="space-y-3 md:space-y-4">
                           {/* Time Tracking */}
                           <div>
-                            <h4 className="text-sm font-semibold text-gray-700 mb-2 flex items-center">
-                              <Clock className="w-4 h-4 mr-1" />
+                            <h4 className="text-xs sm:text-sm font-semibold text-gray-700 mb-2 flex items-center">
+                              <Clock className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />
                               Tracking Timp
                             </h4>
-                            <div className="bg-gray-50 p-3 rounded-lg space-y-2">
+                            <div className="bg-gray-50 p-2 sm:p-3 rounded-lg space-y-2">
                               {/* Data Sesizare */}
-                              <div className="flex justify-between text-sm">
-                                <span className="text-gray-600">Data Sesizare:</span>
+                              <div className="flex flex-col sm:flex-row sm:justify-between text-xs sm:text-sm gap-1">
+                                <span className="text-gray-600 font-medium sm:font-normal">Data Sesizare:</span>
                                 <span className="font-medium text-gray-900">
                                   {new Date(wo.created_at).toLocaleString('ro-RO', {
                                     year: 'numeric',
@@ -588,8 +593,8 @@ export default function Reports() {
                                 </span>
                               </div>
                               {/* Data Finalizare */}
-                              <div className="flex justify-between text-sm">
-                                <span className="text-gray-600">Data Finalizare:</span>
+                              <div className="flex flex-col sm:flex-row sm:justify-between text-xs sm:text-sm gap-1">
+                                <span className="text-gray-600 font-medium sm:font-normal">Data Finalizare:</span>
                                 <span className="font-medium text-gray-900">
                                   {new Date(wo.completed_date).toLocaleString('ro-RO', {
                                     year: 'numeric',
@@ -602,7 +607,7 @@ export default function Reports() {
                               </div>
                               {/* Durata Totala Rezolvare */}
                               {calculateResolutionTime(wo.created_at, wo.completed_date) && (
-                                <div className="flex justify-between text-sm pt-2 border-t border-gray-200">
+                                <div className="flex flex-col sm:flex-row sm:justify-between text-xs sm:text-sm pt-2 border-t border-gray-200 gap-1">
                                   <span className="text-gray-600 font-medium">Durata Totala Rezolvare:</span>
                                   <span className="font-bold text-primary-600">
                                     {calculateResolutionTime(wo.created_at, wo.completed_date)}
@@ -610,14 +615,14 @@ export default function Reports() {
                                 </div>
                               )}
                               {wo.actual_hours && (
-                                <div className="flex justify-between text-sm pt-2 border-t border-gray-200">
-                                  <span className="text-gray-600">Ore Lucrate:</span>
+                                <div className="flex flex-col sm:flex-row sm:justify-between text-xs sm:text-sm pt-2 border-t border-gray-200 gap-1">
+                                  <span className="text-gray-600 font-medium sm:font-normal">Ore Lucrate:</span>
                                   <span className="font-semibold text-gray-900">{wo.actual_hours}h</span>
                                 </div>
                               )}
                               {wo.estimated_hours && (
-                                <div className="flex justify-between text-sm">
-                                  <span className="text-gray-600">Ore Estimate:</span>
+                                <div className="flex flex-col sm:flex-row sm:justify-between text-xs sm:text-sm gap-1">
+                                  <span className="text-gray-600 font-medium sm:font-normal">Ore Estimate:</span>
                                   <span className="text-gray-900">{wo.estimated_hours}h</span>
                                 </div>
                               )}
@@ -642,44 +647,44 @@ export default function Reports() {
                           {/* Parts Replaced */}
                           {wo.parts_replaced && (
                             <div>
-                              <h4 className="text-sm font-semibold text-gray-700 mb-2">Piese Inlocuite</h4>
-                              <div className="bg-gray-50 p-3 rounded-lg">
-                                <p className="text-sm text-gray-900 whitespace-pre-wrap">{wo.parts_replaced}</p>
+                              <h4 className="text-xs sm:text-sm font-semibold text-gray-700 mb-2">Piese Inlocuite</h4>
+                              <div className="bg-gray-50 p-2 sm:p-3 rounded-lg">
+                                <p className="text-xs sm:text-sm text-gray-900 whitespace-pre-wrap break-words">{wo.parts_replaced}</p>
                               </div>
                             </div>
                           )}
                         </div>
 
                         {/* Right Column */}
-                        <div className="space-y-4">
+                        <div className="space-y-3 md:space-y-4">
                           {/* Costs Breakdown */}
                           {(wo.parts_cost != null || wo.labor_cost != null) && (
                             <div>
-                              <h4 className="text-sm font-semibold text-gray-700 mb-2 flex items-center">
-                                <DollarSign className="w-4 h-4 mr-1" />
+                              <h4 className="text-xs sm:text-sm font-semibold text-gray-700 mb-2 flex items-center">
+                                <DollarSign className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />
                                 Costuri
                               </h4>
                               <div className="space-y-2">
                                 {wo.parts_cost != null && (
-                                  <div className="bg-blue-50 p-3 rounded-lg flex justify-between items-center">
-                                    <span className="text-sm text-blue-700">Cost Piese</span>
-                                    <span className="text-lg font-bold text-blue-900">
+                                  <div className="bg-blue-50 p-2 sm:p-3 rounded-lg flex justify-between items-center">
+                                    <span className="text-xs sm:text-sm text-blue-700">Cost Piese</span>
+                                    <span className="text-base sm:text-lg font-bold text-blue-900">
                                       {parseFloat(wo.parts_cost).toFixed(2)} RON
                                     </span>
                                   </div>
                                 )}
                                 {wo.labor_cost != null && (
-                                  <div className="bg-purple-50 p-3 rounded-lg flex justify-between items-center">
-                                    <span className="text-sm text-purple-700">Cost Manopera</span>
-                                    <span className="text-lg font-bold text-purple-900">
+                                  <div className="bg-purple-50 p-2 sm:p-3 rounded-lg flex justify-between items-center">
+                                    <span className="text-xs sm:text-sm text-purple-700">Cost Manopera</span>
+                                    <span className="text-base sm:text-lg font-bold text-purple-900">
                                       {parseFloat(wo.labor_cost).toFixed(2)} RON
                                     </span>
                                   </div>
                                 )}
                                 {(wo.parts_cost != null || wo.labor_cost != null) && (
-                                  <div className="bg-green-50 p-3 rounded-lg flex justify-between items-center border-2 border-green-200">
-                                    <span className="text-sm font-semibold text-green-700">Cost Total</span>
-                                    <span className="text-xl font-bold text-green-900">
+                                  <div className="bg-green-50 p-2 sm:p-3 rounded-lg flex justify-between items-center border-2 border-green-200">
+                                    <span className="text-xs sm:text-sm font-semibold text-green-700">Cost Total</span>
+                                    <span className="text-lg sm:text-xl font-bold text-green-900">
                                       {totalCost.toFixed(2)} RON
                                     </span>
                                   </div>
@@ -691,12 +696,12 @@ export default function Reports() {
                           {/* Completion Notes */}
                           {wo.completion_notes && (
                             <div>
-                              <h4 className="text-sm font-semibold text-gray-700 mb-2 flex items-center">
-                                <FileText className="w-4 h-4 mr-1" />
+                              <h4 className="text-xs sm:text-sm font-semibold text-gray-700 mb-2 flex items-center">
+                                <FileText className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />
                                 Note Tehnician
                               </h4>
-                              <div className="bg-gray-50 p-3 rounded-lg">
-                                <p className="text-sm text-gray-900 whitespace-pre-wrap">{wo.completion_notes}</p>
+                              <div className="bg-gray-50 p-2 sm:p-3 rounded-lg">
+                                <p className="text-xs sm:text-sm text-gray-900 whitespace-pre-wrap break-words">{wo.completion_notes}</p>
                               </div>
                             </div>
                           )}
@@ -704,13 +709,13 @@ export default function Reports() {
                       </div>
 
                       {/* Footer Actions */}
-                      <div className="mt-6 pt-4 border-t border-gray-200 flex justify-end">
+                      <div className="mt-4 md:mt-6 pt-3 md:pt-4 border-t border-gray-200 flex justify-center sm:justify-end">
                         <Link
                           to={`/work-orders/${wo.id}`}
-                          className="inline-flex items-center text-primary-600 hover:text-primary-900 font-medium"
+                          className="inline-flex items-center text-xs sm:text-sm text-primary-600 hover:text-primary-900 font-medium"
                         >
                           Vezi Work Order Complet
-                          <ExternalLink className="w-4 h-4 ml-1" />
+                          <ExternalLink className="w-3 h-3 sm:w-4 sm:h-4 ml-1" />
                         </Link>
                       </div>
                     </div>

@@ -79,6 +79,7 @@ export default function WorkOrderForm() {
       const { data, error } = await supabase
         .from('profiles')
         .select('id, full_name, email')
+        .eq('is_active', true)
         .order('full_name')
       if (error) throw error
       return data
@@ -170,7 +171,7 @@ export default function WorkOrderForm() {
             await notifyWorkOrderAssigned(workOrderData, assignedUser)
           }
         } catch (err) {
-          console.error('❌ Notification error:', err)
+          console.error('âŒ Notification error:', err)
         }
       } else if (!isEditing && !assignedUserId) {
         // New work order without assignment - notify all admins & technicians
@@ -179,6 +180,7 @@ export default function WorkOrderForm() {
             .from('profiles')
             .select('*')
             .in('role', ['admin', 'technician'])
+            .eq('is_active', true)
           
           
           if (users && users.length > 0) {
@@ -190,7 +192,7 @@ export default function WorkOrderForm() {
             )
           }
         } catch (err) {
-          console.error('❌ Notification error:', err)
+          console.error('âŒ Notification error:', err)
         }
       } else {
       }

@@ -79,6 +79,7 @@ export default function MaintenanceSchedules() {
       const { data, error } = await supabase
         .from('profiles')
         .select('id, full_name, email')
+        .eq('is_active', true)
         .order('full_name')
       if (error) throw error
       return data
@@ -195,7 +196,7 @@ export default function MaintenanceSchedules() {
     if (statusFilter === 'overdue') return schedule.is_active && isOverdue(schedule.next_due_date)
     if (statusFilter === 'upcoming') {
       const days = getDaysUntilDue(schedule.next_due_date)
-      return schedule.is_active && days >= 0 && days <= 7
+      return schedule.is_active && days <= 7
     }
     if (statusFilter === 'completed') return schedule.last_completed_date !== null
     return schedule.is_active // default to active instead of all
@@ -209,7 +210,7 @@ export default function MaintenanceSchedules() {
     overdue: schedules?.filter(s => s.is_active && isOverdue(s.next_due_date)).length || 0,
     dueThisWeek: schedules?.filter(s => {
       const days = getDaysUntilDue(s.next_due_date)
-      return s.is_active && days >= 0 && days <= 7
+      return s.is_active && days <= 7
     }).length || 0
   }
 
@@ -413,95 +414,103 @@ export default function MaintenanceSchedules() {
 
             return (
               <div key={schedule.id} className={cardClass}>
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-start space-x-4">
-                      <div className={`p-2 rounded-lg ${
-                        !schedule.is_active ? 'bg-gray-200' :
-                        overdue ? 'bg-red-200' :
-                        daysUntil >= 0 && daysUntil <= 7 ? 'bg-yellow-200' :
-                        'bg-green-200'
-                      }`}>
-                        <Wrench className={`w-6 h-6 ${
-                          !schedule.is_active ? 'text-gray-600' :
-                          overdue ? 'text-red-700' :
-                          daysUntil >= 0 && daysUntil <= 7 ? 'text-yellow-700' :
-                          'text-green-700'
-                        }`} />
-                      </div>
+                {/* Main Content - Responsive Layout */}
+                <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
+                  {/* Left Section - Icon + Info */}
+                  <div className="flex items-start space-x-3 md:space-x-4 flex-1 min-w-0">
+                    {/* Icon */}
+                    <div className={`flex-shrink-0 p-2 rounded-lg ${
+                      !schedule.is_active ? 'bg-gray-200' :
+                      overdue ? 'bg-red-200' :
+                      daysUntil >= 0 && daysUntil <= 7 ? 'bg-yellow-200' :
+                      'bg-green-200'
+                    }`}>
+                      <Wrench className={`w-5 h-5 md:w-6 md:h-6 ${
+                        !schedule.is_active ? 'text-gray-600' :
+                        overdue ? 'text-red-700' :
+                        daysUntil >= 0 && daysUntil <= 7 ? 'text-yellow-700' :
+                        'text-green-700'
+                      }`} />
+                    </div>
 
-                      <div className="flex-1">
-                        <div className="flex items-start gap-2 mb-1">
-                          <h3 className="text-lg font-semibold text-gray-900">
-                            {schedule.title}
-                          </h3>
-                          {statusBadge && (
-                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-${statusBadge.color}-100 text-${statusBadge.color}-800 border border-${statusBadge.color}-200`}>
-                              <statusBadge.icon className="w-3 h-3 mr-1" />
-                              {statusBadge.text}
-                            </span>
-                          )}
-                        </div>
-                        
-                        {schedule.equipment && (
-                          <Link
-                            to={`/equipment/${schedule.equipment.id}`}
-                            className="text-sm text-primary-600 hover:text-primary-700 mb-2 inline-block"
-                          >
-                            Equipment: {schedule.equipment.name}
-                            {schedule.equipment.serial_number && ` (SN: ${schedule.equipment.serial_number})`}
-                          </Link>
-                        )}
-
-                        {schedule.description && (
-                          <p className="text-sm text-gray-600 mb-3">{schedule.description}</p>
-                        )}
-
-                        <div className="flex flex-wrap items-center gap-2">
-                          <span className="badge badge-secondary">
-                            {getFrequencyLabel(schedule.frequency)}
+                    {/* Content */}
+                    <div className="flex-1 min-w-0">
+                      {/* Title + Badge */}
+                      <div className="flex flex-wrap items-start gap-2 mb-2">
+                        <h3 className="text-base md:text-lg font-semibold text-gray-900 break-words">
+                          {schedule.title}
+                        </h3>
+                        {statusBadge && (
+                          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-${statusBadge.color}-100 text-${statusBadge.color}-800 border border-${statusBadge.color}-200 whitespace-nowrap`}>
+                            <statusBadge.icon className="w-3 h-3 mr-1" />
+                            {statusBadge.text}
                           </span>
+                        )}
+                      </div>
+                      
+                      {/* Equipment */}
+                      {schedule.equipment && (
+                        <Link
+                          to={`/equipment/${schedule.equipment.id}`}
+                          className="text-sm text-primary-600 hover:text-primary-700 mb-2 inline-block break-words"
+                        >
+                          Equipment: {schedule.equipment.name}
+                          {schedule.equipment.serial_number && ` (SN: ${schedule.equipment.serial_number})`}
+                        </Link>
+                      )}
 
-                          {hasProcedure && (
-                            <span className="badge bg-purple-100 text-purple-800 border-purple-200">
-                              📋 Procedure
-                            </span>
-                          )}
+                      {/* Description */}
+                      {schedule.description && (
+                        <p className="text-sm text-gray-600 mb-3 line-clamp-2">{schedule.description}</p>
+                      )}
 
-                          {hasChecklist && (
-                            <span className="badge bg-blue-100 text-blue-800 border-blue-200">
-                              ✓ Checklist
-                            </span>
-                          )}
+                      {/* Badges Row */}
+                      <div className="flex flex-wrap items-center gap-2 mb-3 md:mb-0">
+                        <span className="badge badge-secondary text-xs">
+                          {getFrequencyLabel(schedule.frequency)}
+                        </span>
 
-                          {schedule.repeat_count && (
-                            <span className="badge bg-orange-100 text-orange-800 border-orange-200">
-                              {schedule.times_completed || 0} / {schedule.repeat_count} times
-                            </span>
-                          )}
+                        {hasProcedure && (
+                          <span className="badge bg-purple-100 text-purple-800 border-purple-200 text-xs">
+                            📋 Procedure
+                          </span>
+                        )}
 
-                          {schedule.assigned_user && (
-                            <span className="text-sm text-gray-600 flex items-center">
-                              <User className="w-4 h-4 mr-1" />
-                              {schedule.assigned_user.full_name}
-                            </span>
-                          )}
+                        {hasChecklist && (
+                          <span className="badge bg-blue-100 text-blue-800 border-blue-200 text-xs">
+                            ✓ Checklist
+                          </span>
+                        )}
 
-                          {schedule.estimated_hours && (
-                            <span className="text-sm text-gray-600 flex items-center">
-                              <Clock className="w-4 h-4 mr-1" />
-                              {schedule.estimated_hours}h
-                            </span>
-                          )}
-                        </div>
+                        {schedule.repeat_count && (
+                          <span className="badge bg-orange-100 text-orange-800 border-orange-200 text-xs">
+                            {schedule.times_completed || 0} / {schedule.repeat_count}
+                          </span>
+                        )}
+
+                        {schedule.assigned_user && (
+                          <span className="text-xs md:text-sm text-gray-600 flex items-center">
+                            <User className="w-3 h-3 md:w-4 md:h-4 mr-1" />
+                            {schedule.assigned_user.full_name}
+                          </span>
+                        )}
+
+                        {schedule.estimated_hours && (
+                          <span className="text-xs md:text-sm text-gray-600 flex items-center">
+                            <Clock className="w-3 h-3 md:w-4 md:h-4 mr-1" />
+                            {schedule.estimated_hours}h
+                          </span>
+                        )}
                       </div>
                     </div>
                   </div>
 
-                  <div className="flex flex-col items-end space-y-2 ml-4">
-                    <div className="text-right">
-                      <p className="text-sm text-gray-600">Next Due:</p>
-                      <p className={`text-lg font-semibold ${
+                  {/* Right Section - Next Due + Actions */}
+                  <div className="flex flex-row md:flex-col items-center md:items-end justify-between md:justify-start gap-3 md:gap-2 border-t md:border-t-0 md:border-l pt-3 md:pt-0 md:pl-4 border-gray-200">
+                    {/* Next Due Date */}
+                    <div className="text-left md:text-right">
+                      <p className="text-xs text-gray-600">Next Due:</p>
+                      <p className={`text-sm md:text-lg font-semibold ${
                         overdue ? 'text-red-600' :
                         daysUntil >= 0 && daysUntil <= 7 ? 'text-yellow-600' :
                         'text-gray-900'
@@ -515,39 +524,40 @@ export default function MaintenanceSchedules() {
                           'text-gray-500'
                         }`}>
                           {overdue ? (
-                            <>⚠️ {Math.abs(daysUntil)} days overdue</>
+                            <>⚠️ {Math.abs(daysUntil)}d overdue</>
                           ) : daysUntil === 0 ? (
-                            <>🔔 Due today!</>
+                            <>🔔 Today!</>
                           ) : daysUntil <= 7 ? (
-                            <>⏰ In {daysUntil} days</>
+                            <>⏰ {daysUntil}d</>
                           ) : (
-                            <>✓ In {daysUntil} days</>
+                            <>✓ {daysUntil}d</>
                           )}
                         </p>
                       )}
                     </div>
 
-                    <div className="flex items-center space-x-2">
+                    {/* Action Buttons */}
+                    <div className="flex items-center space-x-1 md:space-x-2">
                       {schedule.is_active && (
                         <button
                           onClick={() => {
                             setSelectedScheduleForCompletion(schedule)
                             setShowCompletionWizard(true)
                           }}
-                          className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
-                          title="Complete Maintenance"
+                          className="p-1.5 md:p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
+                          title="Complete"
                         >
-                          <CheckCircle className="w-5 h-5" />
+                          <CheckCircle className="w-4 h-4 md:w-5 md:h-5" />
                         </button>
                       )}
 
                       <button
                         onClick={() => toggleActiveMutation.mutate({ id: schedule.id, isActive: schedule.is_active })}
                         disabled={toggleActiveMutation.isLoading}
-                        className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                        className="p-1.5 md:p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
                         title={schedule.is_active ? 'Pause' : 'Resume'}
                       >
-                        {schedule.is_active ? <Pause className="w-5 h-5" /> : <Play className="w-5 h-5" />}
+                        {schedule.is_active ? <Pause className="w-4 h-4 md:w-5 md:h-5" /> : <Play className="w-4 h-4 md:w-5 md:h-5" />}
                       </button>
 
                       <button
@@ -555,10 +565,10 @@ export default function MaintenanceSchedules() {
                           setEditingSchedule(schedule)
                           setShowModal(true)
                         }}
-                        className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                        className="p-1.5 md:p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
                         title="Edit"
                       >
-                        <Edit className="w-5 h-5" />
+                        <Edit className="w-4 h-4 md:w-5 md:h-5" />
                       </button>
 
                       <button
@@ -568,10 +578,10 @@ export default function MaintenanceSchedules() {
                           }
                         }}
                         disabled={deleteMutation.isLoading}
-                        className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                        className="p-1.5 md:p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                         title="Delete"
                       >
-                        <Trash2 className="w-5 h-5" />
+                        <Trash2 className="w-4 h-4 md:w-5 md:h-5" />
                       </button>
                     </div>
                   </div>
