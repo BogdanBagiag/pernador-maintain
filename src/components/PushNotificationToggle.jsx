@@ -90,23 +90,23 @@ export default function PushNotificationToggle() {
       console.log('âœ… Subscribed!')
 
       // Save subscription to database
-      console.log('Saving to database...')
+      console.log('💾 Saving to database...')
       const { error } = await supabase
         .from('push_subscriptions')
         .upsert([{
           user_id: user.id,
           subscription: JSON.stringify(subscription.toJSON()),
-          user_agent: navigator.userAgent
+          user_agent: navigator.userAgent,
+          is_active: true
         }], {
-          onConflict: 'user_id,subscription',
-          ignoreDuplicates: false
+          onConflict: 'user_id,subscription'
         })
 
       if (error) throw error
 
       setIsSubscribed(true)
-      setError('Notificări activate!')
-      console.log('All done!')
+      setError('âœ… Notificări activate!')
+      console.log('âœ… All done!')
     } catch (err) {
       console.error('âŒ Subscribe error:', err)
       setError(`Eroare: ${err.message}`)
