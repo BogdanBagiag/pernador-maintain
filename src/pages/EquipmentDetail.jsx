@@ -2,13 +2,9 @@ import { useParams, useNavigate, Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
-import { ArrowLeft, Edit, MapPin, Calendar, Hash, Building, Trash2, Shield, AlertCircle, Upload, Download, FileText, File, X, CheckCircle, XCircle, Eye, Edit2 } from 'lucide-react'
+import { ArrowLeft, Edit, MapPin, Calendar, Hash, Building, Trash2, Package } from 'lucide-react'
 import LoadingSpinner from '../components/LoadingSpinner'
 import QRCodeGenerator from '../components/QRCodeGenerator'
-import InspectionModal from '../components/InspectionModal'
-import ViewInspectionModal from '../components/ViewInspectionModal'
-import EditInspectionModal from '../components/EditInspectionModal'
-import { useState } from 'react'
 
 export default function EquipmentDetail() {
   const { id } = useParams()
@@ -19,17 +15,6 @@ export default function EquipmentDetail() {
   // Check permissions
   const canEdit = profile?.role === 'admin' || profile?.role === 'manager'
   const canDelete = profile?.role === 'admin'
-
-  // State for file attachments
-  const [uploadingFile, setUploadingFile] = useState(false)
-  const [uploadError, setUploadError] = useState('')
-  const [selectedFile, setSelectedFile] = useState(null)
-  const [documentType, setDocumentType] = useState('other')
-  
-  // State for inspection modals
-  const [showInspectionModal, setShowInspectionModal] = useState(false)
-  const [viewingInspection, setViewingInspection] = useState(null)
-  const [editingInspection, setEditingInspection] = useState(null)
 
   // Delete mutation
   const deleteMutation = useMutation({
@@ -52,89 +37,6 @@ export default function EquipmentDetail() {
     }
   }
 
-  // Handle file selection
-  const handleFileSelect = (e) => {
-    const file = e.target.files[0]
-    if (!file) return
-
-    // Validate file size (2MB = 2097152 bytes)
-    const maxSize = 2 * 1024 * 1024
-    if (file.size > maxSize) {
-      setUploadError('Fișierul este prea mare. Maxim 2MB.')
-      setSelectedFile(null)
-      return
-    }
-
-    setSelectedFile(file)
-    setUploadError('')
-  }
-
-  // Handle file upload
-  const handleFileUpload = async () => {
-    if (!selectedFile) return
-
-    setUploadingFile(true)
-    setUploadError('')
-
-    uploadMutation.mutate({
-      file: selectedFile,
-      documentType: documentType
-    })
-  }
-
-  // Handle attachment delete
-  const handleAttachmentDelete = (attachment) => {
-    if (window.confirm(`Ștergi ${attachment.file_name}?`)) {
-      deleteAttachmentMutation.mutate({
-        attachmentId: attachment.id,
-        fileUrl: attachment.file_url
-      })
-    }
-  }
-
-  // Get document type label in Romanian
-  const getDocumentTypeLabel = (type) => {
-    const labels = {
-      invoice: 'Factură',
-      warranty: 'Garanție',
-      manual: 'Manual',
-      certificate: 'Certificat',
-      other: 'Altele'
-    }
-    return labels[type] || type
-  }
-
-  // Get inspection status label and color
-  const getInspectionStatusInfo = (status) => {
-    const statusInfo = {
-      passed: {
-        label: 'Promovat',
-        icon: <CheckCircle className="w-5 h-5" />,
-        color: 'bg-green-100 text-green-800 border-green-200'
-      },
-      failed: {
-        label: 'Respins',
-        icon: <XCircle className="w-5 h-5" />,
-        color: 'bg-red-100 text-red-800 border-red-200'
-      },
-      conditional: {
-        label: 'Condiționat',
-        icon: <AlertCircle className="w-5 h-5" />,
-        color: 'bg-yellow-100 text-yellow-800 border-yellow-200'
-      }
-    }
-    return statusInfo[status] || statusInfo.passed
-  }
-
-  // Format file size
-  const formatFileSize = (bytes) => {
-    if (bytes === 0) return '0 B'
-    const k = 1024
-    const sizes = ['B', 'KB', 'MB']
-    const i = Math.floor(Math.log(bytes) / Math.log(k))
-    return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i]
-  }
-
   // Fetch equipment with location
   const { data: equipment, isLoading } = useQuery({
     queryKey: ['equipment', id],
@@ -153,125 +55,6 @@ export default function EquipmentDetail() {
     },
   })
 
-  // Fetch equipment attachments
-  const { data: attachments, isLoading: isLoadingAttachments } = useQuery({
-    queryKey: ['equipment-attachments', id],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('equipment_attachments')
-        .select(`
-          *,
-          uploader:uploaded_by(full_name, email)
-        `)
-        .eq('equipment_id', id)
-        .order('created_at', { ascending: false })
-      
-      if (error) throw error
-      return data
-    },
-    enabled: !!id,
-  })
-
-  // Fetch equipment inspections history
-  const { data: inspections, isLoading: isLoadingInspections } = useQuery({
-    queryKey: ['equipment-inspections', id],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('equipment_inspections')
-        .select(`
-          *,
-          inspector:inspector_id(full_name, email),
-          creator:created_by(full_name)
-        `)
-        .eq('equipment_id', id)
-        .order('inspection_date', { ascending: false })
-      
-      if (error) throw error
-      return data
-    },
-    enabled: !!id,
-  })
-
-  // Upload attachment mutation
-  const uploadMutation = useMutation({
-    mutationFn: async ({ file, documentType }) => {
-      // Upload file to storage
-      const fileExt = file.name.split('.').pop()
-      const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`
-      const filePath = `equipment-attachments/${id}/${fileName}`
-
-      const { error: uploadError } = await supabase.storage
-        .from('maintenance-files')
-        .upload(filePath, file, {
-          cacheControl: '3600',
-          upsert: false
-        })
-
-      if (uploadError) throw uploadError
-
-      // Get public URL
-      const { data: { publicUrl } } = supabase.storage
-        .from('maintenance-files')
-        .getPublicUrl(filePath)
-
-      // Save attachment record
-      const { error: dbError } = await supabase
-        .from('equipment_attachments')
-        .insert({
-          equipment_id: id,
-          file_url: publicUrl,
-          file_name: file.name,
-          file_type: file.type,
-          file_size: file.size,
-          document_type: documentType,
-          uploaded_by: profile?.id
-        })
-
-      if (dbError) throw dbError
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries(['equipment-attachments', id])
-      setSelectedFile(null)
-      setDocumentType('other')
-      setUploadError('')
-    },
-    onError: (error) => {
-      setUploadError(error.message || 'Failed to upload file')
-    },
-    onSettled: () => {
-      setUploadingFile(false)
-    }
-  })
-
-  // Delete attachment mutation
-  const deleteAttachmentMutation = useMutation({
-    mutationFn: async ({ attachmentId, fileUrl }) => {
-      // Extract file path from URL
-      const urlParts = fileUrl.split('/maintenance-files/')
-      if (urlParts.length > 1) {
-        const filePath = urlParts[1].split('?')[0] // Remove query params
-        
-        // Delete from storage
-        const { error: storageError } = await supabase.storage
-          .from('maintenance-files')
-          .remove([filePath])
-        
-        if (storageError) console.error('Storage delete error:', storageError)
-      }
-
-      // Delete from database
-      const { error: dbError } = await supabase
-        .from('equipment_attachments')
-        .delete()
-        .eq('id', attachmentId)
-
-      if (dbError) throw dbError
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries(['equipment-attachments', id])
-    }
-  })
-
   // Fetch work orders for this equipment
   const { data: workOrders } = useQuery({
     queryKey: ['equipment-work-orders', id],
@@ -285,6 +68,25 @@ export default function EquipmentDetail() {
       
       if (error) throw error
       return data
+    },
+  })
+
+  // Fetch compatible parts from inventory
+  const { data: compatibleParts } = useQuery({
+    queryKey: ['equipment-compatible-parts', id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('inventory_parts')
+        .select('*')
+        .eq('is_active', true)
+      
+      if (error) throw error
+      
+      // Filter parts that have this equipment in compatible_equipment array
+      return data?.filter(part => 
+        part.compatible_equipment && 
+        part.compatible_equipment.includes(id)
+      ) || []
     },
   })
 
@@ -325,93 +127,83 @@ export default function EquipmentDetail() {
   }
 
   return (
-    <div className="px-2 sm:px-4 lg:px-6 py-3 sm:py-4 lg:py-6 max-w-screen-2xl mx-auto">
+    <div>
       {/* Header */}
-      <div className="mb-3 sm:mb-4 lg:mb-6">
+      <div className="mb-8">
         <button
           onClick={() => navigate('/equipment')}
-          className="flex items-center text-gray-600 hover:text-gray-900 mb-2 sm:mb-3 text-xs sm:text-sm"
+          className="flex items-center text-gray-600 hover:text-gray-900 mb-4"
         >
-          <ArrowLeft className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
+          <ArrowLeft className="w-5 h-5 mr-2" />
           Back to Equipment
         </button>
         
-        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 sm:gap-4">
-          <div className="flex-1 min-w-0">
-            <h1 className="text-lg sm:text-xl lg:text-2xl xl:text-3xl font-bold text-gray-900 break-words leading-tight">{equipment.name}</h1>
-            <div className="flex items-center mt-1.5 sm:mt-2">
-              <span className={`badge ${getStatusColor(equipment.status)} capitalize text-xs`}>
+        <div className="flex items-start justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">{equipment.name}</h1>
+            <div className="flex items-center mt-2">
+              <span className={`badge ${getStatusColor(equipment.status)} capitalize`}>
                 {equipment.status}
               </span>
             </div>
           </div>
-          <div className="flex flex-row gap-2 shrink-0">
+          <div className="flex gap-3">
             {canEdit && (
               <Link
                 to={`/equipment/${id}/edit`}
-                className="btn-primary inline-flex items-center justify-center text-xs sm:text-sm px-2 py-1.5 sm:px-3 sm:py-2"
+                className="btn-primary inline-flex items-center"
               >
-                <Edit className="w-3 h-3 sm:w-4 sm:h-4" />
-                <span className="ml-1 sm:ml-2">Edit</span>
+                <Edit className="w-5 h-5 mr-2" />
+                Edit
               </Link>
             )}
             {canDelete && (
               <button
                 onClick={handleDelete}
                 disabled={deleteMutation.isLoading}
-                className="btn-secondary text-red-600 hover:bg-red-50 border-red-300 inline-flex items-center justify-center disabled:opacity-50 text-xs sm:text-sm px-2 py-1.5 sm:px-3 sm:py-2"
+                className="btn-secondary text-red-600 hover:bg-red-50 border-red-300 inline-flex items-center disabled:opacity-50"
               >
-                <Trash2 className="w-3 h-3 sm:w-4 sm:h-4" />
-                <span className="ml-1 sm:ml-2">Delete</span>
+                <Trash2 className="w-5 h-5 mr-2" />
+                Delete
               </button>
             )}
           </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 sm:gap-4 lg:gap-6">
+      <div className="grid lg:grid-cols-3 gap-6">
         {/* Main Info */}
-        <div className="lg:col-span-2 space-y-3 sm:space-y-4 lg:space-y-6">
+        <div className="lg:col-span-2 space-y-6">
           {/* Details Card */}
-          <div className="card p-3 sm:p-4 lg:p-6">
-            <h2 className="text-base sm:text-lg font-semibold text-gray-900 mb-3">Details</h2>
+          <div className="card">
+            <h2 className="text-xl font-semibold text-gray-900 mb-4">Details</h2>
             
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+            <div className="grid md:grid-cols-2 gap-6">
               {equipment.manufacturer && (
                 <div>
-                  <label className="block text-xs sm:text-sm font-medium text-gray-500 mb-0.5 sm:mb-1">
+                  <label className="block text-sm font-medium text-gray-500 mb-1">
                     Brand
                   </label>
-                  <p className="text-sm sm:text-base text-gray-900">{equipment.manufacturer}</p>
+                  <p className="text-gray-900">{equipment.manufacturer}</p>
                 </div>
               )}
 
               {equipment.model && (
                 <div>
-                  <label className="block text-xs sm:text-sm font-medium text-gray-500 mb-0.5 sm:mb-1">
+                  <label className="block text-sm font-medium text-gray-500 mb-1">
                     Model
                   </label>
-                  <p className="text-sm sm:text-base text-gray-900">{equipment.model}</p>
+                  <p className="text-gray-900">{equipment.model}</p>
                 </div>
               )}
 
               {equipment.serial_number && (
                 <div>
-                  <label className="block text-xs sm:text-sm font-medium text-gray-500 mb-0.5 sm:mb-1">
-                    <Hash className="w-3 h-3 sm:w-4 sm:h-4 inline mr-1" />
+                  <label className="block text-sm font-medium text-gray-500 mb-1">
+                    <Hash className="w-4 h-4 inline mr-1" />
                     Serial Number
                   </label>
-                  <p className="text-sm sm:text-base text-gray-900 font-mono break-all">{equipment.serial_number}</p>
-                </div>
-              )}
-
-              {equipment.inventory_number && (
-                <div>
-                  <label className="block text-xs sm:text-sm font-medium text-gray-500 mb-0.5 sm:mb-1">
-                    <Hash className="w-3 h-3 sm:w-4 sm:h-4 inline mr-1" />
-                    Nr. Inventar
-                  </label>
-                  <p className="text-sm sm:text-base text-gray-900 font-mono break-all">{equipment.inventory_number}</p>
+                  <p className="text-gray-900 font-mono">{equipment.serial_number}</p>
                 </div>
               )}
 
@@ -419,184 +211,11 @@ export default function EquipmentDetail() {
                 <div>
                   <label className="block text-sm font-medium text-gray-500 mb-1">
                     <Calendar className="w-4 h-4 inline mr-1" />
-                    Data Achiziție
+                    Purchase Date
                   </label>
                   <p className="text-gray-900">
-                    {new Date(equipment.purchase_date).toLocaleDateString('ro-RO', {
-                      year: 'numeric',
-                      month: 'long',
-                      day: 'numeric'
-                    })}
+                    {new Date(equipment.purchase_date).toLocaleDateString()}
                   </p>
-                </div>
-              )}
-
-              {/* Warranty Information */}
-              {equipment.warranty_months && equipment.purchase_date && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-500 mb-1">
-                    <Shield className="w-4 h-4 inline mr-1" />
-                    Garanție
-                  </label>
-                  {(() => {
-                    const purchaseDate = new Date(equipment.purchase_date)
-                    const warrantyMonths = parseInt(equipment.warranty_months)
-                    const expiryDate = new Date(purchaseDate)
-                    expiryDate.setMonth(expiryDate.getMonth() + warrantyMonths)
-                    
-                    const isExpired = expiryDate < new Date()
-                    const daysLeft = Math.ceil((expiryDate - new Date()) / (1000 * 60 * 60 * 24))
-                    const monthsLeft = Math.ceil(daysLeft / 30)
-                    
-                    return (
-                      <div className="space-y-2">
-                        <p className="text-gray-900">
-                          {warrantyMonths} {warrantyMonths === 1 ? 'lună' : 'luni'}
-                        </p>
-                        <div className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
-                          isExpired 
-                            ? 'bg-red-100 text-red-800' 
-                            : daysLeft <= 90 
-                              ? 'bg-yellow-100 text-yellow-800'
-                              : 'bg-green-100 text-green-800'
-                        }`}>
-                          {isExpired ? (
-                            <>
-                              <AlertCircle className="w-4 h-4 mr-1" />
-                              Expirată la {expiryDate.toLocaleDateString('ro-RO', { 
-                                year: 'numeric', 
-                                month: 'long', 
-                                day: 'numeric' 
-                              })}
-                            </>
-                          ) : daysLeft <= 90 ? (
-                            <>
-                              <AlertCircle className="w-4 h-4 mr-1" />
-                              Expiră la {expiryDate.toLocaleDateString('ro-RO', { 
-                                year: 'numeric', 
-                                month: 'long', 
-                                day: 'numeric' 
-                              })} ({daysLeft} zile)
-                            </>
-                          ) : (
-                            <>
-                              <Shield className="w-4 h-4 mr-1" />
-                              Valabilă până la {expiryDate.toLocaleDateString('ro-RO', { 
-                                year: 'numeric', 
-                                month: 'long', 
-                                day: 'numeric' 
-                              })} ({monthsLeft} luni)
-                            </>
-                          )}
-                        </div>
-                      </div>
-                    )
-                  })()}
-                </div>
-              )}
-
-              {/* Periodic Inspection Information */}
-              {equipment.inspection_required && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-500 mb-1">
-                    <AlertCircle className="w-4 h-4 inline mr-1" />
-                    Inspecții Periodice
-                  </label>
-                  {(() => {
-                    if (!equipment.last_inspection_date || !equipment.inspection_frequency_months) {
-                      return (
-                        <div className="space-y-2">
-                          <p className="text-gray-900">
-                            Frecvență: {equipment.inspection_frequency_months ? 
-                              `${equipment.inspection_frequency_months} ${equipment.inspection_frequency_months === 1 ? 'lună' : 'luni'}` : 
-                              'Neconfigurată'}
-                          </p>
-                          <div className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-gray-100 text-gray-800">
-                            <AlertCircle className="w-4 h-4 mr-1" />
-                            Necesită prima inspecție
-                          </div>
-                          {canEdit && (
-                            <button
-                              onClick={() => setShowInspectionModal(true)}
-                              className="mt-2 btn-primary text-sm"
-                            >
-                              <CheckCircle className="w-4 h-4 mr-2" />
-                              Marchează Prima Inspecție
-                            </button>
-                          )}
-                        </div>
-                      )
-                    }
-
-                    const lastInspection = new Date(equipment.last_inspection_date)
-                    const frequencyMonths = parseInt(equipment.inspection_frequency_months)
-                    const nextInspection = new Date(lastInspection)
-                    nextInspection.setMonth(nextInspection.getMonth() + frequencyMonths)
-                    
-                    const isOverdue = nextInspection < new Date()
-                    const daysUntil = Math.ceil((nextInspection - new Date()) / (1000 * 60 * 60 * 24))
-                    const monthsUntil = Math.ceil(daysUntil / 30)
-                    
-                    return (
-                      <div className="space-y-2">
-                        <p className="text-gray-900">
-                          Frecvență: {frequencyMonths} {frequencyMonths === 1 ? 'lună' : 'luni'}
-                        </p>
-                        <p className="text-sm text-gray-600">
-                          Ultima inspecție: {lastInspection.toLocaleDateString('ro-RO', {
-                            year: 'numeric',
-                            month: 'long',
-                            day: 'numeric'
-                          })}
-                        </p>
-                        <div className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
-                          isOverdue 
-                            ? 'bg-red-100 text-red-800' 
-                            : daysUntil <= 30 
-                              ? 'bg-yellow-100 text-yellow-800'
-                              : 'bg-green-100 text-green-800'
-                        }`}>
-                          {isOverdue ? (
-                            <>
-                              <AlertCircle className="w-4 h-4 mr-1" />
-                              Expirată! Scadență: {nextInspection.toLocaleDateString('ro-RO', { 
-                                year: 'numeric', 
-                                month: 'long', 
-                                day: 'numeric' 
-                              })}
-                            </>
-                          ) : daysUntil <= 30 ? (
-                            <>
-                              <AlertCircle className="w-4 h-4 mr-1" />
-                              Scadență: {nextInspection.toLocaleDateString('ro-RO', { 
-                                year: 'numeric', 
-                                month: 'long', 
-                                day: 'numeric' 
-                              })} ({daysUntil} zile)
-                            </>
-                          ) : (
-                            <>
-                              <Shield className="w-4 h-4 mr-1" />
-                              Scadență: {nextInspection.toLocaleDateString('ro-RO', { 
-                                year: 'numeric', 
-                                month: 'long', 
-                                day: 'numeric' 
-                              })} ({monthsUntil} luni)
-                            </>
-                          )}
-                        </div>
-                        {canEdit && (
-                          <button
-                            onClick={() => setShowInspectionModal(true)}
-                            className="mt-2 btn-primary text-sm"
-                          >
-                            <CheckCircle className="w-4 h-4 mr-2" />
-                            Marchează Inspecție Nouă
-                          </button>
-                        )}
-                      </div>
-                    )
-                  })()}
                 </div>
               )}
             </div>
@@ -614,28 +233,28 @@ export default function EquipmentDetail() {
           {/* Location Card */}
           {equipment.location && (
             <div className="card">
-              <h2 className="text-lg sm:text-xl font-semibold text-gray-900 mb-3 sm:mb-4">Location</h2>
+              <h2 className="text-xl font-semibold text-gray-900 mb-4">Location</h2>
               
               <div className="space-y-3">
                 <div className="flex items-start">
-                  <MapPin className="w-4 h-4 sm:w-5 sm:h-5 text-gray-400 mr-2 sm:mr-3 mt-0.5 shrink-0" />
-                  <div className="min-w-0 flex-1">
-                    <p className="font-medium text-gray-900 break-words">{equipment.location.name}</p>
+                  <MapPin className="w-5 h-5 text-gray-400 mr-3 mt-0.5" />
+                  <div>
+                    <p className="font-medium text-gray-900">{equipment.location.name}</p>
                     {equipment.location.building && (
-                      <p className="text-sm text-gray-600 flex items-start mt-1">
-                        <Building className="w-3 h-3 sm:w-4 sm:h-4 mr-1 mt-0.5 shrink-0" />
-                        <span className="break-words">{equipment.location.building}</span>
+                      <p className="text-sm text-gray-600 flex items-center mt-1">
+                        <Building className="w-4 h-4 mr-1" />
+                        {equipment.location.building}
                       </p>
                     )}
                     {(equipment.location.floor || equipment.location.room) && (
-                      <p className="text-sm text-gray-600 mt-1 break-words">
+                      <p className="text-sm text-gray-600 mt-1">
                         {equipment.location.floor && `Floor: ${equipment.location.floor}`}
-                        {equipment.location.floor && equipment.location.room && ' • '}
+                        {equipment.location.floor && equipment.location.room && ' â€¢ '}
                         {equipment.location.room && `Room: ${equipment.location.room}`}
                       </p>
                     )}
                     {equipment.location.address && (
-                      <p className="text-sm text-gray-500 mt-2 break-words">
+                      <p className="text-sm text-gray-500 mt-2">
                         {equipment.location.address}
                       </p>
                     )}
@@ -644,340 +263,6 @@ export default function EquipmentDetail() {
               </div>
             </div>
           )}
-
-          {/* Istoric Inspecții */}
-          {equipment.inspection_required && (
-            <div className="card">
-              <div className="flex items-center justify-between mb-4 sm:mb-6">
-                <h2 className="text-lg sm:text-xl font-semibold text-gray-900">
-                  <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5 inline mr-2" />
-                  Istoric Inspecții
-                </h2>
-              </div>
-
-              {isLoadingInspections ? (
-                <div className="flex justify-center py-8">
-                  <LoadingSpinner />
-                </div>
-              ) : inspections && inspections.length > 0 ? (
-                <div className="space-y-4">
-                  {inspections.map((inspection) => {
-                    const statusInfo = getInspectionStatusInfo(inspection.status)
-                    const canEditInspection = profile?.role === 'admin' || inspection.created_by === profile?.id
-                    
-                    return (
-                      <div
-                        key={inspection.id}
-                        className="p-3 sm:p-4 bg-white border-2 border-gray-200 rounded-lg hover:border-primary-300 transition-colors"
-                      >
-                        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
-                          <div className="flex-1 min-w-0">
-                            {/* Header */}
-                            <div className="flex flex-wrap items-center gap-2 mb-3">
-                              <span className={`inline-flex items-center px-2 sm:px-3 py-1 rounded-full text-xs sm:text-sm font-semibold border ${statusInfo.color}`}>
-                                {statusInfo.icon}
-                                <span className="ml-1 sm:ml-2">{statusInfo.label}</span>
-                              </span>
-                              <p className="text-xs sm:text-sm font-medium text-gray-900">
-                                {new Date(inspection.inspection_date).toLocaleDateString('ro-RO', {
-                                  year: 'numeric',
-                                  month: 'short',
-                                  day: 'numeric'
-                                })}
-                              </p>
-                            </div>
-
-                            {/* Inspector */}
-                            <div className="space-y-1 text-xs sm:text-sm text-gray-600 mb-3">
-                              {inspection.inspector_name ? (
-                                <p>
-                                  <span className="font-medium">Inspector:</span> {inspection.inspector_name}
-                                </p>
-                              ) : inspection.inspector ? (
-                                <p>
-                                  <span className="font-medium">Inspector:</span> {inspection.inspector.full_name}
-                                </p>
-                              ) : null}
-
-                              {/* Next Inspection */}
-                              {inspection.next_inspection_date && (
-                                <p>
-                                  <span className="font-medium">Scadență:</span>{' '}
-                                  {new Date(inspection.next_inspection_date).toLocaleDateString('ro-RO', {
-                                    year: 'numeric',
-                                    month: 'short',
-                                    day: 'numeric'
-                                  })}
-                                </p>
-                              )}
-
-                              {/* Findings Preview */}
-                              {inspection.findings && (
-                                <div className="mt-2">
-                                  <p className="font-medium text-gray-700">Observații:</p>
-                                  <p className="text-gray-600 line-clamp-2">{inspection.findings}</p>
-                                </div>
-                              )}
-                            </div>
-
-                            {/* Action Buttons */}
-                            <div className="flex flex-wrap items-center gap-2">
-                              {/* View Details Button */}
-                              <button
-                                onClick={() => setViewingInspection(inspection)}
-                                className="inline-flex items-center px-2 sm:px-3 py-1.5 text-xs sm:text-sm font-medium text-primary-700 bg-primary-50 rounded-lg hover:bg-primary-100 transition-colors"
-                              >
-                                <Eye className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-1.5" />
-                                <span className="hidden sm:inline">Vizualizare</span>
-                                <span className="sm:hidden">Vezi</span>
-                              </button>
-
-                              {/* Edit Button - only for creator or admin */}
-                              {canEditInspection && (
-                                <button
-                                  onClick={() => setEditingInspection(inspection)}
-                                  className="inline-flex items-center px-2 sm:px-3 py-1.5 text-xs sm:text-sm font-medium text-blue-700 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors"
-                                >
-                                  <Edit2 className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-1.5" />
-                                  Editează
-                                </button>
-                              )}
-
-                              {/* Certificate Badge */}
-                              {inspection.certificate_url && (
-                                <span className="inline-flex items-center px-2 py-1 text-xs font-medium text-green-700 bg-green-50 rounded border border-green-200">
-                                  <FileText className="w-3 h-3 mr-1" />
-                                  <span className="hidden sm:inline">Cu certificat</span>
-                                  <span className="sm:hidden">Cert.</span>
-                                </span>
-                              )}
-                            </div>
-                          </div>
-
-                          {/* Quick Download Certificate */}
-                          {inspection.certificate_url && (
-                            <a
-                              href={inspection.certificate_url}
-                              download
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="flex-shrink-0 p-2 text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"
-                              title="Descarcă Certificat"
-                            >
-                              <Download className="w-5 h-5" />
-                            </a>
-                          )}
-                        </div>
-
-                        {/* Created Info */}
-                        <div className="mt-3 pt-3 border-t border-gray-200 text-xs text-gray-500">
-                          Înregistrat de {inspection.creator?.full_name || 'N/A'} la{' '}
-                          {new Date(inspection.created_at).toLocaleDateString('ro-RO')}
-                        </div>
-                      </div>
-                    )
-                  })}
-                </div>
-              ) : (
-                <div className="text-center py-8 text-gray-500">
-                  <CheckCircle className="w-12 h-12 mx-auto mb-3 text-gray-400" />
-                  <p>Nu există inspecții înregistrate</p>
-                  {canEdit && (
-                    <button
-                      onClick={() => setShowInspectionModal(true)}
-                      className="mt-3 btn-primary text-sm"
-                    >
-                      <CheckCircle className="w-4 h-4 mr-2" />
-                      Marchează Prima Inspecție
-                    </button>
-                  )}
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Documente Atașate */}
-          <div className="card p-3 sm:p-4 lg:p-6">
-            <div className="flex items-center justify-between mb-3 sm:mb-4">
-              <h2 className="text-base sm:text-lg font-semibold text-gray-900">
-                <FileText className="w-4 h-4 sm:w-5 sm:h-5 inline mr-1 sm:mr-2" />
-                Documente Atașate
-              </h2>
-            </div>
-
-            {/* Upload Form */}
-            {canEdit && (
-              <div className="mb-3 sm:mb-4 p-2.5 sm:p-3 lg:p-4 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
-                <h3 className="text-xs sm:text-sm font-medium text-gray-700 mb-2 sm:mb-3">
-                  <Upload className="w-3 h-3 sm:w-4 sm:h-4 inline mr-1" />
-                  Încarcă Document Nou
-                </h3>
-                
-                <div className="space-y-3">
-                  {/* Document Type Selector */}
-                  <div>
-                    <label htmlFor="documentType" className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
-                      Tip Document
-                    </label>
-                    <select
-                      id="documentType"
-                      value={documentType}
-                      onChange={(e) => setDocumentType(e.target.value)}
-                      className="input text-sm"
-                    >
-                      <option value="invoice">Factură</option>
-                      <option value="warranty">Garanție</option>
-                      <option value="manual">Manual</option>
-                      <option value="certificate">Certificat</option>
-                      <option value="other">Altele</option>
-                    </select>
-                  </div>
-
-                  {/* File Input */}
-                  <div>
-                    <label htmlFor="fileUpload" className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
-                      Fișier (max 2MB)
-                    </label>
-                    <input
-                      id="fileUpload"
-                      type="file"
-                      onChange={handleFileSelect}
-                      className="block w-full text-xs sm:text-sm text-gray-500
-                        file:mr-2 sm:file:mr-4 file:py-1.5 sm:file:py-2 file:px-3 sm:file:px-4
-                        file:rounded-lg file:border-0
-                        file:text-xs sm:file:text-sm file:font-semibold
-                        file:bg-primary-50 file:text-primary-700
-                        hover:file:bg-primary-100
-                        cursor-pointer"
-                      accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.gif,.xls,.xlsx"
-                    />
-                  </div>
-                </div>
-
-                {/* Selected File Info */}
-                {selectedFile && (
-                  <div className="mt-2 sm:mt-3 flex items-center justify-between p-2 sm:p-3 bg-white rounded-lg border border-gray-200">
-                    <div className="flex items-center gap-2 min-w-0 flex-1">
-                      <File className="w-4 h-4 sm:w-5 sm:h-5 text-primary-600 flex-shrink-0" />
-                      <div className="min-w-0 flex-1">
-                        <p className="text-xs sm:text-sm font-medium text-gray-900 truncate">{selectedFile.name}</p>
-                        <p className="text-xs text-gray-500">{formatFileSize(selectedFile.size)}</p>
-                      </div>
-                    </div>
-                    <button
-                      onClick={() => setSelectedFile(null)}
-                      className="p-1 text-gray-400 hover:text-red-600 flex-shrink-0 ml-2"
-                    >
-                      <X className="w-4 h-4" />
-                    </button>
-                  </div>
-                )}
-
-                {/* Upload Button */}
-                {selectedFile && (
-                  <button
-                    onClick={handleFileUpload}
-                    disabled={uploadingFile}
-                    className="btn-primary mt-2 sm:mt-3 w-full sm:w-auto text-xs sm:text-sm py-1.5 sm:py-2"
-                  >
-                    {uploadingFile ? (
-                      <>
-                        <LoadingSpinner size="sm" />
-                        <span className="ml-2">Se încarcă...</span>
-                      </>
-                    ) : (
-                      <>
-                        <Upload className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
-                        Încarcă Fișier
-                      </>
-                    )}
-                  </button>
-                )}
-
-                {/* Error Message */}
-                {uploadError && (
-                  <div className="mt-2 sm:mt-3 p-2 sm:p-3 bg-red-50 border border-red-200 rounded-lg">
-                    <p className="text-xs sm:text-sm text-red-800">{uploadError}</p>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Attachments List */}
-            {isLoadingAttachments ? (
-              <div className="flex justify-center py-6 sm:py-8">
-                <LoadingSpinner />
-              </div>
-            ) : attachments && attachments.length > 0 ? (
-              <div className="space-y-2 sm:space-y-3">
-                {attachments.map((attachment) => (
-                  <div
-                    key={attachment.id}
-                    className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-2.5 sm:p-3 lg:p-4 bg-white border border-gray-200 rounded-lg hover:border-primary-300 transition-colors gap-2 sm:gap-3"
-                  >
-                    <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
-                      <div className="flex-shrink-0">
-                        <FileText className="w-5 h-5 sm:w-6 sm:h-6 lg:w-8 lg:h-8 text-primary-600" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs sm:text-sm font-medium text-gray-900 truncate">
-                          {attachment.file_name}
-                        </p>
-                        <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 text-xs text-gray-500 mt-0.5 sm:mt-1">
-                          <span className="inline-flex items-center px-1.5 sm:px-2 py-0.5 rounded-full bg-blue-100 text-blue-800 font-medium text-xs">
-                            {getDocumentTypeLabel(attachment.document_type)}
-                          </span>
-                          <span className="text-xs">{formatFileSize(attachment.file_size)}</span>
-                          <span className="hidden sm:inline text-xs">
-                            {new Date(attachment.created_at).toLocaleDateString('ro-RO')}
-                          </span>
-                          {attachment.uploader && (
-                            <span className="hidden md:inline text-xs">de {attachment.uploader.full_name}</span>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Action Buttons */}
-                    <div className="flex items-center gap-1.5 sm:gap-2 justify-end">
-                      {/* Download Button */}
-                      <a
-                        href={attachment.file_url}
-                        download
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex items-center gap-1 px-2 py-1.5 sm:px-3 sm:py-2 text-xs sm:text-sm font-medium text-primary-600 bg-primary-50 hover:bg-primary-100 rounded-lg transition-colors"
-                        title="Descarcă"
-                      >
-                        <Download className="w-3 h-3 sm:w-4 sm:h-4" />
-                        <span className="hidden sm:inline">Descarcă</span>
-                      </a>
-
-                      {/* Delete Button - only for uploader or admin */}
-                      {(attachment.uploaded_by === profile?.id || profile?.role === 'admin') && (
-                        <button
-                          onClick={() => handleAttachmentDelete(attachment)}
-                          disabled={deleteAttachmentMutation.isLoading}
-                          className="p-1.5 sm:p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                          title="Șterge"
-                        >
-                          <Trash2 className="w-3 h-3 sm:w-4 sm:h-4" />
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-6 sm:py-8 text-gray-500">
-                <FileText className="w-10 h-10 sm:w-12 sm:h-12 mx-auto mb-2 sm:mb-3 text-gray-400" />
-                <p className="text-sm sm:text-base">Nu există documente atașate</p>
-                {canEdit && (
-                  <p className="text-xs sm:text-sm mt-1">Folosește formularul de mai sus pentru a încărca documente</p>
-                )}
-              </div>
-            )}
-          </div>
 
           {/* Recent Work Orders */}
           <div className="card">
@@ -1023,27 +308,80 @@ export default function EquipmentDetail() {
               </div>
             )}
           </div>
+
+          {/* Compatible Parts from Inventory */}
+          {compatibleParts && compatibleParts.length > 0 && (
+            <div className="card">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl font-semibold text-gray-900 flex items-center">
+                  <Package className="w-5 h-5 mr-2 text-primary-600" />
+                  Piese din Inventar
+                </h2>
+                <Link
+                  to="/parts-inventory"
+                  className="text-primary-600 hover:text-primary-700 text-sm font-medium"
+                >
+                  Vezi Inventar
+                </Link>
+              </div>
+              
+              <div className="space-y-3">
+                {compatibleParts.map((part) => (
+                  <div
+                    key={part.id}
+                    className="p-4 border border-gray-200 rounded-lg hover:border-primary-300 hover:bg-primary-50 transition-colors"
+                  >
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <p className="font-medium text-gray-900">{part.name}</p>
+                        {part.part_number && (
+                          <p className="text-xs text-gray-500 font-mono mt-1">{part.part_number}</p>
+                        )}
+                        <div className="flex items-center gap-3 mt-2">
+                          <span className="text-sm text-gray-600">
+                            Stoc: <span className={`font-semibold ${
+                              part.quantity_in_stock <= part.min_quantity ? 'text-yellow-600' : 'text-gray-900'
+                            }`}>
+                              {part.quantity_in_stock} {part.unit_of_measure}
+                            </span>
+                          </span>
+                          <span className="text-sm text-gray-600">
+                            {part.unit_price.toFixed(2)} RON/{part.unit_of_measure}
+                          </span>
+                        </div>
+                      </div>
+                      {part.quantity_in_stock <= part.min_quantity && (
+                        <span className="badge badge-warning text-xs">
+                          Stoc Scăzut
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Sidebar - QR Code */}
-        <div className="lg:col-span-1 space-y-3 sm:space-y-4">
+        <div className="lg:col-span-1">
           <QRCodeGenerator 
             equipmentId={equipment.id} 
             equipmentName={equipment.name}
           />
           
-          <div className="card p-3 sm:p-4 lg:p-6">
-            <h3 className="text-sm sm:text-base font-semibold text-gray-900 mb-2 sm:mb-3">Quick Actions</h3>
+          <div className="card mt-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-3">Quick Actions</h3>
             <div className="space-y-2">
               <Link
                 to={`/work-orders/new?equipment=${id}`}
-                className="btn-primary w-full text-xs sm:text-sm py-2"
+                className="btn-primary w-full"
               >
                 Create Work Order
               </Link>
               <Link
                 to={`/equipment/${id}/edit`}
-                className="btn-secondary w-full text-xs sm:text-sm py-2"
+                className="btn-secondary w-full"
               >
                 Edit Equipment
               </Link>
@@ -1051,36 +389,6 @@ export default function EquipmentDetail() {
           </div>
         </div>
       </div>
-
-      {/* Inspection Modal */}
-      {showInspectionModal && equipment && (
-        <InspectionModal
-          equipment={equipment}
-          onClose={() => setShowInspectionModal(false)}
-        />
-      )}
-
-      {/* View Inspection Modal */}
-      {viewingInspection && equipment && (
-        <ViewInspectionModal
-          inspection={viewingInspection}
-          equipment={equipment}
-          onClose={() => setViewingInspection(null)}
-          onEdit={() => {
-            setEditingInspection(viewingInspection)
-            setViewingInspection(null)
-          }}
-        />
-      )}
-
-      {/* Edit Inspection Modal */}
-      {editingInspection && equipment && (
-        <EditInspectionModal
-          inspection={editingInspection}
-          equipment={equipment}
-          onClose={() => setEditingInspection(null)}
-        />
-      )}
     </div>
   )
 }

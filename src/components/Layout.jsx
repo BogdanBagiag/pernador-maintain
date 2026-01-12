@@ -17,6 +17,7 @@ import {
   FileText,
   Users,
   HelpCircle,
+  Package,
 } from 'lucide-react'
 import { useState } from 'react'
 
@@ -30,6 +31,7 @@ const navigation = [
   { name: 'nav.checklists', href: '/checklist-templates', icon: CheckSquare },
   { name: 'nav.procedures', href: '/procedure-templates', icon: FileText },
   { name: 'nav.reports', href: '/reports', icon: BarChart3 },
+  { name: 'nav.partsInventory', href: '/parts-inventory', icon: Package, managerAccess: true },
   { name: 'nav.manual', href: '/manual', icon: HelpCircle },
   { name: 'nav.users', href: '/users', icon: Users, adminOnly: true },
   { name: 'nav.settings', href: '/settings', icon: Settings },
@@ -91,7 +93,11 @@ export default function Layout({ children }) {
           {/* Navigation */}
           <nav className="flex-1 px-4 py-6 space-y-1 overflow-y-auto">
             {navigation
-              .filter(item => !item.adminOnly || profile?.role === 'admin')
+              .filter(item => {
+                if (item.adminOnly) return profile?.role === 'admin'
+                if (item.managerAccess) return profile?.role === 'admin' || profile?.role === 'manager'
+                return true
+              })
               .map((item) => {
               const isActive = location.pathname.startsWith(item.href)
               return (

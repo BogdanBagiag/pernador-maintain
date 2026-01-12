@@ -17,9 +17,12 @@ import {
   DollarSign,
   FileText,
   Trash2,
-  Save
+  Save,
+  Package,
+  Plus
 } from 'lucide-react'
 import LoadingSpinner from '../components/LoadingSpinner'
+import PartsUsageModal from '../components/PartsUsageModal'
 
 export default function WorkOrderDetail() {
   const { id } = useParams()
@@ -29,37 +32,18 @@ export default function WorkOrderDetail() {
   const [showCompletionForm, setShowCompletionForm] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [showReassignModal, setShowReassignModal] = useState(false)
-  const [showImageModal, setShowImageModal] = useState(false)
   const [newAssignedTo, setNewAssignedTo] = useState('')
+  const [showPartsModal, setShowPartsModal] = useState(false)
+  const [selectedParts, setSelectedParts] = useState([])
   const [completionData, setCompletionData] = useState({
     completed_by: '',
     parts_replaced: '',
     parts_cost: '',
     labor_cost: '',
     actual_hours: '',
-    completion_notes: ''
+    completion_notes: '',
+    inventory_parts: []
   })
-
-  // Calculate resolution time
-  const calculateResolutionTime = (createdAt, completedDate) => {
-    if (!createdAt || !completedDate) return null
-    
-    const start = new Date(createdAt)
-    const end = new Date(completedDate)
-    const diffMs = end - start
-    
-    const days = Math.floor(diffMs / (1000 * 60 * 60 * 24))
-    const hours = Math.floor((diffMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60))
-    const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60))
-    
-    if (days > 0) {
-      return `${days}z ${hours}h ${minutes}m`
-    } else if (hours > 0) {
-      return `${hours}h ${minutes}m`
-    } else {
-      return `${minutes}m`
-    }
-  }
 
   // Fetch work order with relations
   const { data: workOrder, isLoading } = useQuery({
@@ -166,7 +150,7 @@ export default function WorkOrderDetail() {
             }
           }
         } catch (err) {
-          console.error('❌ Notification error:', err)
+          console.error('âŒ Notification error:', err)
         }
       }
     },
@@ -230,6 +214,40 @@ export default function WorkOrderDetail() {
     updateStatusMutation.mutate({ 
       newStatus: 'completed', 
       completionDetails: completionData 
+    }, {
+      onSuccess: async () => {
+        // Salvează piesele din inventar în parts_usage
+        if (selectedParts && selectedParts.length > 0) {
+          try {
+            const usageRecords = selectedParts.map(part => ({
+              part_id: part.partId,
+              work_order_id: id,
+              equipment_id: workOrder.equipment_id,
+              quantity_used: part.quantity,
+              unit_cost: part.unitCost,
+              used_by: user.id,
+              notes: 'Folosit la finalizarea WO'
+            }))
+
+            const { error } = await supabase
+              .from('parts_usage')
+              .insert(usageRecords)
+
+            if (error) {
+              console.error('Error saving parts:', error)
+            } else {
+              // Invalidează cache-ul pentru inventar
+              queryClient.invalidateQueries(['inventory-parts'])
+            }
+          } catch (error) {
+            console.error('Error saving inventory parts:', error)
+          }
+        }
+        
+        setShowCompletionForm(false)
+        setSelectedParts([])
+        queryClient.invalidateQueries(['work-order', id])
+      }
     })
   }
 
@@ -238,6 +256,29 @@ export default function WorkOrderDetail() {
       ...completionData,
       [e.target.name]: e.target.value
     })
+  }
+
+  // Handler pentru salvarea pieselor selectate din inventar
+  const handlePartsSelected = (parts) => {
+    setSelectedParts(parts)
+    const inventoryPartsCost = parts.reduce((sum, p) => sum + (p.quantity * p.unitCost), 0)
+    setCompletionData(prev => ({
+      ...prev,
+      inventory_parts: parts,
+      parts_cost: (parseFloat(prev.parts_cost || 0) + inventoryPartsCost).toString()
+    }))
+  }
+
+  // Handler pentru eliminare piesă selectată
+  const handleRemoveInventoryPart = (partId) => {
+    const part = selectedParts.find(p => p.partId === partId)
+    const updatedParts = selectedParts.filter(p => p.partId !== partId)
+    setSelectedParts(updatedParts)
+    setCompletionData(prev => ({
+      ...prev,
+      inventory_parts: updatedParts,
+      parts_cost: Math.max(0, parseFloat(prev.parts_cost || 0) - (part.quantity * part.unitCost)).toString()
+    }))
   }
 
   if (isLoading) {
@@ -393,39 +434,18 @@ export default function WorkOrderDetail() {
             </p>
           </div>
 
-          {/* Issue Image - Thumbnail with Zoom */}
+          {/* Issue Image */}
           {workOrder.image_url && (
             <div className="card">
-              <h2 className="text-xl font-semibold text-gray-900 mb-4">Fotografie Problema</h2>
-              
-              {/* Thumbnail */}
-              <div 
-                className="relative group cursor-pointer"
-                onClick={() => setShowImageModal(true)}
-              >
-                <img 
-                  src={workOrder.image_url} 
-                  alt="Issue photo" 
-                  className="w-full max-h-80 object-contain rounded-lg border-2 border-gray-200 hover:border-primary-400 transition-all"
-                />
-                {/* Overlay cu icon zoom */}
-                <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-30 transition-all rounded-lg flex items-center justify-center">
-                  <div className="opacity-0 group-hover:opacity-100 transition-opacity">
-                    <div className="bg-white rounded-full p-3 shadow-lg">
-                      <svg className="w-8 h-8 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7" />
-                      </svg>
-                    </div>
-                  </div>
-                </div>
-              </div>
-              
-              <p className="text-sm text-gray-500 mt-3 flex items-center justify-center">
-                <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                </svg>
-                Click pe imagine pentru zoom
+              <h2 className="text-xl font-semibold text-gray-900 mb-4">Fotografie Problemă</h2>
+              <img 
+                src={workOrder.image_url} 
+                alt="Issue photo" 
+                className="w-full rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
+                onClick={() => window.open(workOrder.image_url, '_blank')}
+              />
+              <p className="text-sm text-gray-500 mt-2">
+                Click pe imagine pentru a vedea în dimensiune completă
               </p>
             </div>
           )}
@@ -486,229 +506,6 @@ export default function WorkOrderDetail() {
             </div>
           )}
 
-          {/* Completion Report - Show only for completed work orders */}
-          {workOrder.status === 'completed' && (
-            <div className="card border-2 border-green-200 bg-green-50">
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-xl font-semibold text-gray-900 flex items-center">
-                  <CheckCircle className="w-6 h-6 text-green-600 mr-2" />
-                  Raport de Finalizare
-                </h2>
-                <button
-                  onClick={() => window.print()}
-                  className="btn-secondary text-sm inline-flex items-center"
-                >
-                  <FileText className="w-4 h-4 mr-2" />
-                  Print Raport
-                </button>
-              </div>
-
-              <div className="bg-white rounded-lg p-6 space-y-6">
-                {/* Technician Info */}
-                {workOrder.completed_by && (
-                  <div className="border-b border-gray-200 pb-4">
-                    <h3 className="text-sm font-medium text-gray-500 mb-2">Tehnician</h3>
-                    <p className="text-lg font-semibold text-gray-900">{workOrder.completed_by}</p>
-                  </div>
-                )}
-
-                {/* Time Tracking */}
-                <div className="border-b border-gray-200 pb-4">
-                  <h3 className="text-sm font-medium text-gray-500 mb-3">Timeline Rezolvare</h3>
-                  
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
-                    {/* Data Sesizare */}
-                    <div className="bg-blue-50 p-3 rounded-lg">
-                      <h4 className="text-xs text-blue-600 font-medium mb-1 flex items-center">
-                        <Calendar className="w-3 h-3 mr-1" />
-                        Data Sesizare
-                      </h4>
-                      <p className="text-sm text-blue-900 font-semibold">
-                        {new Date(workOrder.created_at).toLocaleString('ro-RO', {
-                          year: 'numeric',
-                          month: 'short',
-                          day: 'numeric',
-                          hour: '2-digit',
-                          minute: '2-digit'
-                        })}
-                      </p>
-                    </div>
-
-                    {/* Durata Totala */}
-                    {calculateResolutionTime(workOrder.created_at, workOrder.completed_date) && (
-                      <div className="bg-purple-50 p-3 rounded-lg">
-                        <h4 className="text-xs text-purple-600 font-medium mb-1 flex items-center">
-                          <Clock className="w-3 h-3 mr-1" />
-                          Durata Rezolvare
-                        </h4>
-                        <p className="text-lg text-purple-900 font-bold">
-                          {calculateResolutionTime(workOrder.created_at, workOrder.completed_date)}
-                        </p>
-                      </div>
-                    )}
-
-                    {/* Data Finalizare */}
-                    {workOrder.completed_date && (
-                      <div className="bg-green-50 p-3 rounded-lg">
-                        <h4 className="text-xs text-green-600 font-medium mb-1 flex items-center">
-                          <CheckCircle className="w-3 h-3 mr-1" />
-                          Data Finalizare
-                        </h4>
-                        <p className="text-sm text-green-900 font-semibold">
-                          {new Date(workOrder.completed_date).toLocaleString('ro-RO', {
-                            year: 'numeric',
-                            month: 'short',
-                            day: 'numeric',
-                            hour: '2-digit',
-                            minute: '2-digit'
-                          })}
-                        </p>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Ore Lucrate */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                      <h4 className="text-sm font-medium text-gray-500 mb-1 flex items-center">
-                        <Clock className="w-4 h-4 mr-1" />
-                        Ore Lucrate
-                      </h4>
-                      <div className="flex items-baseline gap-2">
-                        <p className="text-2xl font-bold text-gray-900">
-                          {workOrder.actual_hours || '0'}h
-                        </p>
-                        {workOrder.estimated_hours && (
-                          <p className="text-sm text-gray-500">
-                            (estimat: {workOrder.estimated_hours}h)
-                          </p>
-                        )}
-                      </div>
-                      {workOrder.actual_hours && workOrder.estimated_hours && (
-                        <div className="mt-2">
-                          {workOrder.actual_hours > workOrder.estimated_hours ? (
-                            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
-                              <AlertTriangle className="w-3 h-3 mr-1" />
-                              +{(workOrder.actual_hours - workOrder.estimated_hours).toFixed(1)}h peste estimare
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                              <CheckCircle className="w-3 h-3 mr-1" />
-                              In limita estimarii
-                            </span>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Parts and Costs */}
-                {(workOrder.parts_replaced || workOrder.parts_cost || workOrder.labor_cost) && (
-                  <div className="border-b border-gray-200 pb-4">
-                    <h3 className="text-sm font-medium text-gray-500 mb-3">Piese si Costuri</h3>
-                    
-                    {/* Parts Replaced */}
-                    {workOrder.parts_replaced && (
-                      <div className="mb-4 bg-gray-50 p-4 rounded-lg">
-                        <h4 className="text-sm font-medium text-gray-700 mb-2">Piese Inlocuite:</h4>
-                        <p className="text-gray-900 whitespace-pre-wrap">{workOrder.parts_replaced}</p>
-                      </div>
-                    )}
-
-                    {/* Cost Breakdown */}
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                      {/* Parts Cost */}
-                      {workOrder.parts_cost != null && (
-                        <div className="bg-blue-50 p-4 rounded-lg">
-                          <div className="flex items-center text-sm text-blue-600 mb-1">
-                            <DollarSign className="w-4 h-4 mr-1" />
-                            Cost Piese
-                          </div>
-                          <p className="text-2xl font-bold text-blue-900">
-                            {parseFloat(workOrder.parts_cost).toFixed(2)} RON
-                          </p>
-                        </div>
-                      )}
-
-                      {/* Labor Cost */}
-                      {workOrder.labor_cost != null && (
-                        <div className="bg-purple-50 p-4 rounded-lg">
-                          <div className="flex items-center text-sm text-purple-600 mb-1">
-                            <DollarSign className="w-4 h-4 mr-1" />
-                            Cost Manopera
-                          </div>
-                          <p className="text-2xl font-bold text-purple-900">
-                            {parseFloat(workOrder.labor_cost).toFixed(2)} RON
-                          </p>
-                        </div>
-                      )}
-
-                      {/* Total Cost */}
-                      {(workOrder.parts_cost != null || workOrder.labor_cost != null) && (
-                        <div className="bg-green-50 p-4 rounded-lg">
-                          <div className="flex items-center text-sm text-green-600 mb-1">
-                            <DollarSign className="w-4 h-4 mr-1" />
-                            Cost Total
-                          </div>
-                          <p className="text-2xl font-bold text-green-900">
-                            {(
-                              (parseFloat(workOrder.parts_cost) || 0) + 
-                              (parseFloat(workOrder.labor_cost) || 0)
-                            ).toFixed(2)} RON
-                          </p>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                {/* Completion Notes */}
-                {workOrder.completion_notes && (
-                  <div>
-                    <h3 className="text-sm font-medium text-gray-500 mb-2 flex items-center">
-                      <FileText className="w-4 h-4 mr-1" />
-                      Note si Observatii Tehnician
-                    </h3>
-                    <div className="bg-gray-50 p-4 rounded-lg">
-                      <p className="text-gray-900 whitespace-pre-wrap">{workOrder.completion_notes}</p>
-                    </div>
-                  </div>
-                )}
-
-                {/* Summary Stats */}
-                <div className="bg-gradient-to-r from-green-50 to-blue-50 p-4 rounded-lg border border-green-200">
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-center">
-                    <div>
-                      <p className="text-xs text-gray-600 mb-1">Status</p>
-                      <p className="text-sm font-semibold text-green-700">Finalizat</p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-gray-600 mb-1">Ore Total</p>
-                      <p className="text-sm font-semibold text-gray-900">
-                        {workOrder.actual_hours || '0'}h
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-gray-600 mb-1">Cost Piese</p>
-                      <p className="text-sm font-semibold text-gray-900">
-                        {workOrder.parts_cost ? `${parseFloat(workOrder.parts_cost).toFixed(2)} RON` : '-'}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-gray-600 mb-1">Cost Total</p>
-                      <p className="text-sm font-semibold text-green-700">
-                        {(workOrder.parts_cost || workOrder.labor_cost)
-                          ? `${((parseFloat(workOrder.parts_cost) || 0) + (parseFloat(workOrder.labor_cost) || 0)).toFixed(2)} RON`
-                          : '-'
-                        }
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
           {/* Comments Section */}
           <div className="card">
             <h2 className="text-lg sm:text-xl font-semibold text-gray-900 mb-4">Activity</h2>
@@ -936,7 +733,7 @@ export default function WorkOrderDetail() {
                     {/* Parts Replaced */}
                     <div>
                       <label htmlFor="parts_replaced" className="block text-sm font-medium text-gray-700 mb-1">
-                        Piese Înlocuite
+                        Piese Înlocuite (Manual)
                       </label>
                       <div className="relative">
                         <Wrench className="absolute left-3 top-3 w-5 h-5 text-gray-400" />
@@ -951,8 +748,79 @@ export default function WorkOrderDetail() {
                         />
                       </div>
                       <p className="text-xs text-gray-500 mt-1">
-                        Listează toate piesele care au fost înlocuite sau folosite
+                        Listează toate piesele care au fost înlocuite sau folosite (text liber)
                       </p>
+                    </div>
+
+                    {/* Piese din Inventar */}
+                    <div className="border-t border-gray-200 pt-4">
+                      <div className="flex items-center justify-between mb-3">
+                        <label className="block text-sm font-medium text-gray-700">
+                          Piese din Inventar
+                        </label>
+                        <button
+                          type="button"
+                          onClick={() => setShowPartsModal(true)}
+                          className="btn-secondary inline-flex items-center text-sm"
+                        >
+                          <Plus className="w-4 h-4 mr-1" />
+                          Selectează Piese
+                        </button>
+                      </div>
+                      
+                      {selectedParts && selectedParts.length > 0 ? (
+                        <div className="space-y-2 bg-blue-50 border border-blue-200 rounded-lg p-3">
+                          {selectedParts.map((part) => (
+                            <div
+                              key={part.partId}
+                              className="flex items-center justify-between bg-white rounded p-2"
+                            >
+                              <div className="flex items-center gap-2 flex-1 min-w-0">
+                                <Package className="w-4 h-4 text-blue-600 flex-shrink-0" />
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-sm font-medium text-gray-900 truncate">
+                                    {part.partName}
+                                  </p>
+                                  {part.partNumber && (
+                                    <p className="text-xs text-gray-500 font-mono truncate">{part.partNumber}</p>
+                                  )}
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-3 flex-shrink-0">
+                                <span className="text-sm text-gray-600 whitespace-nowrap">
+                                  {part.quantity} {part.unitOfMeasure}
+                                </span>
+                                <span className="text-sm font-semibold text-gray-900 whitespace-nowrap">
+                                  {(part.quantity * part.unitCost).toFixed(2)} RON
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => handleRemoveInventoryPart(part.partId)}
+                                  className="text-red-600 hover:text-red-800"
+                                  title="Elimină"
+                                >
+                                  <XCircle className="w-4 h-4" />
+                                </button>
+                              </div>
+                            </div>
+                          ))}
+                          
+                          <div className="flex justify-between items-center pt-2 border-t border-blue-200">
+                            <span className="text-sm font-medium text-gray-700">Cost Total Piese Inventar:</span>
+                            <span className="text-lg font-bold text-blue-900">
+                              {selectedParts.reduce((sum, p) => sum + (p.quantity * p.unitCost), 0).toFixed(2)} RON
+                            </span>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="text-center py-4 bg-gray-50 border border-gray-200 rounded-lg">
+                          <Package className="w-8 h-8 mx-auto mb-2 text-gray-300" />
+                          <p className="text-sm text-gray-500">Nicio piesă selectată din inventar</p>
+                          <p className="text-xs text-gray-400 mt-1">
+                            Click "Selectează Piese" pentru a adăuga piese din inventar
+                          </p>
+                        </div>
+                      )}
                     </div>
 
                     {/* Costs */}
@@ -1092,6 +960,19 @@ export default function WorkOrderDetail() {
                         )}
                       </button>
                     </div>
+
+                    {/* Modal Selectare Piese */}
+                    {showPartsModal && (
+                      <PartsUsageModal
+                        workOrderId={id}
+                        equipmentId={workOrder?.equipment_id}
+                        onClose={() => setShowPartsModal(false)}
+                        onSave={(parts) => {
+                          handlePartsSelected(parts)
+                          setShowPartsModal(false)
+                        }}
+                      />
+                    )}
                   </form>
                 </div>
               </div>
@@ -1239,55 +1120,6 @@ export default function WorkOrderDetail() {
                   'Salvează'
                 )}
               </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Image Zoom Modal */}
-      {showImageModal && workOrder.image_url && (
-        <div 
-          className="fixed inset-0 bg-black bg-opacity-90 z-50 flex items-center justify-center p-4"
-          onClick={() => setShowImageModal(false)}
-        >
-          <div className="relative max-w-7xl max-h-screen w-full h-full flex items-center justify-center">
-            {/* Close Button */}
-            <button
-              onClick={() => setShowImageModal(false)}
-              className="absolute top-4 right-4 bg-white rounded-full p-2 shadow-lg hover:bg-gray-100 transition-colors z-10"
-            >
-              <svg className="w-6 h-6 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-
-            {/* Download Button */}
-            <a
-              href={workOrder.image_url}
-              download
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={(e) => e.stopPropagation()}
-              className="absolute top-4 right-16 bg-white rounded-full p-2 shadow-lg hover:bg-gray-100 transition-colors z-10"
-            >
-              <svg className="w-6 h-6 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-              </svg>
-            </a>
-
-            {/* Full Size Image */}
-            <img 
-              src={workOrder.image_url} 
-              alt="Issue photo - Full size" 
-              className="max-w-full max-h-full object-contain rounded-lg shadow-2xl"
-              onClick={(e) => e.stopPropagation()}
-            />
-
-            {/* Instructions */}
-            <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 bg-white bg-opacity-90 rounded-lg px-4 py-2 shadow-lg">
-              <p className="text-sm text-gray-700">
-                Click oriunde pentru a inchide • Click pe imagine pentru a preveni inchiderea
-              </p>
             </div>
           </div>
         </div>

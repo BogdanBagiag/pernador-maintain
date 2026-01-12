@@ -2,19 +2,3 @@ Pram pentru locatii
 
 Adauga filtre cu click ca cele care exista acum la lista equipment si pune sub cele existente aceste taburi Inspecții Periodice Valide, Expira in 30 zile si Expirate iar cand dau click pe el sa imi afiseze in lista de echipamente, acele echipamente cu valide expira sau expirate
 
-1
-
-In pagina schedules vreau ca la filtrul Urmatoarele 7 zile sa apara si mentenantele care sunt intarziate si cele care urmeaza
-
-2
-
-Am o avertizare File: C:/Users/bogda/pernador-maintain/pernador-maintain/src/contexts/LanguageContext.jsx
-09:28:21 [vite] warning: Duplicate key "nav.manual" in object literal
-186|      'nav.reports': 'Rapoarte',
-187|      'nav.manual': 'Manual Utilizare',
-188|      'nav.manual': 'Manual de Utilizare',
-   |      ^
-189|      'nav.users': 'Utilizatori',
-190|      'nav.settings': 'Setări',
-
-  Plugin: vite:esbuild

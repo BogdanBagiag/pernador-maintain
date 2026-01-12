@@ -18,6 +18,7 @@ import MaintenanceSchedules from './pages/MaintenanceSchedules'
 import ChecklistTemplates from './pages/ChecklistTemplates'
 import ProcedureTemplates from './pages/ProcedureTemplates'
 import Reports from './pages/Reports'
+import PartsInventory from './pages/PartsInventory'
 import Settings from './pages/Settings'
 import UserManagement from './pages/UserManagement'
 import LocationsList from './pages/LocationsList'
@@ -143,6 +144,7 @@ function App() {
                       <Route path="/checklist-templates" element={<ChecklistTemplates />} />
                       <Route path="/procedure-templates" element={<ProcedureTemplates />} />
                       <Route path="/reports" element={<Reports />} />
+                      <Route path="/parts-inventory" element={<PartsInventory />} />
                       <Route path="/users" element={<UserManagement />} />
                       <Route path="/settings" element={<Settings />} />
                       <Route path="/manual" element={<UserManual />} />
