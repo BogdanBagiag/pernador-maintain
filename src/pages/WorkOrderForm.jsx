@@ -157,34 +157,17 @@ export default function WorkOrderForm() {
         workOrderData = newWO
       }
       
-      // Send push notification
-      if (wasAssigned && assignedUserId) {
-        // Specific assignment - notify only assigned user
-        try {
-          const { data: assignedUser } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('id', assignedUserId)
-            .single()
-          
-          if (assignedUser) {
-            await notifyWorkOrderAssigned(workOrderData, assignedUser)
-          }
-        } catch (err) {
-          console.error('âŒ Notification error:', err)
-        }
-      } else if (!isEditing && !assignedUserId) {
-        // New work order without assignment - notify all admins & technicians
+      // Send push notifications to ALL active users when creating new work order
+      if (!isEditing) {
         try {
           const { data: users } = await supabase
             .from('profiles')
             .select('*')
-            .in('role', ['admin', 'technician'])
+            .in('role', ['admin', 'manager', 'technician'])
             .eq('is_active', true)
           
-          
           if (users && users.length > 0) {
-            // Notify all
+            // Notify all users
             await Promise.all(
               users.map(u => {
                 return notifyWorkOrderAssigned(workOrderData, u)
@@ -192,9 +175,8 @@ export default function WorkOrderForm() {
             )
           }
         } catch (err) {
-          console.error('âŒ Notification error:', err)
+          console.error('âŒ Notification error:', err)
         }
-      } else {
       }
     },
     onSuccess: () => {
