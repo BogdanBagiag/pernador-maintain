@@ -1,3 +1,8 @@
+git add .
+git commit -m "Add parts inventory system with equipment compatibility and soft delete fix"
+git push origin main
+
+
 Pram pentru locatii
 
 Adauga filtre cu click ca cele care exista acum la lista equipment si pune sub cele existente aceste taburi Inspecții Periodice Valide, Expira in 30 zile si Expirate iar cand dau click pe el sa imi afiseze in lista de echipamente, acele echipamente cu valide expira sau expirate

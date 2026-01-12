@@ -35,7 +35,7 @@ export default function WorkOrderList() {
     }
   }, [searchParams])
 
-  // Fetch work orders with equipment and location info
+  // Fetch work orders with equipment and location info (exclude preventive maintenance generated ones)
   const { data: workOrders, isLoading } = useQuery({
     queryKey: ['work-orders'],
     queryFn: async () => {
@@ -47,6 +47,7 @@ export default function WorkOrderList() {
           location:locations(id, name, building, floor, room),
           assigned_to_user:profiles!work_orders_assigned_to_fkey(id, full_name)
         `)
+        .neq('type', 'preventive')
         .order('created_at', { ascending: false })
       
       if (error) throw error
