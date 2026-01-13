@@ -1,5 +1,5 @@
 // Service Worker for PWA
-const CACHE_NAME = 'pernador-maintenance-v3' // ← Versiune actualizată
+const CACHE_NAME = 'pernador-maintenance-v4' // Versiune noua pentru VAPID keys noi // â† Versiune actualizatÄƒ
 const urlsToCache = [
   '/',
   '/index.html',

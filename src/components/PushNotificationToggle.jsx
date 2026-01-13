@@ -12,6 +12,8 @@ export default function PushNotificationToggle() {
 
   // VAPID Public Key - generate with: npx web-push generate-vapid-keys
   const VAPID_PUBLIC_KEY = import.meta.env.VITE_VAPID_PUBLIC_KEY
+  
+  console.log('🔑 VAPID_PUBLIC_KEY:', VAPID_PUBLIC_KEY)
 
   useEffect(() => {
     if ('Notification' in window) {
