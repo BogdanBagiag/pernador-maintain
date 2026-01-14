@@ -2,7 +2,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
-import { ArrowLeft, Edit, MapPin, Calendar, Hash, Building, Trash2, Shield, AlertCircle, Upload, Download, FileText, File, X, CheckCircle, XCircle, Eye, Edit2, Package } from 'lucide-react'
+import { ArrowLeft, Edit, MapPin, Calendar, Hash, Building, Trash2, Shield, AlertCircle, Upload, Download, FileText, File, X, CheckCircle, XCircle, Eye, Edit2 } from 'lucide-react'
 import LoadingSpinner from '../components/LoadingSpinner'
 import QRCodeGenerator from '../components/QRCodeGenerator'
 import InspectionModal from '../components/InspectionModal'
@@ -285,25 +285,6 @@ export default function EquipmentDetail() {
       
       if (error) throw error
       return data
-    },
-  })
-
-  // Fetch compatible parts from inventory
-  const { data: compatibleParts } = useQuery({
-    queryKey: ['equipment-compatible-parts', id],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('inventory_parts')
-        .select('*')
-        .eq('is_active', true)
-      
-      if (error) throw error
-      
-      // Filter parts that have this equipment in compatible_equipment array
-      return data?.filter(part => 
-        part.compatible_equipment && 
-        part.compatible_equipment.includes(id)
-      ) || []
     },
   })
 
@@ -1042,59 +1023,6 @@ export default function EquipmentDetail() {
               </div>
             )}
           </div>
-
-          {/* Compatible Parts from Inventory */}
-          {compatibleParts && compatibleParts.length > 0 && (
-            <div className="card p-3 sm:p-4 lg:p-6">
-              <div className="flex items-center justify-between mb-3 sm:mb-4">
-                <h2 className="text-base sm:text-lg lg:text-xl font-semibold text-gray-900 flex items-center">
-                  <Package className="w-4 h-4 sm:w-5 sm:h-5 mr-2 text-primary-600" />
-                  Piese din Inventar
-                </h2>
-                <Link
-                  to="/parts-inventory"
-                  className="text-primary-600 hover:text-primary-700 text-xs sm:text-sm font-medium"
-                >
-                  Vezi Inventar
-                </Link>
-              </div>
-              
-              <div className="space-y-2 sm:space-y-3">
-                {compatibleParts.map((part) => (
-                  <div
-                    key={part.id}
-                    className="p-3 sm:p-4 border border-gray-200 rounded-lg hover:border-primary-300 hover:bg-primary-50 transition-colors"
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium text-gray-900 text-sm sm:text-base break-words">{part.name}</p>
-                        {part.part_number && (
-                          <p className="text-xs text-gray-500 font-mono mt-1 break-all">{part.part_number}</p>
-                        )}
-                        <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-3 mt-2">
-                          <span className="text-xs sm:text-sm text-gray-600">
-                            Stoc: <span className={`font-semibold ${
-                              part.quantity_in_stock <= part.min_quantity ? 'text-yellow-600' : 'text-gray-900'
-                            }`}>
-                              {part.quantity_in_stock} {part.unit_of_measure}
-                            </span>
-                          </span>
-                          <span className="text-xs sm:text-sm text-gray-600">
-                            {part.unit_price.toFixed(2)} RON/{part.unit_of_measure}
-                          </span>
-                        </div>
-                      </div>
-                      {part.quantity_in_stock <= part.min_quantity && (
-                        <span className="badge badge-warning text-xs shrink-0">
-                          Stoc Scăzut
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
         </div>
 
         {/* Sidebar - QR Code */}
