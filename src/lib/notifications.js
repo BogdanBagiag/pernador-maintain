@@ -42,9 +42,15 @@ export const notifyWorkOrderAssigned = async (workOrder, assignedUser) => {
     workOrderId: workOrder.id
   })
 
-  // Also show local notification immediately
-  if ('serviceWorker' in navigator) {
+  // Also show local notification immediately (only if permission granted)
+  if ('serviceWorker' in navigator && 'Notification' in window) {
     try {
+      // Check if notification permission is granted
+      if (Notification.permission !== 'granted') {
+        console.log('Notification permission not granted, skipping local notification')
+        return
+      }
+
       const registration = await navigator.serviceWorker.ready
       await registration.showNotification(title, {
         body: `${workOrder.title} - Prioritate: ${workOrder.priority}`,
@@ -56,6 +62,7 @@ export const notifyWorkOrderAssigned = async (workOrder, assignedUser) => {
       })
     } catch (err) {
       console.error('Local notification error:', err)
+      // Don't throw - notifications are optional
     }
   }
 }
