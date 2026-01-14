@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
@@ -19,9 +19,7 @@ import {
   Trash2,
   Save,
   Package,
-  Plus,
-  Expand,
-  X
+  Plus
 } from 'lucide-react'
 import LoadingSpinner from '../components/LoadingSpinner'
 import PartsUsageModal from '../components/PartsUsageModal'
@@ -34,7 +32,6 @@ export default function WorkOrderDetail() {
   const [showCompletionForm, setShowCompletionForm] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [showReassignModal, setShowReassignModal] = useState(false)
-  const [showImageModal, setShowImageModal] = useState(false)
   const [newAssignedTo, setNewAssignedTo] = useState('')
   const [showPartsModal, setShowPartsModal] = useState(false)
   const [selectedParts, setSelectedParts] = useState([])
@@ -47,18 +44,6 @@ export default function WorkOrderDetail() {
     completion_notes: '',
     inventory_parts: []
   })
-
-  // Handle ESC key to close image modal
-  useEffect(() => {
-    const handleEscape = (e) => {
-      if (e.key === 'Escape' && showImageModal) {
-        setShowImageModal(false)
-      }
-    }
-    
-    window.addEventListener('keydown', handleEscape)
-    return () => window.removeEventListener('keydown', handleEscape)
-  }, [showImageModal])
 
   // Fetch work order with relations
   const { data: workOrder, isLoading } = useQuery({
@@ -453,20 +438,13 @@ export default function WorkOrderDetail() {
           {workOrder.image_url && (
             <div className="card">
               <h2 className="text-xl font-semibold text-gray-900 mb-4">Fotografie Problemă</h2>
-              <div className="relative group">
-                <img 
-                  src={workOrder.image_url} 
-                  alt="Issue photo" 
-                  className="w-full max-w-md mx-auto rounded-lg cursor-pointer hover:opacity-90 transition-opacity shadow-md"
-                  onClick={() => setShowImageModal(true)}
-                />
-                <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-                  <div className="bg-black bg-opacity-50 rounded-full p-3">
-                    <Expand className="w-8 h-8 text-white" />
-                  </div>
-                </div>
-              </div>
-              <p className="text-sm text-gray-500 mt-2 text-center">
+              <img 
+                src={workOrder.image_url} 
+                alt="Issue photo" 
+                className="w-full rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
+                onClick={() => window.open(workOrder.image_url, '_blank')}
+              />
+              <p className="text-sm text-gray-500 mt-2">
                 Click pe imagine pentru a vedea în dimensiune completă
               </p>
             </div>
@@ -1142,43 +1120,6 @@ export default function WorkOrderDetail() {
                   'Salvează'
                 )}
               </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Image Modal */}
-      {showImageModal && workOrder?.image_url && (
-        <div 
-          className="fixed inset-0 bg-black bg-opacity-90 flex items-center justify-center z-50 p-4"
-          onClick={() => setShowImageModal(false)}
-        >
-          <div className="relative max-w-7xl max-h-full">
-            {/* Close button */}
-            <button
-              onClick={() => setShowImageModal(false)}
-              className="absolute -top-12 right-0 text-white hover:text-gray-300 transition-colors"
-              aria-label="Close"
-            >
-              <div className="flex items-center gap-2 bg-black bg-opacity-50 px-4 py-2 rounded-lg">
-                <X className="w-6 h-6" />
-                <span className="text-sm">Închide (ESC)</span>
-              </div>
-            </button>
-            
-            {/* Image */}
-            <img 
-              src={workOrder.image_url} 
-              alt="Issue photo - full size" 
-              className="max-w-full max-h-[90vh] object-contain rounded-lg shadow-2xl"
-              onClick={(e) => e.stopPropagation()}
-            />
-            
-            {/* Download hint */}
-            <div className="absolute -bottom-12 left-0 right-0 text-center">
-              <p className="text-white text-sm bg-black bg-opacity-50 inline-block px-4 py-2 rounded-lg">
-                Click pe fundal sau apasă ESC pentru a închide
-              </p>
             </div>
           </div>
         </div>

@@ -5,7 +5,6 @@ import { supabase } from '../lib/supabase'
 import { Globe, Lock, User, Check, AlertCircle, Bell } from 'lucide-react'
 import LoadingSpinner from '../components/LoadingSpinner'
 import PushNotificationToggle from '../components/PushNotificationToggle'
-import TestNotificationButton from '../components/TestNotificationButton'
 
 export default function Settings() {
   const { language, setLanguage, t } = useLanguage()
@@ -159,11 +158,6 @@ export default function Settings() {
             </p>
             
             <PushNotificationToggle />
-            
-            <div className="mt-4 pt-4 border-t border-gray-200">
-              <p className="text-sm font-medium text-gray-700 mb-3">Testează Notificările:</p>
-              <TestNotificationButton />
-            </div>
             
             <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
               <p className="text-xs text-blue-800">
