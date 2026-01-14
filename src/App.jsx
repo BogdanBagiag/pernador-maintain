@@ -109,6 +109,8 @@ function App() {
             {/* Public Scan Route (No Auth Required) */}
             <Route path="/scan" element={<PublicScanWrapper />} />
             
+            {/* Public Location Route - Smart Redirect */}
+            <Route path="/locations/:id" element={<PublicLocationWrapper />} />
 
             {/* Protected Routes */}
             <Route
@@ -134,7 +136,6 @@ function App() {
                       {/* Location Routes */}
                       <Route path="/locations" element={<LocationsList />} />
                       <Route path="/locations/new" element={<LocationForm />} />
-                      <Route path="/locations/:id" element={<LocationDetail />} />
                       <Route path="/locations/:id/edit" element={<LocationForm />} />
                       
                       {/* Other Routes */}
