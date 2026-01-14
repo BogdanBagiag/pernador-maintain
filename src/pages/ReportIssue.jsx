@@ -3,7 +3,7 @@ import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { useQuery, useMutation } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { notifyWorkOrderAssigned } from '../lib/notifications'
-import { AlertTriangle, CheckCircle, Wrench, MapPin, Camera, Upload, X, Building } from 'lucide-react'
+import { AlertTriangle, CheckCircle, Wrench, MapPin, Camera, Upload, X, Building, Hash, DoorOpen } from 'lucide-react'
 import LoadingSpinner from '../components/LoadingSpinner'
 
 export default function ReportIssue() {
@@ -139,27 +139,38 @@ export default function ReportIssue() {
         newWorkOrder = woData
       }
       
-      // Send push notifications to ALL active users
+      // Send push notifications to ALL active users (fire-and-forget)
       if (newWorkOrder) {
-        try {
-          const { data: users } = await supabase
-            .from('profiles')
-            .select('*')
-            .in('role', ['admin', 'manager', 'technician'])
-            .eq('is_active', true)
-          
-          if (users && users.length > 0) {
-            // Notify all users
-            await Promise.all(
-              users.map(u => {
-                return notifyWorkOrderAssigned(newWorkOrder, u)
-              })
-            )
+        // Don't await - send in background to not block the response
+        const sendNotifications = async () => {
+          try {
+            const { data: users } = await supabase
+              .from('profiles')
+              .select('*')
+              .in('role', ['admin', 'manager', 'technician'])
+              .eq('is_active', true)
+            
+            if (users && users.length > 0) {
+              // Notify all users in parallel
+              await Promise.all(
+                users.map(u => {
+                  return notifyWorkOrderAssigned(newWorkOrder, u).catch(err => {
+                    console.error('Notification failed for user:', u.id, err)
+                  })
+                })
+              )
+            }
+          } catch (err) {
+            console.error('❌ Notification error:', err)
           }
-        } catch (err) {
-          console.error('❌ Notification error:', err)
         }
+        
+        // Fire-and-forget: don't await, just trigger
+        sendNotifications()
       }
+      
+      // Return immediately without waiting for notifications
+      return newWorkOrder
     },
     onSuccess: () => {
       setSubmitted(true)
@@ -325,10 +336,25 @@ export default function ReportIssue() {
                 </div>
               )}
               {itemType === 'location' && (
-                <div className="text-sm text-gray-600 mt-2">
-                  {location.building && <p>ðŸ¢ {location.building}</p>}
-                  {location.floor && <p>ðŸ“ Etaj {location.floor}</p>}
-                  {location.room && <p>🚪 Camera {location.room}</p>}
+                <div className="text-sm text-gray-600 mt-2 space-y-1">
+                  {location.building && (
+                    <div className="flex items-center">
+                      <Building className="w-4 h-4 mr-1" />
+                      {location.building}
+                    </div>
+                  )}
+                  {location.floor && (
+                    <div className="flex items-center">
+                      <Hash className="w-4 h-4 mr-1" />
+                      Etaj {location.floor}
+                    </div>
+                  )}
+                  {location.room && (
+                    <div className="flex items-center">
+                      <DoorOpen className="w-4 h-4 mr-1" />
+                      Camera {location.room}
+                    </div>
+                  )}
                 </div>
               )}
             </div>
