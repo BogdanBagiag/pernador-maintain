@@ -107,8 +107,46 @@ export const AuthProvider = ({ children }) => {
   }
 
   const signOut = async () => {
-    const { error } = await supabase.auth.signOut()
-    if (error) throw error
+    try {
+      // Verificăm mai întâi dacă avem o sesiune activă
+      const { data: { session } } = await supabase.auth.getSession()
+      
+      if (session) {
+        // Dacă avem sesiune, facem logout normal
+        const { error } = await supabase.auth.signOut()
+        if (error) throw error
+      } else {
+        // Dacă nu avem sesiune, ștergem doar datele locale
+        console.log('No active session found, clearing local storage')
+        // Supabase stochează sesiunea în localStorage, o ștergem manual
+        const keys = Object.keys(localStorage)
+        keys.forEach(key => {
+          if (key.startsWith('sb-')) {
+            localStorage.removeItem(key)
+          }
+        })
+      }
+      
+      // Reset local state indiferent de rezultat
+      setUser(null)
+      setProfile(null)
+    } catch (error) {
+      // Chiar dacă apare o eroare, curățăm starea locală
+      console.error('Error during sign out:', error)
+      setUser(null)
+      setProfile(null)
+      
+      // Ștergem storage-ul Supabase local
+      const keys = Object.keys(localStorage)
+      keys.forEach(key => {
+        if (key.startsWith('sb-')) {
+          localStorage.removeItem(key)
+        }
+      })
+      
+      // Nu mai aruncăm eroarea pentru a evita UX-ul neplăcut
+      // throw error
+    }
   }
 
   const updateProfile = async (updates) => {
