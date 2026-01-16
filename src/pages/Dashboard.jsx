@@ -16,6 +16,7 @@ import {
 } from 'lucide-react'
 import { BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
 import LoadingSpinner from '../components/LoadingSpinner'
+import WorkOrderRemindersCard from '../components/WorkOrderRemindersCard'
 
 export default function Dashboard() {
   const [dateRange, setDateRange] = useState('all') // all, 7days, 30days, 90days, custom
@@ -742,6 +743,11 @@ export default function Dashboard() {
           </div>
           <p className="text-2xl font-bold text-gray-900">{totalWorkOrders}</p>
         </div>
+      </div>
+
+      {/* Work Order Reminders Section */}
+      <div className="mb-6">
+        <WorkOrderRemindersCard />
       </div>
 
       {/* Charts Row */}
