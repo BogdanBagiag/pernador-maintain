@@ -21,9 +21,10 @@ export const sendPushNotification = async ({
   }
 }
 
-// Helper: notify when work order is assigned
-export const notifyWorkOrderAssigned = async (workOrder, assignedUser) => {
-  if (!assignedUser?.id) {
+// Helper: notify when work order is created (trimite la TOȚI users)
+export const notifyWorkOrderAssigned = async (workOrder, user) => {
+  // Parametrul e acum 'user' în loc de 'assignedUser' - trimitem la TOȚI
+  if (!user?.id) {
     return
   }
 
@@ -34,7 +35,7 @@ export const notifyWorkOrderAssigned = async (workOrder, assignedUser) => {
 
   // Send to backend (which will try to send push)
   await sendPushNotification({
-    userId: assignedUser.id,
+    userId: user.id,
     title,
     body: `${workOrder.title} - Prioritate: ${workOrder.priority}`,
     url: `/work-orders/${workOrder.id}`,
