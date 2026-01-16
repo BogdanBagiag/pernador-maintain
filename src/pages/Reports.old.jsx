@@ -49,41 +49,6 @@ export default function Reports() {
         .order('completed_date', { ascending: false })
       
       if (error) throw error
-      
-      // Fetch schedule completions for each work order
-      if (data) {
-        for (const wo of data) {
-          // Get schedule completion linked to this work order
-          const { data: completion } = await supabase
-            .from('schedule_completions')
-            .select(`
-              id,
-              procedure_notes,
-              checklist_results,
-              schedule_id
-            `)
-            .eq('work_order_id', wo.id)
-            .maybeSingle()
-          
-          if (completion) {
-            wo.schedule_completion = completion
-            
-            // Get checklist template for this completion
-            const { data: schedule } = await supabase
-              .from('maintenance_schedules')
-              .select(`
-                checklist_template:checklist_templates(id, name, items)
-              `)
-              .eq('id', completion.schedule_id)
-              .maybeSingle()
-            
-            if (schedule?.checklist_template) {
-              wo.schedule_completion.checklist_template = schedule.checklist_template
-            }
-          }
-        }
-      }
-      
       return data
     },
   })
@@ -527,9 +492,7 @@ export default function Reports() {
           <div className="space-y-4">
             {filteredWorkOrders.map((wo) => {
               const totalCost = (parseFloat(wo.parts_cost) || 0) + (parseFloat(wo.labor_cost) || 0)
-              const hasScheduleNotes = wo.schedule_completion?.procedure_notes || 
-                                       (wo.schedule_completion?.checklist_results && Object.keys(wo.schedule_completion.checklist_results).length > 0)
-              const hasCompleteReport = wo.completed_by || wo.parts_replaced || totalCost > 0 || wo.completion_notes || hasScheduleNotes
+              const hasCompleteReport = wo.completed_by || wo.parts_replaced || totalCost > 0 || wo.completion_notes
               const isExpanded = expandedReports[wo.id]
 
               return (
@@ -740,58 +703,6 @@ export default function Reports() {
                               <div className="bg-gray-50 p-2 sm:p-3 rounded-lg">
                                 <p className="text-xs sm:text-sm text-gray-900 whitespace-pre-wrap break-words">{wo.completion_notes}</p>
                               </div>
-                            </div>
-                          )}
-
-                          {/* Schedule Completion Notes (Preventive Maintenance) */}
-                          {wo.schedule_completion && (
-                            <div className="space-y-3">
-                              {/* Procedure Notes */}
-                              {wo.schedule_completion.procedure_notes && (
-                                <div>
-                                  <h4 className="text-xs sm:text-sm font-semibold text-gray-700 mb-2 flex items-center">
-                                    <FileText className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />
-                                    📋 Note Procedură
-                                  </h4>
-                                  <div className="bg-blue-50 p-2 sm:p-3 rounded-lg">
-                                    <p className="text-xs sm:text-sm text-gray-900 whitespace-pre-wrap break-words">{wo.schedule_completion.procedure_notes}</p>
-                                  </div>
-                                </div>
-                              )}
-
-                              {/* Checklist Results */}
-                              {wo.schedule_completion.checklist_results && 
-                               Object.keys(wo.schedule_completion.checklist_results).length > 0 && (
-                                <div>
-                                  <h4 className="text-xs sm:text-sm font-semibold text-gray-700 mb-2 flex items-center">
-                                    <CheckCircle className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />
-                                    ✓ Checklist Mentenanță
-                                  </h4>
-                                  <div className="bg-green-50 p-2 sm:p-3 rounded-lg space-y-2">
-                                    {Object.entries(wo.schedule_completion.checklist_results).map(([itemId, result]) => {
-                                      const numericId = parseInt(itemId)
-                                      const checklistItem = wo.schedule_completion.checklist_template?.items?.find(i => i.id === numericId)
-                                      if (!checklistItem) return null
-                                      
-                                      return (
-                                        <div key={itemId} className="flex flex-col gap-1">
-                                          <div className="flex items-start gap-2">
-                                            <span className={`text-sm ${result.checked ? 'text-green-600' : 'text-red-600'}`}>
-                                              {result.checked ? '✓' : '✗'}
-                                            </span>
-                                            <span className="text-xs sm:text-sm text-gray-900 flex-1">{checklistItem.text}</span>
-                                          </div>
-                                          {result.notes && (
-                                            <div className="ml-6 text-xs text-gray-700 italic bg-white/50 p-2 rounded border-l-2 border-blue-300">
-                                              <span className="font-medium">Observații:</span> {result.notes}
-                                            </div>
-                                          )}
-                                        </div>
-                                      )
-                                    })}
-                                  </div>
-                                </div>
-                              )}
                             </div>
                           )}
                         </div>

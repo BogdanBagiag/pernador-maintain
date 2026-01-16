@@ -50,11 +50,36 @@ export default function MaintenanceSchedules() {
           equipment:equipment(id, name, serial_number),
           assigned_user:profiles!maintenance_schedules_assigned_to_fkey(id, full_name),
           checklist_template:checklist_templates(id, name, items),
-          procedure_template:procedure_templates(id, name, steps)
+          procedure_template:procedure_templates(id, name, steps),
+          completions:schedule_completions(
+            id,
+            completed_at,
+            completed_by,
+            checklist_results,
+            procedure_notes,
+            duration_hours
+          )
         `)
         .order('next_due_date', { ascending: true })
       
       if (error) throw error
+      
+      // Fetch completer names separately
+      if (data) {
+        for (const schedule of data) {
+          if (schedule.completions) {
+            for (const completion of schedule.completions) {
+              const { data: profile } = await supabase
+                .from('profiles')
+                .select('full_name')
+                .eq('id', completion.completed_by)
+                .single()
+              completion.completer = profile
+            }
+          }
+        }
+      }
+      
       return data
     },
   })
@@ -587,17 +612,88 @@ export default function MaintenanceSchedules() {
                   </div>
                 </div>
 
-                {schedule.last_completed_date && (
-                  <div className="mt-3 pt-3 border-t border-gray-200">
-                    <p className="text-xs text-gray-600">
-                      Last completed: {new Date(schedule.last_completed_date).toLocaleDateString()}
-                      {schedule.times_completed > 0 && (
-                        <span className="ml-2 text-green-600 font-medium">
-                          ({schedule.times_completed} {schedule.times_completed === 1 ? 'time' : 'times'})
-                        </span>
-                      )}
-                    </p>
-                  </div>
+                {/* Completion History */}
+                {schedule.completions && schedule.completions.length > 0 && (
+                  <details className="mt-3 pt-3 border-t border-gray-200 group">
+                    <summary className="cursor-pointer text-xs text-gray-600 hover:text-gray-900 flex items-center justify-between">
+                      <span>
+                        Last completed: {new Date(schedule.last_completed_date).toLocaleDateString()}
+                        {schedule.times_completed > 0 && (
+                          <span className="ml-2 text-green-600 font-medium">
+                            ({schedule.times_completed} {schedule.times_completed === 1 ? 'time' : 'times'})
+                          </span>
+                        )}
+                      </span>
+                      <span className="text-primary-600 group-open:rotate-180 transition-transform">▼</span>
+                    </summary>
+                    
+                    {/* Completion History Details */}
+                    <div className="mt-3 space-y-3">
+                      {schedule.completions
+                        .sort((a, b) => new Date(b.completed_at) - new Date(a.completed_at))
+                        .slice(0, 3)
+                        .map((completion) => (
+                          <div key={completion.id} className="bg-gray-50 rounded-lg p-3 text-xs space-y-2">
+                            {/* Header */}
+                            <div className="flex items-center justify-between text-gray-700">
+                              <span className="font-medium">
+                                {new Date(completion.completed_at).toLocaleDateString()} {new Date(completion.completed_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                              </span>
+                              <span className="text-gray-600">
+                                {completion.completer?.full_name}
+                              </span>
+                            </div>
+                            
+                            {/* Duration */}
+                            {completion.duration_hours && (
+                              <div className="text-gray-600">
+                                Duration: {completion.duration_hours}h
+                              </div>
+                            )}
+                            
+                            {/* Procedure Notes */}
+                            {completion.procedure_notes && (
+                              <div className="border-t border-gray-200 pt-2">
+                                <div className="font-medium text-gray-700 mb-1">📋 Procedure Notes:</div>
+                                <div className="text-gray-600 whitespace-pre-wrap">{completion.procedure_notes}</div>
+                              </div>
+                            )}
+                            
+                            {/* Checklist Results */}
+                            {completion.checklist_results && Object.keys(completion.checklist_results).length > 0 && (
+                              <div className="border-t border-gray-200 pt-2">
+                                <div className="font-medium text-gray-700 mb-1">✓ Checklist:</div>
+                                <div className="space-y-1">
+                                  {Object.entries(completion.checklist_results).map(([itemId, result]) => {
+                                    // Convert itemId to number for matching
+                                    const numericId = parseInt(itemId)
+                                    const checklistItem = schedule.checklist_template?.items?.find(i => i.id === numericId)
+                                    if (!checklistItem) return null
+                                    
+                                    return (
+                                      <div key={itemId} className="ml-2">
+                                        <div className="flex items-start gap-1">
+                                          <span className={result.checked ? 'text-green-600' : 'text-red-600'}>
+                                            {result.checked ? '✓' : '✗'}
+                                          </span>
+                                          <span className="text-gray-700">{checklistItem.text}</span>
+                                        </div>
+                                        {result.notes && (
+                                          <div className="ml-4 text-gray-600 italic">
+                                            Note: {result.notes}
+                                          </div>
+                                        )}
+                                      </div>
+                                    )
+                                  })}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        ))
+                      }
+                    </div>
+                  </details>
                 )}
               </div>
             )

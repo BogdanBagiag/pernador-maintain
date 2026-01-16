@@ -982,20 +982,20 @@ export default function WorkOrderDetail() {
                         )}
                       </button>
                     </div>
-
-                    {/* Modal Selectare Piese */}
-                    {showPartsModal && (
-                      <PartsUsageModal
-                        workOrderId={id}
-                        equipmentId={workOrder?.equipment_id}
-                        onClose={() => setShowPartsModal(false)}
-                        onSave={(parts) => {
-                          handlePartsSelected(parts)
-                          setShowPartsModal(false)
-                        }}
-                      />
-                    )}
                   </form>
+                  
+                  {/* Modal Selectare Piese - MUTAT AFARĂ DIN FORM */}
+                  {showPartsModal && (
+                    <PartsUsageModal
+                      workOrderId={id}
+                      equipmentId={workOrder?.equipment_id}
+                      onClose={() => setShowPartsModal(false)}
+                      onSave={(parts) => {
+                        handlePartsSelected(parts)
+                        setShowPartsModal(false)
+                      }}
+                    />
+                  )}
                 </div>
               </div>
             </div>
