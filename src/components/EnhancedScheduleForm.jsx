@@ -298,8 +298,7 @@ export default function EnhancedScheduleForm({ schedule, onSave, onClose, equipm
                     <option value="biweekly">Bi-weekly</option>
                     <option value="monthly">Monthly</option>
                     <option value="quarterly">Quarterly</option>
-                    <option value="semiannually">Semi-annually</option>
-                    <option value="annually">Annually</option>
+                    <option value="yearly">Yearly</option>
                   </select>
                 </div>
 

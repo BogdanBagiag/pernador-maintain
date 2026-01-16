@@ -33,11 +33,9 @@ export default function ScheduleCompletionWizard({ schedule, onClose, onComplete
     switch (frequency) {
       case 'daily': return new Date(date.setDate(date.getDate() + 1))
       case 'weekly': return new Date(date.setDate(date.getDate() + 7))
-      case 'biweekly': return new Date(date.setDate(date.getDate() + 14))
       case 'monthly': return new Date(date.setMonth(date.getMonth() + 1))
       case 'quarterly': return new Date(date.setMonth(date.getMonth() + 3))
-      case 'semiannually': return new Date(date.setMonth(date.getMonth() + 6))
-      case 'annually': return new Date(date.setFullYear(date.getFullYear() + 1))
+      case 'yearly': return new Date(date.setFullYear(date.getFullYear() + 1))
       default: return new Date(date.setMonth(date.getMonth() + 1))
     }
   }
