@@ -195,17 +195,11 @@ export default function WorkOrderDetail() {
         .eq('id', id)
       
       if (error) throw error
-      return newStatus
     },
-    onSuccess: (newStatus) => {
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['work-order', id] })
       queryClient.invalidateQueries({ queryKey: ['work-orders'] })
       setShowCompletionForm(false)
-      
-      // Redirect to work orders list with Open tab active after completing
-      if (newStatus === 'completed') {
-        navigate('/work-orders?status=open')
-      }
     },
   })
 
