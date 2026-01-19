@@ -211,21 +211,69 @@ export default function WorkOrderDetail() {
 
   const deleteMutation = useMutation({
     mutationFn: async () => {
+      // Verifică dacă există piese folosite pentru acest work order
+      const { data: usedParts, error: partsError } = await supabase
+        .from('parts_usage')
+        .select(`
+          quantity_used,
+          part_id,
+          inventory_parts (name, unit_of_measure)
+        `)
+        .eq('work_order_id', id)
+      
+      if (partsError) throw partsError
+      
+      // Șterge work order-ul (CASCADE va șterge automat parts_usage, comments, attachments)
+      // Trigger-ul din baza de date va restabili automat stocul
       const { error } = await supabase
         .from('work_orders')
         .delete()
         .eq('id', id)
       
       if (error) throw error
+      
+      return { usedParts }
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['work-orders'] })
+      queryClient.invalidateQueries({ queryKey: ['inventory-parts'] })
+      
+      // Afișează mesaj despre piesele returnate
+      if (data.usedParts && data.usedParts.length > 0) {
+        console.log('Piese returnate în stoc:', data.usedParts)
+      }
+      
       navigate('/work-orders')
     },
   })
 
-  const handleDelete = () => {
-    if (window.confirm('Sigur doriți să ștergeți această comandă de lucru? Această acțiune nu poate fi anulată.')) {
+  const handleDelete = async () => {
+    // Verifică dacă există piese folosite
+    const { data: usedParts } = await supabase
+      .from('parts_usage')
+      .select(`
+        quantity_used,
+        inventory_parts (name, unit_of_measure)
+      `)
+      .eq('work_order_id', id)
+    
+    let confirmMessage = 'Sigur doriți să ștergeți această comandă de lucru?\n\n'
+    
+    if (usedParts && usedParts.length > 0) {
+      confirmMessage += 'Se vor șterge:\n'
+      confirmMessage += '• Toate comentariile și atașamentele\n'
+      confirmMessage += '• Istoricul pieselor folosite\n\n'
+      confirmMessage += 'Piesele vor fi returnate în stoc:\n'
+      usedParts.forEach(part => {
+        confirmMessage += `• ${part.inventory_parts.name}: ${part.quantity_used} ${part.inventory_parts.unit_of_measure}\n`
+      })
+      confirmMessage += '\nAceastă acțiune nu poate fi anulată!'
+    } else {
+      confirmMessage += 'Se vor șterge toate comentariile și atașamentele asociate.\n'
+      confirmMessage += 'Această acțiune nu poate fi anulată!'
+    }
+    
+    if (window.confirm(confirmMessage)) {
       deleteMutation.mutate()
     }
   }

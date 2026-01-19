@@ -39,16 +39,21 @@ export default function PartsUsageModal({ workOrderId, equipmentId, onClose, onS
   const handleAddPart = (part) => {
     const existing = selectedParts.find(p => p.partId === part.id)
     if (existing) {
-      // Increase quantity
+      // Increase quantity by 1
+      const currentQty = typeof existing.quantity === 'string' 
+        ? parseFloat(existing.quantity.replace(',', '.')) || 0 
+        : existing.quantity
+      const newQty = Math.round((currentQty + 1) * 100) / 100
+      
       setSelectedParts(prev =>
         prev.map(p =>
           p.partId === part.id
-            ? { ...p, quantity: Math.min(p.quantity + 1, part.quantity_in_stock) }
+            ? { ...p, quantity: Math.min(newQty, part.quantity_in_stock) }
             : p
         )
       )
     } else {
-      // Add new
+      // Add new - always start with 1
       setSelectedParts(prev => [
         ...prev,
         {
@@ -68,11 +73,55 @@ export default function PartsUsageModal({ workOrderId, equipmentId, onClose, onS
     setSelectedParts(prev => prev.filter(p => p.partId !== partId))
   }
 
-  const handleQuantityChange = (partId, newQuantity) => {
+  const handleQuantityChange = (partId, value) => {
     const part = selectedParts.find(p => p.partId === partId)
     if (!part) return
 
-    const validQuantity = Math.max(1, Math.min(newQuantity, part.maxStock))
+    // Dacă e număr (de la butoane +/-), procesează direct
+    if (typeof value === 'number') {
+      const validQuantity = Math.round(Math.max(0.01, Math.min(value, part.maxStock)) * 100) / 100
+      setSelectedParts(prev =>
+        prev.map(p =>
+          p.partId === partId ? { ...p, quantity: validQuantity } : p
+        )
+      )
+      return
+    }
+
+    // Dacă e string (de la input), permite tastare liberă
+    let processedValue = value.replace(',', '.')
+    
+    // Permite string-uri incomplete în timpul tastării: "1", "1.", "1.5"
+    // Validare: doar cifre și maxim un punct
+    if (processedValue === '' || processedValue === '.' || processedValue === '0.') {
+      // Permite aceste stări temporare
+      setSelectedParts(prev =>
+        prev.map(p =>
+          p.partId === partId ? { ...p, quantity: processedValue } : p
+        )
+      )
+      return
+    }
+    
+    if (!/^\d*\.?\d*$/.test(processedValue)) {
+      return // Nu permite caractere invalide
+    }
+
+    // Salvează valoarea ca string în timpul tastării
+    setSelectedParts(prev =>
+      prev.map(p =>
+        p.partId === partId ? { ...p, quantity: processedValue } : p
+      )
+    )
+  }
+
+  // Funcție pentru validare finală (la blur sau submit)
+  const validateAndFixQuantity = (partId) => {
+    const part = selectedParts.find(p => p.partId === partId)
+    if (!part) return
+
+    let numericValue = parseFloat(String(part.quantity).replace(',', '.')) || 0.01
+    const validQuantity = Math.round(Math.max(0.01, Math.min(numericValue, part.maxStock)) * 100) / 100
     
     setSelectedParts(prev =>
       prev.map(p =>
@@ -90,16 +139,35 @@ export default function PartsUsageModal({ workOrderId, equipmentId, onClose, onS
       return
     }
 
-    // Validate stock availability
-    for (const selectedPart of selectedParts) {
-      if (selectedPart.quantity > selectedPart.maxStock) {
-        setError(`Stoc insuficient pentru ${selectedPart.partName}. Disponibil: ${selectedPart.maxStock}`)
-        return
+    // Validate and normalize quantities
+    const normalizedParts = selectedParts.map(part => {
+      const qty = typeof part.quantity === 'string' 
+        ? parseFloat(part.quantity.replace(',', '.')) || 0 
+        : part.quantity
+      
+      if (qty <= 0) {
+        setError(`Cantitate invalidă pentru ${part.partName}`)
+        return null
       }
+      
+      if (qty > part.maxStock) {
+        setError(`Stoc insuficient pentru ${part.partName}. Disponibil: ${part.maxStock}`)
+        return null
+      }
+
+      return {
+        ...part,
+        quantity: Math.round(qty * 100) / 100 // Normalizează la 2 zecimale
+      }
+    })
+
+    // Check if validation failed
+    if (normalizedParts.includes(null)) {
+      return
     }
 
-    // Return selected parts to parent (WorkOrderDetail will save them on completion)
-    if (onSave) onSave(selectedParts)
+    // Return normalized parts to parent
+    if (onSave) onSave(normalizedParts)
     onClose()
   }
 
@@ -108,7 +176,10 @@ export default function PartsUsageModal({ workOrderId, equipmentId, onClose, onS
     part.part_number?.toLowerCase().includes(searchQuery.toLowerCase())
   )
 
-  const totalCost = selectedParts.reduce((sum, p) => sum + (p.quantity * p.unitCost), 0)
+  const totalCost = selectedParts.reduce((sum, p) => {
+    const qty = typeof p.quantity === 'string' ? parseFloat(p.quantity.replace(',', '.')) || 0 : p.quantity
+    return sum + (qty * p.unitCost)
+  }, 0)
 
   if (isLoading) {
     return (
@@ -267,26 +338,43 @@ export default function PartsUsageModal({ workOrderId, equipmentId, onClose, onS
 
                         <div className="flex items-center gap-2">
                           <button
-                            onClick={() => handleQuantityChange(part.partId, part.quantity - 1)}
+                            onClick={() => {
+                              const currentQty = typeof part.quantity === 'string' 
+                                ? parseFloat(part.quantity.replace(',', '.')) || 0 
+                                : part.quantity
+                              handleQuantityChange(part.partId, currentQty - 1)
+                            }}
                             className="p-1 hover:bg-gray-200 rounded"
-                            disabled={part.quantity <= 1}
+                            disabled={(() => {
+                              const qty = typeof part.quantity === 'string' ? parseFloat(part.quantity.replace(',', '.')) || 0 : part.quantity
+                              return qty <= 0.01
+                            })()}
                           >
                             <Minus className="w-4 h-4" />
                           </button>
                           
                           <input
-                            type="number"
+                            type="text"
+                            inputMode="decimal"
                             value={part.quantity}
-                            onChange={(e) => handleQuantityChange(part.partId, parseInt(e.target.value) || 1)}
+                            onChange={(e) => handleQuantityChange(part.partId, e.target.value)}
+                            onBlur={() => validateAndFixQuantity(part.partId)}
                             className="input w-20 text-center p-1"
-                            min="1"
-                            max={part.maxStock}
+                            placeholder="1"
                           />
                           
                           <button
-                            onClick={() => handleQuantityChange(part.partId, part.quantity + 1)}
+                            onClick={() => {
+                              const currentQty = typeof part.quantity === 'string' 
+                                ? parseFloat(part.quantity.replace(',', '.')) || 0 
+                                : part.quantity
+                              handleQuantityChange(part.partId, currentQty + 1)
+                            }}
                             className="p-1 hover:bg-gray-200 rounded"
-                            disabled={part.quantity >= part.maxStock}
+                            disabled={(() => {
+                              const qty = typeof part.quantity === 'string' ? parseFloat(part.quantity.replace(',', '.')) || 0 : part.quantity
+                              return qty >= part.maxStock
+                            })()}
                           >
                             <Plus className="w-4 h-4" />
                           </button>
@@ -296,15 +384,21 @@ export default function PartsUsageModal({ workOrderId, equipmentId, onClose, onS
                           </span>
 
                           <span className="text-sm font-semibold text-gray-900 ml-auto">
-                            {(part.quantity * part.unitCost).toFixed(2)} RON
+                            {(() => {
+                              const qty = typeof part.quantity === 'string' ? parseFloat(part.quantity.replace(',', '.')) || 0 : part.quantity
+                              return (qty * part.unitCost).toFixed(2)
+                            })()} RON
                           </span>
                         </div>
 
-                        {part.quantity > part.maxStock && (
-                          <p className="text-xs text-red-600 mt-1">
-                            Stoc insuficient! Max: {part.maxStock}
-                          </p>
-                        )}
+                        {(() => {
+                          const qty = typeof part.quantity === 'string' ? parseFloat(part.quantity.replace(',', '.')) || 0 : part.quantity
+                          return qty > part.maxStock && (
+                            <p className="text-xs text-red-600 mt-1">
+                              Stoc insuficient! Max: {part.maxStock}
+                            </p>
+                          )
+                        })()}
                       </div>
                     ))}
                   </div>
