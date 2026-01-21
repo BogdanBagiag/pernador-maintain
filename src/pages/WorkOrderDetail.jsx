@@ -99,6 +99,24 @@ export default function WorkOrderDetail() {
     },
   })
 
+  // Fetch work order attachments
+  const { data: attachments } = useQuery({
+    queryKey: ['work-order-attachments', id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('work_order_attachments')
+        .select(`
+          *,
+          uploaded_by_user:profiles(id, full_name)
+        `)
+        .eq('work_order_id', id)
+        .order('created_at', { ascending: true })
+      
+      if (error) throw error
+      return data
+    },
+  })
+
   // Fetch comments
   const { data: comments } = useQuery({
     queryKey: ['work-order-comments', id],
@@ -186,7 +204,7 @@ export default function WorkOrderDetail() {
         setUploadingImage(true)
         const fileExt = imageFile.name.split('.').pop()
         const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`
-        const filePath = `issue-reports/${fileName}`
+        const filePath = `work-order-completions/${fileName}`
         
         const { error: uploadError } = await supabase.storage
           .from('maintenance-files')
@@ -223,9 +241,6 @@ export default function WorkOrderDetail() {
           if (completionDetails.actual_hours) updateData.actual_hours = parseFloat(completionDetails.actual_hours)
           if (completionDetails.completion_notes) updateData.completion_notes = completionDetails.completion_notes
         }
-        
-        // Add image URL if uploaded
-        if (imageUrl) updateData.image_url = imageUrl
       }
       
       const { error } = await supabase
@@ -234,10 +249,31 @@ export default function WorkOrderDetail() {
         .eq('id', id)
       
       if (error) throw error
+      
+      // Save completion image as attachment
+      if (imageUrl) {
+        const { error: attachError } = await supabase
+          .from('work_order_attachments')
+          .insert({
+            work_order_id: id,
+            file_url: imageUrl,
+            file_name: imageFile.name,
+            file_type: imageFile.type,
+            attachment_type: 'completion',
+            uploaded_by: user.id
+          })
+        
+        if (attachError) {
+          console.error('Error saving attachment:', attachError)
+          // Don't throw - we still completed the work order
+        }
+      }
+      
       return newStatus
     },
     onSuccess: (newStatus) => {
       queryClient.invalidateQueries({ queryKey: ['work-order', id] })
+      queryClient.invalidateQueries({ queryKey: ['work-order-attachments', id] })
       queryClient.invalidateQueries({ queryKey: ['work-orders'] })
       setShowCompletionForm(false)
       setImageFile(null)
@@ -579,35 +615,108 @@ export default function WorkOrderDetail() {
             </p>
           </div>
 
-          {/* Issue Image */}
-          {workOrder.image_url && (
+          {/* Attachments Section */}
+          {((attachments && attachments.length > 0) || workOrder.image_url) && (
             <div className="card">
-              <h2 className="text-lg sm:text-xl font-semibold text-gray-900 mb-3 sm:mb-4 text-center">Fotografie Problemă</h2>
-              <div className="flex flex-col items-center">
-                <div className="relative group w-full max-w-[280px] sm:max-w-sm md:max-w-md">
-                  <img 
-                    src={workOrder.image_url} 
-                    alt="Issue photo" 
-                    className="w-full rounded-lg cursor-pointer hover:opacity-90 transition-opacity shadow-md"
-                    onClick={() => setShowImageModal(true)}
-                  />
-                  <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-                    <div className="bg-black bg-opacity-50 rounded-full p-2 sm:p-3">
-                      <Expand className="w-6 h-6 sm:w-8 sm:h-8 text-white" />
+              <h2 className="text-lg sm:text-xl font-semibold text-gray-900 mb-3 sm:mb-4">Fotografii</h2>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Report attachments (initial photos) */}
+                {attachments && attachments.filter(att => att.attachment_type === 'report' || att.attachment_type === 'general').map((attachment) => (
+                  <div key={attachment.id} className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <p className="text-sm font-medium text-gray-700">
+                        📸 Fotografie Raportare
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        {new Date(attachment.created_at).toLocaleDateString('ro-RO')}
+                      </p>
+                    </div>
+                    <div className="relative group">
+                      <img 
+                        src={attachment.file_url} 
+                        alt="Report photo" 
+                        className="w-full rounded-lg cursor-pointer hover:opacity-90 transition-opacity shadow-md"
+                        onClick={() => {
+                          setShowImageModal(true)
+                        }}
+                      />
+                      <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                        <div className="bg-black bg-opacity-50 rounded-full p-2 sm:p-3">
+                          <Expand className="w-6 h-6 sm:w-8 sm:h-8 text-white" />
+                        </div>
+                      </div>
+                    </div>
+                    {attachment.uploaded_by_user && (
+                      <p className="text-xs text-gray-500">
+                        Încărcat de: {attachment.uploaded_by_user.full_name}
+                      </p>
+                    )}
+                  </div>
+                ))}
+                
+                {/* Legacy image_url (if no attachments exist yet) */}
+                {workOrder.image_url && (!attachments || attachments.length === 0) && (
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <p className="text-sm font-medium text-gray-700">
+                        📸 Fotografie Raportare
+                      </p>
+                    </div>
+                    <div className="relative group">
+                      <img 
+                        src={workOrder.image_url} 
+                        alt="Issue photo" 
+                        className="w-full rounded-lg cursor-pointer hover:opacity-90 transition-opacity shadow-md"
+                        onClick={() => setShowImageModal(true)}
+                      />
+                      <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                        <div className="bg-black bg-opacity-50 rounded-full p-2 sm:p-3">
+                          <Expand className="w-6 h-6 sm:w-8 sm:h-8 text-white" />
+                        </div>
+                      </div>
                     </div>
                   </div>
-                  {/* Mobile tap hint */}
-                  <div className="sm:hidden absolute bottom-2 left-1/2 -translate-x-1/2">
-                    <div className="bg-black bg-opacity-60 text-white text-xs px-3 py-1.5 rounded-full flex items-center gap-1.5 whitespace-nowrap">
-                      <Expand className="w-3.5 h-3.5" />
-                      <span>Apasă pentru zoom</span>
+                )}
+                
+                {/* Completion attachments (repair photos) */}
+                {attachments && attachments.filter(att => att.attachment_type === 'completion').map((attachment) => (
+                  <div key={attachment.id} className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <p className="text-sm font-medium text-green-700">
+                        ✅ Fotografie Reparație
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        {new Date(attachment.created_at).toLocaleDateString('ro-RO')}
+                      </p>
                     </div>
+                    <div className="relative group">
+                      <img 
+                        src={attachment.file_url} 
+                        alt="Completion photo" 
+                        className="w-full rounded-lg cursor-pointer hover:opacity-90 transition-opacity shadow-md border-2 border-green-200"
+                        onClick={() => {
+                          setShowImageModal(true)
+                        }}
+                      />
+                      <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                        <div className="bg-black bg-opacity-50 rounded-full p-2 sm:p-3">
+                          <Expand className="w-6 h-6 sm:w-8 sm:h-8 text-white" />
+                        </div>
+                      </div>
+                    </div>
+                    {attachment.uploaded_by_user && (
+                      <p className="text-xs text-gray-500">
+                        Încărcat de: {attachment.uploaded_by_user.full_name}
+                      </p>
+                    )}
                   </div>
-                </div>
-                <p className="text-xs sm:text-sm text-gray-500 mt-3 text-center px-4">
-                  Click pe imagine pentru zoom complet
-                </p>
+                ))}
               </div>
+              
+              <p className="text-xs sm:text-sm text-gray-500 mt-3 text-center">
+                Click pe imagine pentru zoom complet
+              </p>
             </div>
           )}
 

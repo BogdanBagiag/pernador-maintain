@@ -67,6 +67,26 @@ export default function LocationDetail() {
     },
   })
 
+  // Fetch work orders ONLY directly for this location (not equipment-related)
+  const { data: workOrders } = useQuery({
+    queryKey: ['location-work-orders', id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('work_orders')
+        .select(`
+          *,
+          assigned_to_user:profiles!work_orders_assigned_to_fkey(id, full_name),
+          created_by_user:profiles!work_orders_created_by_fkey(id, full_name)
+        `)
+        .eq('location_id', id)
+        .order('created_at', { ascending: false })
+        .limit(10)
+      
+      if (error) throw error
+      return data
+    },
+  })
+
   // Fetch issues for this location
   const { data: issues } = useQuery({
     queryKey: ['location-issues', id],
@@ -247,6 +267,55 @@ export default function LocationDetail() {
             ) : (
               <p className="text-gray-600 text-center py-4">
                 Niciun echipament în această locație
+              </p>
+            )}
+          </div>
+
+          {/* Recent Work Orders */}
+          <div className="card">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-lg font-semibold text-gray-900">
+                Comenzi de Lucru pentru Locație ({workOrders?.length || 0})
+              </h2>
+            </div>
+            {workOrders && workOrders.length > 0 ? (
+              <div className="space-y-2">
+                {workOrders.map((wo) => (
+                  <Link
+                    key={wo.id}
+                    to={`/work-orders/${wo.id}`}
+                    className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-3 border rounded-lg hover:bg-gray-50 transition-colors gap-2"
+                  >
+                    <div className="flex-1 min-w-0">
+                      <div className="flex flex-wrap items-center gap-2 mb-1">
+                        <span className={`badge ${
+                          wo.status === 'completed' ? 'badge-success' :
+                          wo.status === 'in_progress' ? 'badge-info' :
+                          wo.status === 'cancelled' ? 'badge-secondary' :
+                          'badge-warning'
+                        }`}>
+                          {wo.status}
+                        </span>
+                        <span className={`badge ${
+                          wo.priority === 'critical' ? 'badge-error' :
+                          wo.priority === 'high' ? 'badge-warning' :
+                          'badge-secondary'
+                        }`}>
+                          {wo.priority}
+                        </span>
+                        <span className="badge badge-secondary">{wo.type}</span>
+                      </div>
+                      <p className="font-medium text-gray-900 break-words">{wo.title}</p>
+                      <p className="text-sm text-gray-600 break-words">
+                        {wo.assigned_to_user?.full_name ? `Asignat: ${wo.assigned_to_user.full_name}` : 'Neasignat'} • {new Date(wo.created_at).toLocaleDateString('ro-RO')}
+                      </p>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            ) : (
+              <p className="text-gray-600 text-center py-4">
+                Nicio comandă de lucru direct pentru această locație
               </p>
             )}
           </div>
