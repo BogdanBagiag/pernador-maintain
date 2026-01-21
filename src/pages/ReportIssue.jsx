@@ -383,31 +383,57 @@ export default function ReportIssue() {
               </label>
               
               {!imagePreview ? (
-                <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-primary-400 transition-colors">
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={handleImageChange}
-                    className="hidden"
-                    id="image-upload"
-                  />
-                  <label 
-                    htmlFor="image-upload"
-                    className="cursor-pointer flex flex-col items-center"
-                  >
-                    <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mb-3">
-                      <Camera className="w-6 h-6 text-gray-500" />
-                    </div>
-                    <p className="text-sm font-medium text-gray-700 mb-1">
-                      Adaugă fotografie
-                    </p>
-                    <p className="text-xs text-gray-500">
-                      Faceți o poză sau încărcați din galerie
-                    </p>
-                    <p className="text-xs text-gray-400 mt-2">
-                      PNG, JPG, GIF până la 5MB
-                    </p>
-                  </label>
+                <div className="space-y-3">
+                  {/* Camera Button */}
+                  <div className="border-2 border-dashed border-primary-300 rounded-lg p-4 text-center hover:border-primary-400 transition-colors bg-primary-50">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      capture="environment"
+                      onChange={handleImageChange}
+                      className="hidden"
+                      id="camera-capture"
+                    />
+                    <label 
+                      htmlFor="camera-capture"
+                      className="cursor-pointer flex flex-col items-center"
+                    >
+                      <div className="w-12 h-12 bg-primary-100 rounded-full flex items-center justify-center mb-2">
+                        <Camera className="w-6 h-6 text-primary-600" />
+                      </div>
+                      <p className="text-sm font-medium text-primary-700">
+                        Faceți poză acum
+                      </p>
+                      <p className="text-xs text-primary-600 mt-1">
+                        Deschide camera direct
+                      </p>
+                    </label>
+                  </div>
+                  
+                  {/* Gallery Button */}
+                  <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center hover:border-gray-400 transition-colors">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleImageChange}
+                      className="hidden"
+                      id="gallery-upload"
+                    />
+                    <label 
+                      htmlFor="gallery-upload"
+                      className="cursor-pointer flex flex-col items-center"
+                    >
+                      <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mb-2">
+                        <Upload className="w-6 h-6 text-gray-500" />
+                      </div>
+                      <p className="text-sm font-medium text-gray-700">
+                        Încarcă din galerie
+                      </p>
+                      <p className="text-xs text-gray-500 mt-1">
+                        PNG, JPG, GIF până la 5MB
+                      </p>
+                    </label>
+                  </div>
                 </div>
               ) : (
                 <div className="relative">
