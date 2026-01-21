@@ -21,7 +21,9 @@ import {
   Package,
   Plus,
   Expand,
-  X
+  X,
+  Camera,
+  Upload
 } from 'lucide-react'
 import LoadingSpinner from '../components/LoadingSpinner'
 import PartsUsageModal from '../components/PartsUsageModal'
@@ -47,6 +49,10 @@ export default function WorkOrderDetail() {
     completion_notes: '',
     inventory_parts: []
   })
+  
+  const [imageFile, setImageFile] = useState(null)
+  const [imagePreview, setImagePreview] = useState(null)
+  const [uploadingImage, setUploadingImage] = useState(false)
 
   // Handle ESC key to close image modal
   useEffect(() => {
@@ -173,6 +179,36 @@ export default function WorkOrderDetail() {
 
   const updateStatusMutation = useMutation({
     mutationFn: async ({ newStatus, completionDetails }) => {
+      let imageUrl = null
+      
+      // Upload image if provided
+      if (imageFile) {
+        setUploadingImage(true)
+        const fileExt = imageFile.name.split('.').pop()
+        const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`
+        const filePath = `issue-reports/${fileName}`
+        
+        const { error: uploadError } = await supabase.storage
+          .from('maintenance-files')
+          .upload(filePath, imageFile, {
+            cacheControl: '3600',
+            upsert: false
+          })
+        
+        if (uploadError) {
+          console.error('Upload error:', uploadError)
+          throw new Error('Eroare la încărcarea imaginii')
+        }
+        
+        // Get public URL
+        const { data: { publicUrl } } = supabase.storage
+          .from('maintenance-files')
+          .getPublicUrl(filePath)
+        
+        imageUrl = publicUrl
+        setUploadingImage(false)
+      }
+      
       const updateData = { status: newStatus }
       
       if (newStatus === 'completed') {
@@ -187,6 +223,9 @@ export default function WorkOrderDetail() {
           if (completionDetails.actual_hours) updateData.actual_hours = parseFloat(completionDetails.actual_hours)
           if (completionDetails.completion_notes) updateData.completion_notes = completionDetails.completion_notes
         }
+        
+        // Add image URL if uploaded
+        if (imageUrl) updateData.image_url = imageUrl
       }
       
       const { error } = await supabase
@@ -201,6 +240,8 @@ export default function WorkOrderDetail() {
       queryClient.invalidateQueries({ queryKey: ['work-order', id] })
       queryClient.invalidateQueries({ queryKey: ['work-orders'] })
       setShowCompletionForm(false)
+      setImageFile(null)
+      setImagePreview(null)
       
       // Redirect to work orders list with Open tab active after completing
       if (newStatus === 'completed') {
@@ -325,6 +366,37 @@ export default function WorkOrderDetail() {
       ...completionData,
       [e.target.name]: e.target.value
     })
+  }
+
+  const handleImageChange = (e) => {
+    const file = e.target.files[0]
+    if (file) {
+      // Validate file type
+      if (!file.type.startsWith('image/')) {
+        alert('Vă rugăm să selectați un fișier imagine')
+        return
+      }
+      
+      // Validate file size (max 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        alert('Imaginea este prea mare. Maxim 5MB.')
+        return
+      }
+      
+      setImageFile(file)
+      
+      // Create preview
+      const reader = new FileReader()
+      reader.onloadend = () => {
+        setImagePreview(reader.result)
+      }
+      reader.readAsDataURL(file)
+    }
+  }
+
+  const removeImage = () => {
+    setImageFile(null)
+    setImagePreview(null)
   }
 
   // Handler pentru salvarea pieselor selectate din inventar
@@ -1000,6 +1072,109 @@ export default function WorkOrderDetail() {
                       </div>
                     </div>
 
+                    {/* Image Upload */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Fotografie Finalizare (opțional)
+                      </label>
+                      
+                      {!imagePreview ? (
+                        <div className="space-y-3">
+                          {/* Camera Button */}
+                          <div className="border-2 border-dashed border-blue-300 rounded-lg p-4 hover:border-blue-400 transition-colors bg-blue-50">
+                            <input
+                              type="file"
+                              accept="image/*"
+                              capture="environment"
+                              onChange={handleImageChange}
+                              className="hidden"
+                              id="camera-capture"
+                            />
+                            <label 
+                              htmlFor="camera-capture"
+                              className="cursor-pointer flex items-center justify-between"
+                            >
+                              <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center flex-shrink-0">
+                                  <Camera className="w-5 h-5 text-white" />
+                                </div>
+                                <div className="text-left">
+                                  <p className="text-sm font-semibold text-gray-900">
+                                    📷 Fă Poză cu Camera
+                                  </p>
+                                  <p className="text-xs text-gray-600">
+                                    Fotografiază lucrarea finalizată
+                                  </p>
+                                </div>
+                              </div>
+                              <Camera className="w-5 h-5 text-blue-600 flex-shrink-0" />
+                            </label>
+                          </div>
+
+                          {/* Gallery Button */}
+                          <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 hover:border-gray-400 transition-colors">
+                            <input
+                              type="file"
+                              accept="image/*"
+                              onChange={handleImageChange}
+                              className="hidden"
+                              id="gallery-upload"
+                            />
+                            <label 
+                              htmlFor="gallery-upload"
+                              className="cursor-pointer flex items-center justify-between"
+                            >
+                              <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center flex-shrink-0">
+                                  <Upload className="w-5 h-5 text-gray-600" />
+                                </div>
+                                <div className="text-left">
+                                  <p className="text-sm font-semibold text-gray-900">
+                                    🖼️ Alege din Galerie
+                                  </p>
+                                  <p className="text-xs text-gray-600">
+                                    Selectează o poză existentă
+                                  </p>
+                                </div>
+                              </div>
+                              <Upload className="w-5 h-5 text-gray-500 flex-shrink-0" />
+                            </label>
+                          </div>
+
+                          <p className="text-xs text-gray-500 text-center">
+                            PNG, JPG, GIF până la 5MB
+                          </p>
+                        </div>
+                      ) : (
+                        <div className="relative">
+                          <img 
+                            src={imagePreview} 
+                            alt="Preview" 
+                            className="w-full h-64 object-cover rounded-lg border-2 border-gray-200"
+                          />
+                          <button
+                            type="button"
+                            onClick={removeImage}
+                            className="absolute top-2 right-2 p-2 bg-red-500 text-white rounded-full hover:bg-red-600 transition-colors shadow-lg"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                          <div className="mt-2 flex items-center justify-between">
+                            <p className="text-xs text-gray-600">
+                              📎 {imageFile?.name}
+                            </p>
+                            <button
+                              type="button"
+                              onClick={removeImage}
+                              className="text-xs text-red-600 hover:text-red-700 font-medium"
+                            >
+                              Schimbă poza
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
                     {/* Completion Notes */}
                     <div>
                       <label htmlFor="completion_notes" className="block text-sm font-medium text-gray-700 mb-1">
@@ -1025,19 +1200,21 @@ export default function WorkOrderDetail() {
                         type="button"
                         onClick={() => setShowCompletionForm(false)}
                         className="btn-secondary w-full sm:w-auto"
-                        disabled={updateStatusMutation.isLoading}
+                        disabled={updateStatusMutation.isLoading || uploadingImage}
                       >
                         Anulează
                       </button>
                       <button
                         type="submit"
                         className="btn-primary inline-flex items-center justify-center bg-green-600 hover:bg-green-700 w-full sm:w-auto"
-                        disabled={updateStatusMutation.isLoading}
+                        disabled={updateStatusMutation.isLoading || uploadingImage}
                       >
-                        {updateStatusMutation.isLoading ? (
+                        {updateStatusMutation.isLoading || uploadingImage ? (
                           <>
                             <LoadingSpinner size="sm" />
-                            <span className="ml-2">Finalizare...</span>
+                            <span className="ml-2">
+                              {uploadingImage ? 'Se încarcă imaginea...' : 'Finalizare...'}
+                            </span>
                           </>
                         ) : (
                           <>
