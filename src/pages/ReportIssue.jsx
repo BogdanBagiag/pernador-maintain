@@ -85,7 +85,7 @@ export default function ReportIssue() {
         
         if (uploadError) {
           console.error('Upload error:', uploadError)
-          throw new Error('Eroare la Ã®ncÄƒrcarea imaginii')
+          throw new Error('Eroare la încărcarea imaginii')
         }
         
         // Get public URL
@@ -175,7 +175,7 @@ export default function ReportIssue() {
     if (file) {
       // Validate file type
       if (!file.type.startsWith('image/')) {
-        setError('VÄƒ rugÄƒm sÄƒ selectaÈ›i un fiÈ™ier imagine')
+        setError('Vă rugăm să selectați un fișier imagine')
         return
       }
       
@@ -207,12 +207,12 @@ export default function ReportIssue() {
     setError('')
 
     if (!formData.title.trim()) {
-      setError('VÄƒ rugÄƒm sÄƒ descrieÈ›i problema')
+      setError('Vă rugăm să descrieți problema')
       return
     }
 
     if (!formData.reporterName.trim()) {
-      setError('VÄƒ rugÄƒm sÄƒ introduceÈ›i numele dumneavoastrÄƒ')
+      setError('Vă rugăm să introduceți numele dumneavoastră')
       return
     }
 
@@ -233,12 +233,12 @@ export default function ReportIssue() {
         <div className="card max-w-md w-full text-center">
           <AlertTriangle className="w-16 h-16 text-red-500 mx-auto mb-4" />
           <h2 className="text-2xl font-bold text-gray-900 mb-2">
-            {itemType === 'equipment' ? 'Echipament NegÄƒsit' : 'LocaÈ›ie NegÄƒsitÄƒ'}
+            {itemType === 'equipment' ? 'Echipament Negăsit' : 'Locație Negăsită'}
           </h2>
           <p className="text-gray-600">
             {itemType === 'equipment' 
-              ? 'Echipamentul pentru care Ã®ncercaÈ›i sÄƒ raportaÈ›i o problemÄƒ nu a fost gÄƒsit.'
-              : 'LocaÈ›ia pentru care Ã®ncercaÈ›i sÄƒ raportaÈ›i o problemÄƒ nu a fost gÄƒsitÄƒ.'}
+              ? 'Echipamentul pentru care încercați să raportați o problemă nu a fost găsit.'
+              : 'Locația pentru care încercați să raportați o problemă nu a fost găsită.'}
           </p>
         </div>
       </div>
@@ -251,14 +251,14 @@ export default function ReportIssue() {
         <div className="card max-w-md w-full text-center">
           <CheckCircle className="w-16 h-16 text-green-500 mx-auto mb-4" />
           <h2 className="text-2xl font-bold text-gray-900 mb-2">
-            Problema RaportatÄƒ cu Succes!
+            Problema Raportată cu Succes!
           </h2>
           <p className="text-gray-600 mb-6">
-            MulÈ›umim pentru raportare. Echipa noastrÄƒ de mentenanÈ›Äƒ a fost notificatÄƒ È™i va rezolva problema cÃ¢t mai curÃ¢nd posibil.
+            Mulțumim pentru raportare. Echipa noastră de mentenanță a fost notificată și va rezolva problema cât mai curând posibil.
           </p>
           <div className="bg-gray-50 rounded-lg p-4 text-left">
             <p className="text-sm font-medium text-gray-700">
-              {itemType === 'equipment' ? 'Echipament:' : 'LocaÈ›ie:'}
+              {itemType === 'equipment' ? 'Echipament:' : 'Locație:'}
             </p>
             <p className="text-lg font-semibold text-gray-900">{item.name}</p>
             {itemType === 'equipment' && equipment.location && (
@@ -286,10 +286,10 @@ export default function ReportIssue() {
             <AlertTriangle className="w-8 h-8 text-red-600" />
           </div>
           <h1 className="text-3xl font-bold text-gray-900 mb-2">
-            RaporteazÄƒ ProblemÄƒ {itemType === 'equipment' ? 'Echipament' : 'LocaÈ›ie'}
+            Raportează Problemă {itemType === 'equipment' ? 'Echipament' : 'Locație'}
           </h1>
           <p className="text-gray-600">
-            Spune-ne ce nu funcÈ›ioneazÄƒ È™i o vom repara
+            Spune-ne ce nu funcționează și o vom repara
           </p>
         </div>
 
@@ -331,7 +331,7 @@ export default function ReportIssue() {
         {/* Report Form */}
         <div className="card">
           <h3 className="text-lg font-semibold text-gray-900 mb-4">
-            Detalii ProblemÄƒ
+            Detalii Problemă
           </h3>
 
           {error && (
@@ -355,8 +355,8 @@ export default function ReportIssue() {
                 onChange={handleChange}
                 className="input"
                 placeholder={itemType === 'equipment' 
-                  ? "ex: MaÈ™ina nu porneÈ™te, Zgomot ciudat, Scurgere"
-                  : "ex: Perete crÄƒpat, LuminÄƒ spartÄƒ, CurÄƒÈ›enie necesarÄƒ"}
+                  ? "ex: Mașina nu pornește, Zgomot ciudat, Scurgere"
+                  : "ex: Perete crăpat, Lumină spartă, Curățenie necesară"}
               />
             </div>
 
@@ -372,14 +372,14 @@ export default function ReportIssue() {
                 value={formData.description}
                 onChange={handleChange}
                 className="input"
-                placeholder="DescrieÈ›i ce s-a Ã®ntÃ¢mplat, cÃ¢nd a Ã®nceput, detalii specifice..."
+                placeholder="Descrieți ce s-a întâmplat, când a început, detalii specifice..."
               />
             </div>
 
             {/* Image Upload */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Fotografie ProblemÄƒ (opÈ›ional)
+                Fotografie Problemă (opțional)
               </label>
               
               {!imagePreview ? (
@@ -399,13 +399,13 @@ export default function ReportIssue() {
                       <Camera className="w-6 h-6 text-gray-500" />
                     </div>
                     <p className="text-sm font-medium text-gray-700 mb-1">
-                      AdaugÄƒ fotografie
+                      Adaugă fotografie
                     </p>
                     <p className="text-xs text-gray-500">
-                      FaceÈ›i o pozÄƒ sau Ã®ncÄƒrcaÈ›i din galerie
+                      Faceți o poză sau încărcați din galerie
                     </p>
                     <p className="text-xs text-gray-400 mt-2">
-                      PNG, JPG, GIF pÃ¢nÄƒ la 5MB
+                      PNG, JPG, GIF până la 5MB
                     </p>
                   </label>
                 </div>
@@ -433,7 +433,7 @@ export default function ReportIssue() {
             {/* Priority */}
             <div>
               <label htmlFor="priority" className="block text-sm font-medium text-gray-700 mb-1">
-                CÃ¢t de urgent este?
+                Cât de urgent este?
               </label>
               <select
                 id="priority"
@@ -442,22 +442,22 @@ export default function ReportIssue() {
                 onChange={handleChange}
                 className="input"
               >
-                <option value="low">ScÄƒzut - Poate aÈ™tepta</option>
-                <option value="medium">Mediu - Ar trebui reparat curÃ¢nd</option>
-                <option value="high">Ridicat - AfecteazÄƒ operaÈ›iunile</option>
-                <option value="critical">Critic - Pericol de siguranÈ›Äƒ / DefecÈ›iune totalÄƒ</option>
+                <option value="low">Scăzut - Poate aștepta</option>
+                <option value="medium">Mediu - Ar trebui reparat curând</option>
+                <option value="high">Ridicat - Afectează operațiunile</option>
+                <option value="critical">Critic - Pericol de siguranță / Defecțiune totală</option>
               </select>
             </div>
 
             <div className="border-t border-gray-200 pt-4 mt-4">
               <h4 className="text-sm font-medium text-gray-700 mb-3">
-                InformaÈ›iile DumneavoastrÄƒ de Contact
+                Informațiile Dumneavoastră de Contact
               </h4>
 
               {/* Reporter Name */}
               <div className="mb-4">
                 <label htmlFor="reporterName" className="block text-sm font-medium text-gray-700 mb-1">
-                  Numele DumneavoastrÄƒ <span className="text-red-500">*</span>
+                  Numele Dumneavoastră <span className="text-red-500">*</span>
                 </label>
                 <input
                   id="reporterName"
@@ -474,7 +474,7 @@ export default function ReportIssue() {
               {/* Reporter Email */}
               <div>
                 <label htmlFor="reporterEmail" className="block text-sm font-medium text-gray-700 mb-1">
-                  Email (opÈ›ional)
+                  Email (opțional)
                 </label>
                 <input
                   id="reporterEmail"
@@ -486,7 +486,7 @@ export default function ReportIssue() {
                   placeholder="ion@example.com"
                 />
                 <p className="text-xs text-gray-500 mt-1">
-                  VÄƒ vom notifica cÃ¢nd problema este rezolvatÄƒ
+                  Vă vom notifica când problema este rezolvată
                 </p>
               </div>
             </div>
@@ -500,7 +500,7 @@ export default function ReportIssue() {
                 <span className="flex items-center justify-center">
                   <LoadingSpinner size="sm" />
                   <span className="ml-2">
-                    {uploadingImage ? 'Se Ã®ncarcÄƒ imaginea...' : 'Se trimite...'}
+                    {uploadingImage ? 'Se încarcă imaginea...' : 'Se trimite...'}
                   </span>
                 </span>
               ) : (
