@@ -155,12 +155,12 @@ export default function ReportIssue() {
         }
       }
 
-      // Send notifications to all admins, managers, and technicians
+      // Send notifications to all admins and technicians
       try {
         const { data: usersToNotify } = await supabase
           .from('profiles')
           .select('*')
-          .in('role', ['admin', 'manager', 'technician'])
+          .in('role', ['admin', 'technician'])
         
         if (usersToNotify && usersToNotify.length > 0) {
           // Get the created work order data for notification
@@ -171,7 +171,7 @@ export default function ReportIssue() {
             .single()
           
           if (createdWorkOrder) {
-            // Notify all admins, managers, and technicians asynchronously
+            // Notify all admins and technicians asynchronously
             await Promise.all(
               usersToNotify.map(user => 
                 notifyWorkOrderAssigned(createdWorkOrder, user)

@@ -9,33 +9,9 @@ export const sendPushNotification = async ({
   workOrderId
 }) => {
   try {
-    // Send push notification via Edge Function
     const { data, error } = await supabase.functions.invoke('send-push-notification', {
       body: { userId, title, body, url, tag, workOrderId }
     })
-
-    // Log notification to database (even if sending failed)
-    const logStatus = error ? 'failed' : 'sent'
-    const errorMessage = error ? error.message : null
-
-    await supabase
-      .from('push_notifications_log')
-      .insert({
-        user_id: userId,
-        work_order_id: workOrderId,
-        title,
-        body,
-        url,
-        tag,
-        status: logStatus,
-        error_message: errorMessage,
-        notification_type: 'push'
-      })
-      .then(({ error: logError }) => {
-        if (logError) {
-          console.error('Failed to log notification:', logError)
-        }
-      })
 
     if (error) throw error
     return data
@@ -45,20 +21,21 @@ export const sendPushNotification = async ({
   }
 }
 
-// Helper: notify when work order is assigned
-export const notifyWorkOrderAssigned = async (workOrder, assignedUser) => {
-  if (!assignedUser?.id) {
+// Helper: notify when work order is created (trimite la TOȚI users)
+export const notifyWorkOrderAssigned = async (workOrder, user) => {
+  // Parametrul e acum 'user' în loc de 'assignedUser' - trimitem la TOȚI
+  if (!user?.id) {
     return
   }
 
   const title = workOrder.assigned_to 
-    ? 'ðŸ”§ Nou Work Order Asignat' 
-    : 'ðŸ”” Work Order Nou (Neasignat)'
+    ? '🔧 Nou Work Order Asignat' 
+    : '🔔 Work Order Nou (Neasignat)'
 
 
   // Send to backend (which will try to send push)
   await sendPushNotification({
-    userId: assignedUser.id,
+    userId: user.id,
     title,
     body: `${workOrder.title} - Prioritate: ${workOrder.priority}`,
     url: `/work-orders/${workOrder.id}`,
@@ -66,9 +43,15 @@ export const notifyWorkOrderAssigned = async (workOrder, assignedUser) => {
     workOrderId: workOrder.id
   })
 
-  // Also show local notification immediately
-  if ('serviceWorker' in navigator) {
+  // Also show local notification immediately (only if permission granted)
+  if ('serviceWorker' in navigator && 'Notification' in window) {
     try {
+      // Check if notification permission is granted
+      if (Notification.permission !== 'granted') {
+        console.log('Notification permission not granted, skipping local notification')
+        return
+      }
+
       const registration = await navigator.serviceWorker.ready
       await registration.showNotification(title, {
         body: `${workOrder.title} - Prioritate: ${workOrder.priority}`,
@@ -76,10 +59,11 @@ export const notifyWorkOrderAssigned = async (workOrder, assignedUser) => {
         badge: '/icon-192.png',
         data: { url: `/work-orders/${workOrder.id}` },
         tag: `wo-assigned-${workOrder.id}`,
-        requireInteraction: true  // â† Stay visible!
+        requireInteraction: true  // ← Stay visible!
       })
     } catch (err) {
       console.error('Local notification error:', err)
+      // Don't throw - notifications are optional
     }
   }
 }
@@ -90,16 +74,16 @@ export const notifyWorkOrderStatusChange = async (workOrder, newStatus, userId) 
 
   const statusLabels = {
     open: 'Deschis',
-    in_progress: 'ÃŽn Progres',
-    on_hold: 'ÃŽn AÈ™teptare',
+    in_progress: 'În Progres',
+    on_hold: 'În Așteptare',
     completed: 'Finalizat',
     cancelled: 'Anulat'
   }
 
   return sendPushNotification({
     userId,
-    title: 'ðŸ“‹ Status Actualizat',
-    body: `${workOrder.title} â†’ ${statusLabels[newStatus]}`,
+    title: '📋 Status Actualizat',
+    body: `${workOrder.title} → ${statusLabels[newStatus]}`,
     url: `/work-orders/${workOrder.id}`,
     tag: `wo-status-${workOrder.id}`,
     workOrderId: workOrder.id
@@ -112,7 +96,7 @@ export const notifyWorkOrderComment = async (workOrder, comment, userToNotify) =
 
   return sendPushNotification({
     userId: userToNotify.id,
-    title: 'ðŸ’¬ Comentariu Nou',
+    title: '💬 Comentariu Nou',
     body: `${workOrder.title}: ${comment.substring(0, 50)}...`,
     url: `/work-orders/${workOrder.id}`,
     tag: `wo-comment-${workOrder.id}`,
