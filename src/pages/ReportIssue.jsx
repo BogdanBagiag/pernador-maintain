@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { useQuery, useMutation } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
+import { notifyWorkOrderAssigned } from '../lib/notifications'
 import { AlertTriangle, CheckCircle, Wrench, MapPin, Camera, Upload, X, Building } from 'lucide-react'
 import LoadingSpinner from '../components/LoadingSpinner'
 
@@ -152,6 +153,35 @@ export default function ReportIssue() {
           console.error('Error saving attachment:', attachError)
           // Don't throw - work order is already created
         }
+      }
+
+      // Send notifications to all admins and technicians
+      try {
+        const { data: usersToNotify } = await supabase
+          .from('profiles')
+          .select('*')
+          .in('role', ['admin', 'technician'])
+        
+        if (usersToNotify && usersToNotify.length > 0) {
+          // Get the created work order data for notification
+          const { data: createdWorkOrder } = await supabase
+            .from('work_orders')
+            .select('*')
+            .eq('id', workOrderId)
+            .single()
+          
+          if (createdWorkOrder) {
+            // Notify all admins and technicians asynchronously
+            await Promise.all(
+              usersToNotify.map(user => 
+                notifyWorkOrderAssigned(createdWorkOrder, user)
+              )
+            )
+          }
+        }
+      } catch (err) {
+        console.error('⚠️ Notification error:', err)
+        // Don't throw - work order is already created successfully
       }
     },
     onSuccess: () => {

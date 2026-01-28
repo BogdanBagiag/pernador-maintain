@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react'
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { useQuery, useMutation } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
-import { AlertTriangle, CheckCircle, Wrench, MapPin, Camera, Upload, X, Building } from 'lucide-react'
+import { notifyWorkOrderAssigned } from '../lib/notifications'
+import { AlertTriangle, CheckCircle, Wrench, MapPin, Camera, Upload, X, Building, Hash, DoorOpen } from 'lucide-react'
 import LoadingSpinner from '../components/LoadingSpinner'
 
 export default function ReportIssue() {
@@ -98,61 +99,78 @@ export default function ReportIssue() {
       }
       
       // Create work order for equipment OR location
-      let workOrderId = null
+      let newWorkOrder = null
       
       if (itemType === 'equipment') {
         // Create work order for equipment
-        const { data: newWO, error } = await supabase
+        const { data: woData, error } = await supabase
           .from('work_orders')
           .insert([{
             title: data.title,
-            description: `${data.description}\n\n---\nRaportat de: ${data.reporterName}${data.reporterEmail ? `\nEmail: ${data.reporterEmail}` : ''}`,
+            description: `${data.description}\n\n---\nRaportat de: ${data.reporterName}${data.reporterEmail ? `\nEmail: ${data.reporterEmail}` : ''}${imageUrl ? `\n\nPoza: ${imageUrl}` : ''}`,
             equipment_id: equipmentId,
             priority: data.priority,
             status: 'open',
             type: 'corrective',
+            image_url: imageUrl,
           }])
           .select()
           .single()
         
         if (error) throw error
-        workOrderId = newWO.id
+        newWorkOrder = woData
       } else {
         // Create work order for location
-        const { data: newWO, error } = await supabase
+        const { data: woData, error } = await supabase
           .from('work_orders')
           .insert([{
             title: data.title,
-            description: `${data.description}\n\n---\nRaportat de: ${data.reporterName}${data.reporterEmail ? `\nEmail: ${data.reporterEmail}` : ''}`,
+            description: `${data.description}\n\n---\nRaportat de: ${data.reporterName}${data.reporterEmail ? `\nEmail: ${data.reporterEmail}` : ''}${imageUrl ? `\n\nPoza: ${imageUrl}` : ''}`,
             location_id: locationId,
             priority: data.priority,
             status: 'open',
             type: 'corrective',
+            image_url: imageUrl,
           }])
           .select()
           .single()
         
         if (error) throw error
-        workOrderId = newWO.id
+        newWorkOrder = woData
       }
       
-      // Save image as attachment if provided
-      if (imageUrl && workOrderId) {
-        const { error: attachError } = await supabase
-          .from('work_order_attachments')
-          .insert({
-            work_order_id: workOrderId,
-            file_url: imageUrl,
-            file_name: imageFile.name,
-            file_type: imageFile.type,
-            attachment_type: 'report',
-          })
-        
-        if (attachError) {
-          console.error('Error saving attachment:', attachError)
-          // Don't throw - work order is already created
+      // Send push notifications to ALL active users (fire-and-forget)
+      if (newWorkOrder) {
+        // Don't await - send in background to not block the response
+        const sendNotifications = async () => {
+          try {
+            const { data: users } = await supabase
+              .from('profiles')
+              .select('*')
+              .in('role', ['admin', 'manager', 'technician'])
+              .eq('is_active', true)
+            
+            if (users && users.length > 0) {
+              // Notify all users in parallel
+              await Promise.all(
+                users.map(u => {
+                  return notifyWorkOrderAssigned(newWorkOrder, u).catch(err => {
+                    console.error('Notification failed for user:', u.id, err)
+                  })
+                })
+              )
+            }
+          } catch (err) {
+            console.error('❌ Notification error:', err)
+          }
         }
+        
+        // Fire-and-forget: don't await, just trigger
+        sendNotifications()
       }
+      
+      // Return immediately without waiting for notifications
+      return newWorkOrder
     },
     onSuccess: () => {
       setSubmitted(true)
@@ -318,10 +336,25 @@ export default function ReportIssue() {
                 </div>
               )}
               {itemType === 'location' && (
-                <div className="text-sm text-gray-600 mt-2">
-                  {location.building && <p>ðŸ¢ {location.building}</p>}
-                  {location.floor && <p>ðŸ“ Etaj {location.floor}</p>}
-                  {location.room && <p>ðŸšª Camera {location.room}</p>}
+                <div className="text-sm text-gray-600 mt-2 space-y-1">
+                  {location.building && (
+                    <div className="flex items-center">
+                      <Building className="w-4 h-4 mr-1" />
+                      {location.building}
+                    </div>
+                  )}
+                  {location.floor && (
+                    <div className="flex items-center">
+                      <Hash className="w-4 h-4 mr-1" />
+                      Etaj {location.floor}
+                    </div>
+                  )}
+                  {location.room && (
+                    <div className="flex items-center">
+                      <DoorOpen className="w-4 h-4 mr-1" />
+                      Camera {location.room}
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -385,7 +418,7 @@ export default function ReportIssue() {
               {!imagePreview ? (
                 <div className="space-y-3">
                   {/* Camera Button */}
-                  <div className="border-2 border-dashed border-primary-300 rounded-lg p-4 text-center hover:border-primary-400 transition-colors bg-primary-50">
+                  <div className="border-2 border-dashed border-blue-300 rounded-lg p-4 hover:border-blue-400 transition-colors bg-blue-50">
                     <input
                       type="file"
                       accept="image/*"
@@ -396,22 +429,27 @@ export default function ReportIssue() {
                     />
                     <label 
                       htmlFor="camera-capture"
-                      className="cursor-pointer flex flex-col items-center"
+                      className="cursor-pointer flex items-center justify-between"
                     >
-                      <div className="w-12 h-12 bg-primary-100 rounded-full flex items-center justify-center mb-2">
-                        <Camera className="w-6 h-6 text-primary-600" />
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center flex-shrink-0">
+                          <Camera className="w-5 h-5 text-white" />
+                        </div>
+                        <div className="text-left">
+                          <p className="text-sm font-semibold text-gray-900">
+                            📷 Fă Poză cu Camera
+                          </p>
+                          <p className="text-xs text-gray-600">
+                            Deschide camera pentru a fotografia problema
+                          </p>
+                        </div>
                       </div>
-                      <p className="text-sm font-medium text-primary-700">
-                        Faceți poză acum
-                      </p>
-                      <p className="text-xs text-primary-600 mt-1">
-                        Deschide camera direct
-                      </p>
+                      <Camera className="w-5 h-5 text-blue-600 flex-shrink-0" />
                     </label>
                   </div>
-                  
+
                   {/* Gallery Button */}
-                  <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center hover:border-gray-400 transition-colors">
+                  <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 hover:border-gray-400 transition-colors">
                     <input
                       type="file"
                       accept="image/*"
@@ -421,37 +459,55 @@ export default function ReportIssue() {
                     />
                     <label 
                       htmlFor="gallery-upload"
-                      className="cursor-pointer flex flex-col items-center"
+                      className="cursor-pointer flex items-center justify-between"
                     >
-                      <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mb-2">
-                        <Upload className="w-6 h-6 text-gray-500" />
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center flex-shrink-0">
+                          <Upload className="w-5 h-5 text-gray-600" />
+                        </div>
+                        <div className="text-left">
+                          <p className="text-sm font-semibold text-gray-900">
+                            🖼️ Alege din Galerie
+                          </p>
+                          <p className="text-xs text-gray-600">
+                            Selectează o poză existentă
+                          </p>
+                        </div>
                       </div>
-                      <p className="text-sm font-medium text-gray-700">
-                        Încarcă din galerie
-                      </p>
-                      <p className="text-xs text-gray-500 mt-1">
-                        PNG, JPG, GIF până la 5MB
-                      </p>
+                      <Upload className="w-5 h-5 text-gray-500 flex-shrink-0" />
                     </label>
                   </div>
+
+                  <p className="text-xs text-gray-500 text-center">
+                    PNG, JPG, GIF până la 5MB
+                  </p>
                 </div>
               ) : (
                 <div className="relative">
                   <img 
                     src={imagePreview} 
                     alt="Preview" 
-                    className="w-full h-64 object-cover rounded-lg"
+                    className="w-full h-64 object-cover rounded-lg border-2 border-gray-200"
                   />
                   <button
                     type="button"
                     onClick={removeImage}
-                    className="absolute top-2 right-2 p-2 bg-red-500 text-white rounded-full hover:bg-red-600 transition-colors"
+                    className="absolute top-2 right-2 p-2 bg-red-500 text-white rounded-full hover:bg-red-600 transition-colors shadow-lg"
                   >
                     <X className="w-4 h-4" />
                   </button>
-                  <p className="text-xs text-gray-500 mt-2">
-                    {imageFile?.name}
-                  </p>
+                  <div className="mt-2 flex items-center justify-between">
+                    <p className="text-xs text-gray-600">
+                      📎 {imageFile?.name}
+                    </p>
+                    <button
+                      type="button"
+                      onClick={removeImage}
+                      className="text-xs text-red-600 hover:text-red-700 font-medium"
+                    >
+                      Schimbă poza
+                    </button>
+                  </div>
                 </div>
               )}
             </div>
