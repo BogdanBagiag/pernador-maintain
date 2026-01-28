@@ -3,10 +3,12 @@ import { Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
+import { useLanguage } from '../contexts/LanguageContext'
 import { Plus, Search, MapPin, Edit, Trash2, Building } from 'lucide-react'
 import LoadingSpinner from '../components/LoadingSpinner'
 
 export default function LocationsList() {
+  const { t } = useLanguage()
   const [searchTerm, setSearchTerm] = useState('')
   const queryClient = useQueryClient()
   const { profile } = useAuth()
@@ -45,7 +47,7 @@ export default function LocationsList() {
   })
 
   const handleDelete = async (id, name) => {
-    if (window.confirm(`Are you sure you want to delete "${name}"?`)) {
+    if (window.confirm(`${t('locations.deleteConfirm')} "${name}"?`)) {
       try {
         await deleteMutation.mutateAsync(id)
       } catch (error) {
@@ -74,9 +76,9 @@ export default function LocationsList() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-8">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Locations</h1>
+          <h1 className="text-3xl font-bold text-gray-900">{t('locations.title')}</h1>
           <p className="text-gray-600 mt-1">
-            Manage your facility locations
+            {t('locations.subtitle')}
           </p>
         </div>
         {canCreateEdit && (
@@ -85,7 +87,7 @@ export default function LocationsList() {
             className="btn-primary mt-4 sm:mt-0 inline-flex items-center"
           >
             <Plus className="w-5 h-5 mr-2" />
-            Add Location
+            {t('locations.add')}
           </Link>
         )}
       </div>
@@ -98,7 +100,7 @@ export default function LocationsList() {
           </div>
           <input
             type="text"
-            placeholder="Search locations..."
+            placeholder={t('locations.searchPlaceholder')}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="input pl-10"
@@ -111,17 +113,17 @@ export default function LocationsList() {
         <div className="card text-center py-12">
           <MapPin className="w-16 h-16 text-gray-400 mx-auto mb-4" />
           <h3 className="text-lg font-medium text-gray-900 mb-2">
-            {searchTerm ? 'No locations found' : 'No locations yet'}
+            {searchTerm ? t('locations.noLocations') : t('locations.noLocationsYet')}
           </h3>
           <p className="text-gray-600 mb-4">
             {searchTerm
-              ? 'Try adjusting your search'
-              : 'Get started by adding your first location'}
+              ? t('locations.tryAdjustingSearch')
+              : t('locations.getStarted')}
           </p>
           {!searchTerm && (
             <Link to="/locations/new" className="btn-primary inline-flex items-center">
               <Plus className="w-5 h-5 mr-2" />
-              Add Location
+              {t('locations.add')}
             </Link>
           )}
         </div>
@@ -166,9 +168,9 @@ export default function LocationsList() {
 
               {(location.floor || location.room) && (
                 <div className="text-sm text-gray-600 mb-4">
-                  {location.floor && `Floor: ${location.floor}`}
+                  {location.floor && `${t('locations.floor')}: ${location.floor}`}
                   {location.floor && location.room && ' • '}
-                  {location.room && `Room: ${location.room}`}
+                  {location.room && `${t('locations.room')}: ${location.room}`}
                 </div>
               )}
 

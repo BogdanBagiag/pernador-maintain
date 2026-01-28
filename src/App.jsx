@@ -137,6 +137,7 @@ function App() {
                       <Route path="/locations" element={<LocationsList />} />
                       <Route path="/locations/new" element={<LocationForm />} />
                       <Route path="/locations/:id/edit" element={<LocationForm />} />
+                      <Route path="/locations/:id" element={<LocationDetail />} />
                       
                       {/* Other Routes */}
                       <Route path="/schedules" element={<MaintenanceSchedules />} />

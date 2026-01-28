@@ -9,15 +9,6 @@ export default function PublicLocationWrapper() {
   const { id } = useParams()
   const { user, profile, loading } = useAuth()
 
-  // CRITICAL FIX: Don't intercept /locations/new or edit routes
-  // Let them pass through to the protected routes instead
-  if (id === 'new' || id?.endsWith('/edit')) {
-    console.log('🔒 Skipping public wrapper for protected route:', id)
-    // Return null to skip this route and let React Router continue
-    // to the next matching route (the protected one)
-    return null
-  }
-
   console.log('📍 PublicLocationWrapper:', { id, user: !!user, profile: !!profile, loading })
 
   // Wait for auth to finish loading (both user and profile)

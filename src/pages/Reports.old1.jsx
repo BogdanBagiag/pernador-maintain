@@ -42,17 +42,7 @@ export default function Reports() {
         .select(`
           *,
           equipment:equipment(id, name, serial_number),
-          assigned_to_user:profiles!work_orders_assigned_to_fkey(id, full_name),
-          schedule_completions(
-            id,
-            procedure_notes,
-            checklist_results,
-            schedule_id,
-            maintenance_schedules(
-              id,
-              checklist_templates(id, name, items)
-            )
-          )
+          assigned_to_user:profiles!work_orders_assigned_to_fkey(id, full_name)
         `)
         .eq('status', 'completed')
         .not('completed_date', 'is', null)
@@ -60,29 +50,38 @@ export default function Reports() {
       
       if (error) throw error
       
-      // Transform the data structure to match previous format
+      // Fetch schedule completions for each work order
       if (data) {
-        data.forEach(wo => {
-          // If there's a schedule completion, transform it
-          if (wo.schedule_completions && wo.schedule_completions.length > 0) {
-            const completion = wo.schedule_completions[0] // Get first completion
+        for (const wo of data) {
+          // Get schedule completion linked to this work order
+          const { data: completion } = await supabase
+            .from('schedule_completions')
+            .select(`
+              id,
+              procedure_notes,
+              checklist_results,
+              schedule_id
+            `)
+            .eq('work_order_id', wo.id)
+            .maybeSingle()
+          
+          if (completion) {
+            wo.schedule_completion = completion
             
-            wo.schedule_completion = {
-              id: completion.id,
-              procedure_notes: completion.procedure_notes,
-              checklist_results: completion.checklist_results,
-              schedule_id: completion.schedule_id
-            }
+            // Get checklist template for this completion
+            const { data: schedule } = await supabase
+              .from('maintenance_schedules')
+              .select(`
+                checklist_template:checklist_templates(id, name, items)
+              `)
+              .eq('id', completion.schedule_id)
+              .maybeSingle()
             
-            // Add checklist template if available
-            if (completion.maintenance_schedules?.checklist_templates) {
-              wo.schedule_completion.checklist_template = completion.maintenance_schedules.checklist_templates
+            if (schedule?.checklist_template) {
+              wo.schedule_completion.checklist_template = schedule.checklist_template
             }
           }
-          
-          // Clean up the temporary array field
-          delete wo.schedule_completions
-        })
+        }
       }
       
       return data

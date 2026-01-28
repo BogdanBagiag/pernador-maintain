@@ -3,7 +3,6 @@ import { useParams, useNavigate, Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
-import { useLanguage } from '../contexts/LanguageContext'
 import { 
   ArrowLeft, 
   Edit, 
@@ -33,7 +32,6 @@ export default function WorkOrderDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
   const { user, profile } = useAuth()
-  const { t } = useLanguage()
   const queryClient = useQueryClient()
   const [showCompletionForm, setShowCompletionForm] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
@@ -472,10 +470,10 @@ export default function WorkOrderDetail() {
     return (
       <div className="card text-center py-12">
         <h3 className="text-lg font-medium text-gray-900 mb-2">
-          {t('workOrderDetail.notFound')}
+          Work order not found
         </h3>
         <button onClick={() => navigate('/work-orders')} className="btn-primary">
-          {t('workOrderDetail.backToList')}
+          Back to Work Orders
         </button>
       </div>
     )
@@ -538,7 +536,7 @@ export default function WorkOrderDetail() {
           className="flex items-center text-gray-600 hover:text-gray-900 mb-4"
         >
           <ArrowLeft className="w-5 h-5 mr-2" />
-          {t('workOrderDetail.backToList')}
+          Back to Work Orders
         </button>
         
         <div className="flex flex-col gap-4">
@@ -576,7 +574,7 @@ export default function WorkOrderDetail() {
                 className="btn-secondary inline-flex items-center justify-center whitespace-nowrap w-full sm:w-auto"
               >
                 <User className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />
-                {t('workOrderDetail.reassign')}
+                Reasignează
               </button>
             )}
             <Link
@@ -584,7 +582,7 @@ export default function WorkOrderDetail() {
               className="btn-primary inline-flex items-center justify-center whitespace-nowrap w-full sm:w-auto"
             >
               <Edit className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />
-              {t('workOrderDetail.edit')}
+              Edit
             </Link>
             {profile?.role === 'admin' && (
               <button
@@ -597,7 +595,7 @@ export default function WorkOrderDetail() {
                 ) : (
                   <>
                     <Trash2 className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />
-                    {t('workOrderDetail.delete')}
+                    Șterge
                   </>
                 )}
               </button>
@@ -611,16 +609,16 @@ export default function WorkOrderDetail() {
         <div className="lg:col-span-2 space-y-4 sm:space-y-6 min-w-0">
           {/* Description */}
           <div className="card">
-            <h2 className="text-lg sm:text-xl font-semibold text-gray-900 mb-3 sm:mb-4">{t('workOrderDetail.description')}</h2>
+            <h2 className="text-lg sm:text-xl font-semibold text-gray-900 mb-3 sm:mb-4">Description</h2>
             <p className="text-sm sm:text-base text-gray-700 whitespace-pre-wrap break-words">
-              {workOrder.description || t('workOrderDetail.noDescription')}
+              {workOrder.description || 'No description provided'}
             </p>
           </div>
 
           {/* Attachments Section */}
           {((attachments && attachments.length > 0) || workOrder.image_url) && (
             <div className="card">
-              <h2 className="text-lg sm:text-xl font-semibold text-gray-900 mb-3 sm:mb-4">{t('workOrderDetail.photos')}</h2>
+              <h2 className="text-lg sm:text-xl font-semibold text-gray-900 mb-3 sm:mb-4">Fotografii</h2>
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {/* Report attachments (initial photos) */}
@@ -628,7 +626,7 @@ export default function WorkOrderDetail() {
                   <div key={attachment.id} className="space-y-2">
                     <div className="flex items-center justify-between">
                       <p className="text-sm font-medium text-gray-700">
-                        📸 {t('workOrderDetail.reportPhoto')}
+                        📸 Fotografie Raportare
                       </p>
                       <p className="text-xs text-gray-500">
                         {new Date(attachment.created_at).toLocaleDateString('ro-RO')}
@@ -651,7 +649,7 @@ export default function WorkOrderDetail() {
                     </div>
                     {attachment.uploaded_by_user && (
                       <p className="text-xs text-gray-500">
-                        {t('workOrderDetail.uploadedBy')}: {attachment.uploaded_by_user.full_name}
+                        Încărcat de: {attachment.uploaded_by_user.full_name}
                       </p>
                     )}
                   </div>
@@ -662,7 +660,7 @@ export default function WorkOrderDetail() {
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
                       <p className="text-sm font-medium text-gray-700">
-                        📸 {t('workOrderDetail.reportPhoto')}
+                        📸 Fotografie Raportare
                       </p>
                     </div>
                     <div className="relative group">
@@ -725,7 +723,7 @@ export default function WorkOrderDetail() {
           {/* Equipment Info */}
           {workOrder.equipment && (
             <div className="card">
-              <h2 className="text-lg sm:text-xl font-semibold text-gray-900 mb-3 sm:mb-4">{t('workOrderDetail.equipment')}</h2>
+              <h2 className="text-lg sm:text-xl font-semibold text-gray-900 mb-3 sm:mb-4">Equipment</h2>
               <Link
                 to={`/equipment/${workOrder.equipment.id}`}
                 className="flex items-start gap-2 sm:gap-3 p-3 sm:p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
@@ -753,7 +751,7 @@ export default function WorkOrderDetail() {
           {/* Location Info (when no equipment) */}
           {!workOrder.equipment && workOrder.location && (
             <div className="card">
-              <h2 className="text-lg sm:text-xl font-semibold text-gray-900 mb-3 sm:mb-4">{t('workOrderDetail.location')}</h2>
+              <h2 className="text-lg sm:text-xl font-semibold text-gray-900 mb-3 sm:mb-4">Location</h2>
               <Link
                 to={`/locations/${workOrder.location.id}`}
                 className="flex items-start gap-2 sm:gap-3 p-3 sm:p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
@@ -762,13 +760,13 @@ export default function WorkOrderDetail() {
                 <div className="min-w-0 flex-1">
                   <p className="font-medium text-sm sm:text-base text-gray-900 break-words">{workOrder.location.name}</p>
                   {workOrder.location.building && (
-                    <p className="text-xs sm:text-sm text-gray-600 mt-0.5">{t('workOrderDetail.building')}: {workOrder.location.building}</p>
+                    <p className="text-xs sm:text-sm text-gray-600 mt-0.5">Building: {workOrder.location.building}</p>
                   )}
                   {workOrder.location.floor && (
-                    <p className="text-xs sm:text-sm text-gray-600">{t('workOrderDetail.floor')}: {workOrder.location.floor}</p>
+                    <p className="text-xs sm:text-sm text-gray-600">Floor: {workOrder.location.floor}</p>
                   )}
                   {workOrder.location.room && (
-                    <p className="text-xs sm:text-sm text-gray-600">{t('workOrderDetail.room')}: {workOrder.location.room}</p>
+                    <p className="text-xs sm:text-sm text-gray-600">Room: {workOrder.location.room}</p>
                   )}
                   {workOrder.location.address && (
                     <p className="text-xs sm:text-sm text-gray-600 mt-1 break-words">{workOrder.location.address}</p>
@@ -780,9 +778,9 @@ export default function WorkOrderDetail() {
 
           {/* Comments Section */}
           <div className="card">
-            <h2 className="text-lg sm:text-xl font-semibold text-gray-900 mb-3 sm:mb-4">{t('workOrderDetail.activity')}</h2>
+            <h2 className="text-lg sm:text-xl font-semibold text-gray-900 mb-3 sm:mb-4">Activity</h2>
             {!comments || comments.length === 0 ? (
-              <p className="text-sm sm:text-base text-gray-500 text-center py-6 sm:py-8">{t('workOrderDetail.noCommentsYet')}</p>
+              <p className="text-sm sm:text-base text-gray-500 text-center py-6 sm:py-8">No comments yet</p>
             ) : (
               <div className="space-y-3 sm:space-y-4">
                 {comments.map((comment) => (
@@ -793,7 +791,7 @@ export default function WorkOrderDetail() {
                     <div className="flex-1 min-w-0">
                       <div className="flex flex-wrap items-center gap-1 sm:gap-2">
                         <p className="font-medium text-sm sm:text-base text-gray-900 break-words">
-                          {comment.user?.full_name || t('workOrderDetail.unknownUser')}
+                          {comment.user?.full_name || 'Unknown User'}
                         </p>
                         <span className="text-xs sm:text-sm text-gray-500 break-words">
                           {new Date(comment.created_at).toLocaleString()}
@@ -913,7 +911,7 @@ export default function WorkOrderDetail() {
         <div className="space-y-4 sm:space-y-6 min-w-0">
           {/* Quick Actions */}
           <div className="card">
-            <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-3 sm:mb-4">{t('workOrderDetail.quickActions')}</h3>
+            <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-3 sm:mb-4">Quick Actions</h3>
             <div className="flex flex-col gap-2">
               {workOrder.status === 'open' && (
                 <button

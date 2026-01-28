@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
+import { useLanguage } from '../contexts/LanguageContext'
 import { 
   Plus, 
   Search, 
@@ -16,6 +17,7 @@ import {
 import LoadingSpinner from '../components/LoadingSpinner'
 
 export default function WorkOrderList() {
+  const { t } = useLanguage()
   const [searchParams] = useSearchParams()
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState('open')
@@ -177,12 +179,12 @@ export default function WorkOrderList() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Work Orders</h1>
-          <p className="text-gray-600 mt-1">Manage maintenance requests and tasks</p>
+          <h1 className="text-3xl font-bold text-gray-900">{t('workOrders.title')}</h1>
+          <p className="text-gray-600 mt-1">{t('workOrders.subtitle')}</p>
         </div>
         <Link to="/work-orders/new" className="btn-primary inline-flex items-center">
           <Plus className="w-5 h-5 mr-2" />
-          New Work Order
+          {t('workOrders.new')}
         </Link>
       </div>
 
@@ -202,7 +204,7 @@ export default function WorkOrderList() {
           >
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs text-gray-600 font-medium mb-1">All Orders</p>
+                <p className="text-xs text-gray-600 font-medium mb-1">{t('workOrders.all')}</p>
                 <p className="text-2xl font-bold text-gray-900">{workOrders?.length || 0}</p>
               </div>
               <Filter className="w-8 h-8 text-gray-400 opacity-50" />
@@ -224,7 +226,7 @@ export default function WorkOrderList() {
           >
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs text-blue-600 font-medium mb-1">Open</p>
+                <p className="text-xs text-blue-600 font-medium mb-1">{t('workOrders.open')}</p>
                 <p className="text-2xl font-bold text-blue-900">{statusCounts.open || 0}</p>
               </div>
               <Clock className="w-8 h-8 text-blue-600 opacity-50" />
@@ -246,7 +248,7 @@ export default function WorkOrderList() {
           >
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs text-yellow-600 font-medium mb-1">In Progress</p>
+                <p className="text-xs text-yellow-600 font-medium mb-1">{t('workOrders.inProgress')}</p>
                 <p className="text-2xl font-bold text-yellow-900">{statusCounts.in_progress || 0}</p>
               </div>
               <Wrench className="w-8 h-8 text-yellow-600 opacity-50" />
@@ -268,7 +270,7 @@ export default function WorkOrderList() {
           >
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs text-gray-600 font-medium mb-1">On Hold</p>
+                <p className="text-xs text-gray-600 font-medium mb-1">{t('workOrders.onHold')}</p>
                 <p className="text-2xl font-bold text-gray-900">{statusCounts.on_hold || 0}</p>
               </div>
               <XCircle className="w-8 h-8 text-gray-600 opacity-50" />
@@ -290,7 +292,7 @@ export default function WorkOrderList() {
           >
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs text-green-600 font-medium mb-1">Completed</p>
+                <p className="text-xs text-green-600 font-medium mb-1">{t('workOrders.completed')}</p>
                 <p className="text-2xl font-bold text-green-900">{statusCounts.completed || 0}</p>
               </div>
               <CheckCircle className="w-8 h-8 text-green-600 opacity-50" />
@@ -312,7 +314,7 @@ export default function WorkOrderList() {
           >
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs text-red-600 font-medium mb-1">Cancelled</p>
+                <p className="text-xs text-red-600 font-medium mb-1">{t('workOrders.cancelled')}</p>
                 <p className="text-2xl font-bold text-red-900">{statusCounts.cancelled || 0}</p>
               </div>
               <XCircle className="w-8 h-8 text-red-600 opacity-50" />
@@ -331,7 +333,7 @@ export default function WorkOrderList() {
             </div>
             <input
               type="text"
-              placeholder="Search work orders..."
+              placeholder={t('workOrders.searchPlaceholder')}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="input pl-10"
@@ -348,11 +350,11 @@ export default function WorkOrderList() {
               onChange={(e) => setPriorityFilter(e.target.value)}
               className="input pl-10"
             >
-              <option value="all">All Priority</option>
-              <option value="critical">Critical</option>
-              <option value="high">High</option>
-              <option value="medium">Medium</option>
-              <option value="low">Low</option>
+              <option value="all">{t('workOrders.allPriority')}</option>
+              <option value="critical">{t('workOrders.critical')}</option>
+              <option value="high">{t('workOrders.high')}</option>
+              <option value="medium">{t('workOrders.medium')}</option>
+              <option value="low">{t('workOrders.low')}</option>
             </select>
           </div>
         </div>
@@ -364,18 +366,18 @@ export default function WorkOrderList() {
           <Wrench className="w-16 h-16 text-gray-400 mx-auto mb-4" />
           <h3 className="text-lg font-medium text-gray-900 mb-2">
             {searchTerm || statusFilter !== 'all' || priorityFilter !== 'all' 
-              ? 'No work orders found' 
-              : 'No work orders yet'}
+              ? t('workOrders.noWorkOrdersFound')
+              : t('workOrders.noWorkOrdersYet')}
           </h3>
           <p className="text-gray-600 mb-4">
             {searchTerm || statusFilter !== 'all' || priorityFilter !== 'all'
-              ? 'Try adjusting your filters'
-              : 'Create your first work order to get started'}
+              ? t('workOrders.tryAdjustingFilters')
+              : t('workOrders.createFirstWorkOrder')}
           </p>
           {!searchTerm && statusFilter === 'all' && priorityFilter === 'all' && (
             <Link to="/work-orders/new" className="btn-primary inline-flex items-center">
               <Plus className="w-5 h-5 mr-2" />
-              New Work Order
+              {t('workOrders.new')}
             </Link>
           )}
         </div>
@@ -421,25 +423,25 @@ export default function WorkOrderList() {
                       {(wo.status === 'open' || wo.status === 'in_progress') && wo.priority === 'critical' && (
                         <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800 border border-red-200">
                           <AlertTriangle className="w-3 h-3 mr-1" />
-                          URGENT
+                          {t('workOrders.urgent')}
                         </span>
                       )}
                       {(wo.status === 'open' || wo.status === 'in_progress') && wo.priority === 'high' && (
                         <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800 border border-orange-200">
                           <AlertTriangle className="w-3 h-3 mr-1" />
-                          High Priority
+                          {t('workOrders.highPriority')}
                         </span>
                       )}
                     </div>
                     {wo.equipment && (
                       <p className="text-sm text-gray-600">
-                        Equipment: <span className="font-medium">{wo.equipment.name}</span>
+                        {t('workOrders.equipment')} <span className="font-medium">{wo.equipment.name}</span>
                         {wo.equipment.serial_number && ` (SN: ${wo.equipment.serial_number})`}
                       </p>
                     )}
                     {wo.location && (
                       <p className="text-sm text-gray-600">
-                        Location: <span className="font-medium">{wo.location.name}</span>
+                        {t('workOrders.location')} <span className="font-medium">{wo.location.name}</span>
                         {wo.location.building && ` - ${wo.location.building}`}
                         {wo.location.floor && ` (Floor ${wo.location.floor})`}
                       </p>
@@ -471,7 +473,7 @@ export default function WorkOrderList() {
                     )}
                     {wo.assigned_to_user && (
                       <span className="text-sm text-gray-600">
-                        Assigned to: <span className="font-medium">{wo.assigned_to_user.full_name}</span>
+                        {t('workOrders.assignedTo')} <span className="font-medium">{wo.assigned_to_user.full_name}</span>
                       </span>
                     )}
                     <span className="text-sm text-gray-500 flex items-center ml-auto">

@@ -244,73 +244,23 @@ export default function LocationDetail() {
               </h2>
             </div>
             {equipment && equipment.length > 0 ? (
-              <div className="space-y-3">
+              <div className="space-y-2">
                 {equipment.map((item) => (
                   <Link
                     key={item.id}
                     to={`/equipment/${item.id}`}
-                    className="flex items-start gap-3 p-4 border rounded-lg hover:bg-gray-50 transition-colors"
+                    className="flex items-center justify-between p-3 border rounded-lg hover:bg-gray-50 transition-colors"
                   >
-                    <Wrench className="w-5 h-5 text-gray-400 flex-shrink-0 mt-0.5" />
-                    
-                    <div className="flex-1 min-w-0">
-                      {/* Equipment Name */}
-                      <h3 className="font-semibold text-gray-900 mb-2 break-words">
-                        {item.name}
-                      </h3>
-                      
-                      {/* Equipment Details Grid */}
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1 text-sm">
-                        {/* Row 1 - Left: Inventory Number */}
-                        {item.inventory_number && (
-                          <div className="flex items-baseline gap-1">
-                            <span className="text-gray-500 font-medium">Nr. Inventar:</span>
-                            <span className="text-gray-700">{item.inventory_number}</span>
-                          </div>
-                        )}
-                        
-                        {/* Row 1 - Right: Serial Number */}
-                        {item.serial_number && (
-                          <div className="flex items-baseline gap-1">
-                            <span className="text-gray-500 font-medium">Serie:</span>
-                            <span className="text-gray-700">{item.serial_number}</span>
-                          </div>
-                        )}
-                        
-                        {/* Row 2 - Left: Manufacturer */}
-                        {item.manufacturer && (
-                          <div className="flex items-baseline gap-1">
-                            <span className="text-gray-500 font-medium">Brand:</span>
-                            <span className="text-gray-700">{item.manufacturer}</span>
-                          </div>
-                        )}
-                        
-                        {/* Row 2 - Right: Status */}
-                        <div className="flex items-baseline gap-1">
-                          <span className="text-gray-500 font-medium">Status:</span>
-                          <span className={`inline-block px-2 py-0.5 text-xs font-medium rounded ${
-                            item.status === 'operational' ? 'bg-green-100 text-green-800' : 
-                            item.status === 'maintenance' ? 'bg-yellow-100 text-yellow-800' :
-                            item.status === 'broken' ? 'bg-red-100 text-red-800' :
-                            'bg-gray-100 text-gray-800'
-                          }`}>
-                            {item.status === 'operational' ? 'Operațional' :
-                             item.status === 'maintenance' ? 'În Mentenanță' :
-                             item.status === 'broken' ? 'Defect' :
-                             item.status === 'retired' ? 'Scos din uz' :
-                             item.status}
-                          </span>
-                        </div>
-                        
-                        {/* Row 3 - Left: Model */}
-                        {item.model && (
-                          <div className="flex items-baseline gap-1">
-                            <span className="text-gray-500 font-medium">Model:</span>
-                            <span className="text-gray-700">{item.model}</span>
-                          </div>
-                        )}
+                    <div className="flex items-center gap-3 min-w-0 flex-1">
+                      <Wrench className="w-5 h-5 text-gray-400 flex-shrink-0" />
+                      <div className="min-w-0">
+                        <p className="font-medium text-gray-900 truncate">{item.name}</p>
+                        <p className="text-sm text-gray-600 truncate">{item.serial_number}</p>
                       </div>
                     </div>
+                    <span className={`badge ${item.status === 'operational' ? 'badge-success' : 'badge-warning'} whitespace-nowrap ml-2`}>
+                      {item.status}
+                    </span>
                   </Link>
                 ))}
               </div>
