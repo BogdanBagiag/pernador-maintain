@@ -11,7 +11,7 @@ export default function LocationForm() {
   const navigate = useNavigate()
   const { user } = useAuth()
   const queryClient = useQueryClient()
-  const isEditMode = Boolean(id)
+  const isEditMode = Boolean(id && id !== 'new')
 
   const [formData, setFormData] = useState({
     name: '',
@@ -29,7 +29,7 @@ export default function LocationForm() {
   const { data: location, isLoading: isLoadingLocation } = useQuery({
     queryKey: ['location', id],
     queryFn: async () => {
-      if (!id) return null
+      if (!id || id === 'new') return null
       const { data, error } = await supabase
         .from('locations')
         .select('*')

@@ -22,9 +22,7 @@ import PartsInventory from './pages/PartsInventory'
 import Settings from './pages/Settings'
 import UserManagement from './pages/UserManagement'
 import LocationsList from './pages/LocationsList'
-import LocationForm from './pages/LocationForm'
-import LocationDetail from './pages/LocationDetail'
-import PublicLocationWrapper from './pages/PublicLocationWrapper'
+import UnifiedLocationRouter from './pages/UnifiedLocationRouter'
 import PublicScanWrapper from './pages/PublicScanWrapper'
 import ScanPage from './pages/ScanPage'
 import ReportIssue from './pages/ReportIssue'
@@ -109,8 +107,17 @@ function App() {
             {/* Public Scan Route (No Auth Required) */}
             <Route path="/scan" element={<PublicScanWrapper />} />
             
-            {/* Public Location Route - Smart Redirect */}
-            <Route path="/locations/:id" element={<PublicLocationWrapper />} />
+            {/* Location Routes - Unified handler for all location paths */}
+            {/* This handles: /locations, /locations/new, /locations/:id, /locations/:id/edit */}
+            <Route path="/locations" element={
+              <ProtectedRoute>
+                <Layout>
+                  <LocationsList />
+                </Layout>
+              </ProtectedRoute>
+            } />
+            <Route path="/locations/:id" element={<UnifiedLocationRouter />} />
+            <Route path="/locations/:id/:action" element={<UnifiedLocationRouter />} />
 
             {/* Protected Routes */}
             <Route
@@ -132,12 +139,6 @@ function App() {
                       <Route path="/work-orders/new" element={<WorkOrderForm />} />
                       <Route path="/work-orders/:id" element={<WorkOrderDetail />} />
                       <Route path="/work-orders/:id/edit" element={<WorkOrderForm />} />
-                      
-                      {/* Location Routes */}
-                      <Route path="/locations" element={<LocationsList />} />
-                      <Route path="/locations/new" element={<LocationForm />} />
-                      <Route path="/locations/:id/edit" element={<LocationForm />} />
-                      <Route path="/locations/:id" element={<LocationDetail />} />
                       
                       {/* Other Routes */}
                       <Route path="/schedules" element={<MaintenanceSchedules />} />
