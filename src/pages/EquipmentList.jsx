@@ -44,11 +44,26 @@ export default function EquipmentList() {
   const getSortedData = () => {
     if (!equipment) return []
     
-    let filtered = equipment.filter(eq =>
-      eq.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      eq.serial_number?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      eq.model?.toLowerCase().includes(searchQuery.toLowerCase())
-    )
+    let filtered = equipment
+    
+    // Multi-term search - split by spaces and filter by each term
+    if (searchQuery.trim()) {
+      const searchTerms = searchQuery.toLowerCase().trim().split(/\s+/) // Split by whitespace
+      
+      filtered = equipment.filter(eq => {
+        // For each search term, check if it exists in ANY field
+        return searchTerms.every(term => {
+          return (
+            eq.name?.toLowerCase().includes(term) ||
+            eq.serial_number?.toLowerCase().includes(term) ||
+            eq.model?.toLowerCase().includes(term) ||
+            eq.inventory_number?.toLowerCase().includes(term) ||
+            eq.manufacturer?.toLowerCase().includes(term) ||
+            eq.location?.name?.toLowerCase().includes(term)
+          )
+        })
+      })
+    }
 
     // Apply filter tabs
     if (filterTab === 'missing_serial') {
@@ -345,7 +360,7 @@ export default function EquipmentList() {
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
           <input
             type="text"
-            placeholder="Search equipment by name, serial number, or model..."
+            placeholder="Caută cu mai multe cuvinte (ex: Siemens A4, Production Hall)..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="input pl-10 w-full"
