@@ -18,7 +18,8 @@ import {
   User,
   ChevronDown,
   ChevronUp,
-  ExternalLink
+  ExternalLink,
+  Package
 } from 'lucide-react'
 import LoadingSpinner from '../components/LoadingSpinner'
 
@@ -37,7 +38,10 @@ export default function Reports() {
   const { data: completedWorkOrders, isLoading } = useQuery({
     queryKey: ['completed-work-orders-reports'],
     queryFn: async () => {
-      const { data, error } = await supabase
+      console.log('🔍 [Reports] Starting query...')
+      
+      // First, fetch work orders
+      const { data: workOrdersData, error: workOrdersError } = await supabase
         .from('work_orders')
         .select(`
           *,
@@ -58,14 +62,56 @@ export default function Reports() {
         .not('completed_date', 'is', null)
         .order('completed_date', { ascending: false })
       
-      if (error) throw error
+      console.log('📊 [Reports] Work orders fetched:', workOrdersData?.length || 0)
+      console.log('📋 [Reports] Work orders data:', workOrdersData)
       
-      // Transform the data structure to match previous format
-      if (data) {
-        data.forEach(wo => {
-          // If there's a schedule completion, transform it
+      if (workOrdersError) {
+        console.error('❌ [Reports] Work orders error:', workOrdersError)
+        throw workOrdersError
+      }
+      
+      // Then, fetch all parts usage for these work orders
+      const workOrderIds = workOrdersData?.map(wo => wo.id) || []
+      console.log('🔑 [Reports] Work order IDs:', workOrderIds)
+      
+      let partsUsageData = []
+      
+      if (workOrderIds.length > 0) {
+        const { data: partsData, error: partsError } = await supabase
+          .from('parts_usage')
+          .select(`
+            id,
+            work_order_id,
+            part_id,
+            quantity_used,
+            unit_cost,
+            total_cost,
+            used_at,
+            notes,
+            used_by,
+            inventory_parts(name, part_number, unit_of_measure)
+          `)
+          .in('work_order_id', workOrderIds)
+          .order('used_at', { ascending: false })
+        
+        console.log('🔧 [Reports] Parts usage fetched:', partsData?.length || 0)
+        console.log('🔧 [Reports] Parts usage data:', partsData)
+        
+        if (partsError) {
+          console.error('❌ [Reports] Parts usage error:', partsError)
+        }
+        
+        if (!partsError && partsData) {
+          partsUsageData = partsData
+        }
+      }
+      
+      // Combine the data
+      if (workOrdersData) {
+        workOrdersData.forEach(wo => {
+          // Transform schedule completion
           if (wo.schedule_completions && wo.schedule_completions.length > 0) {
-            const completion = wo.schedule_completions[0] // Get first completion
+            const completion = wo.schedule_completions[0]
             
             wo.schedule_completion = {
               id: completion.id,
@@ -74,18 +120,34 @@ export default function Reports() {
               schedule_id: completion.schedule_id
             }
             
-            // Add checklist template if available
             if (completion.maintenance_schedules?.checklist_templates) {
               wo.schedule_completion.checklist_template = completion.maintenance_schedules.checklist_templates
             }
           }
           
-          // Clean up the temporary array field
+          // Attach parts usage to this work order
+          wo.parts_usage = partsUsageData
+            .filter(part => part.work_order_id === wo.id && part.inventory_parts) // Filtrează doar piesele cu date valide
+            .map(part => ({
+              id: part.id,
+              quantity_used: part.quantity_used,
+              unit_cost: part.unit_cost,
+              total_cost: part.total_cost,
+              used_at: part.used_at,
+              notes: part.notes,
+              part: part.inventory_parts,
+              user: null  // Temporar null - va fi adăugat mai târziu dacă e necesar
+            }))
+          
+          console.log(`📦 [Reports] WO ${wo.id} has ${wo.parts_usage?.length || 0} parts`)
+          
+          // Clean up
           delete wo.schedule_completions
         })
       }
       
-      return data
+      console.log('✅ [Reports] Final data:', workOrdersData)
+      return workOrdersData
     },
   })
 
@@ -688,6 +750,81 @@ export default function Reports() {
                               <h4 className="text-xs sm:text-sm font-semibold text-gray-700 mb-2">Piese Inlocuite</h4>
                               <div className="bg-gray-50 p-2 sm:p-3 rounded-lg">
                                 <p className="text-xs sm:text-sm text-gray-900 whitespace-pre-wrap break-words">{wo.parts_replaced}</p>
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Inventory Parts Used */}
+                          {wo.parts_usage && wo.parts_usage.length > 0 && (
+                            <div>
+                              <h4 className="text-xs sm:text-sm font-semibold text-gray-700 mb-2 flex items-center">
+                                <Package className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />
+                                Piese din Inventar Folosite
+                              </h4>
+                              <div className="space-y-2">
+                                {wo.parts_usage.map((usage) => (
+                                  <div
+                                    key={usage.id}
+                                    className="border border-gray-200 rounded-lg p-2 sm:p-3 bg-white"
+                                  >
+                                    <div className="flex items-start justify-between mb-1">
+                                      <div className="flex-1">
+                                        <div className="flex items-center gap-1">
+                                          <Package className="w-3 h-3 text-gray-400" />
+                                          <h5 className="text-xs sm:text-sm font-medium text-gray-900">{usage.part?.name || 'Piesă necunoscută'}</h5>
+                                        </div>
+                                        {usage.part?.part_number && (
+                                          <p className="text-xs text-gray-500 font-mono ml-4">{usage.part.part_number}</p>
+                                        )}
+                                      </div>
+                                      <div className="text-right">
+                                        <p className="text-xs sm:text-sm font-semibold text-gray-900">
+                                          {usage.quantity_used} {usage.part?.unit_of_measure || 'buc'}
+                                        </p>
+                                        <p className="text-xs text-gray-600">
+                                          {usage.unit_cost?.toFixed(2)} RON/{usage.part?.unit_of_measure || 'buc'}
+                                        </p>
+                                      </div>
+                                    </div>
+
+                                    <div className="flex items-center gap-2 text-xs text-gray-500 ml-4 flex-wrap">
+                                      <div className="flex items-center gap-1">
+                                        <Calendar className="w-3 h-3" />
+                                        <span>{new Date(usage.used_at).toLocaleDateString('ro-RO')}</span>
+                                      </div>
+                                      {usage.user && (
+                                        <div className="flex items-center gap-1">
+                                          <User className="w-3 h-3" />
+                                          <span>{usage.user.full_name}</span>
+                                        </div>
+                                      )}
+                                      <div className="flex items-center gap-1 ml-auto">
+                                        <DollarSign className="w-3 h-3" />
+                                        <span className="font-semibold text-gray-900">
+                                          {usage.total_cost.toFixed(2)} RON
+                                        </span>
+                                      </div>
+                                    </div>
+
+                                    {usage.notes && (
+                                      <div className="mt-1 ml-4 text-xs text-gray-600 italic">
+                                        {usage.notes}
+                                      </div>
+                                    )}
+                                  </div>
+                                ))}
+                                
+                                {/* Total cost of inventory parts */}
+                                {wo.parts_usage.length > 0 && (
+                                  <div className="border-t border-gray-200 pt-2 mt-2">
+                                    <div className="flex justify-between items-center">
+                                      <span className="text-xs sm:text-sm font-medium text-gray-600">Cost Total Piese Inventar:</span>
+                                      <span className="text-sm sm:text-base font-bold text-primary-600">
+                                        {wo.parts_usage.reduce((sum, usage) => sum + usage.total_cost, 0).toFixed(2)} RON
+                                      </span>
+                                    </div>
+                                  </div>
+                                )}
                               </div>
                             </div>
                           )}

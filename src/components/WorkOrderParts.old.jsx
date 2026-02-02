@@ -12,7 +12,8 @@ export default function WorkOrderParts({ workOrderId }) {
         .from('parts_usage')
         .select(`
           *,
-          inventory_parts(name, part_number, unit_of_measure)
+          part:inventory_parts(name, part_number, unit_of_measure),
+          user:profiles!parts_usage_used_by_fkey(full_name)
         `)
         .eq('work_order_id', workOrderId)
         .order('used_at', { ascending: false })
@@ -54,18 +55,18 @@ export default function WorkOrderParts({ workOrderId }) {
               <div className="flex-1">
                 <div className="flex items-center gap-2">
                   <Package className="w-4 h-4 text-gray-400" />
-                  <h4 className="font-medium text-gray-900">{usage.inventory_parts?.name || 'N/A'}</h4>
+                  <h4 className="font-medium text-gray-900">{usage.part.name}</h4>
                 </div>
-                {usage.inventory_parts?.part_number && (
-                  <p className="text-xs text-gray-500 font-mono ml-6">{usage.inventory_parts.part_number}</p>
+                {usage.part.part_number && (
+                  <p className="text-xs text-gray-500 font-mono ml-6">{usage.part.part_number}</p>
                 )}
               </div>
               <div className="text-right">
                 <p className="font-semibold text-gray-900">
-                  {usage.quantity_used} {usage.inventory_parts?.unit_of_measure || 'buc'}
+                  {usage.quantity_used} {usage.part.unit_of_measure}
                 </p>
                 <p className="text-sm text-gray-600">
-                  {usage.unit_cost?.toFixed(2)} RON/{usage.inventory_parts?.unit_of_measure || 'buc'}
+                  {usage.unit_cost?.toFixed(2)} RON/{usage.part.unit_of_measure}
                 </p>
               </div>
             </div>
@@ -75,6 +76,12 @@ export default function WorkOrderParts({ workOrderId }) {
                 <Calendar className="w-3 h-3" />
                 <span>{new Date(usage.used_at).toLocaleDateString('ro-RO')}</span>
               </div>
+              {usage.user && (
+                <div className="flex items-center gap-1">
+                  <User className="w-3 h-3" />
+                  <span>{usage.user.full_name}</span>
+                </div>
+              )}
               <div className="flex items-center gap-1 ml-auto">
                 <DollarSign className="w-3 h-3" />
                 <span className="font-semibold text-gray-900">

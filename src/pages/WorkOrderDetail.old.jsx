@@ -28,7 +28,6 @@ import {
 } from 'lucide-react'
 import LoadingSpinner from '../components/LoadingSpinner'
 import PartsUsageModal from '../components/PartsUsageModal'
-import WorkOrderParts from '../components/WorkOrderParts'
 
 export default function WorkOrderDetail() {
   const { id } = useParams()
@@ -842,15 +841,6 @@ export default function WorkOrderDetail() {
                     <p className="text-sm sm:text-base text-gray-900 whitespace-pre-wrap break-words">{workOrder.parts_replaced}</p>
                   </div>
                 )}
-
-                {/* Inventory Parts Used */}
-                <div>
-                  <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2 flex items-center">
-                    <Package className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1" />
-                    Piese din Inventar Folosite
-                  </label>
-                  <WorkOrderParts workOrderId={id} />
-                </div>
 
                 {(workOrder.parts_cost || workOrder.labor_cost) && (
                   <div className="grid grid-cols-1 gap-3 sm:gap-4">
