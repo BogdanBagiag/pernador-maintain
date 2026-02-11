@@ -475,27 +475,27 @@ export default function MaintenanceSchedules() {
                       
                       {/* Equipment */}
                       {schedule.equipment && (
-  <div className="mb-2">
-    <Link
-      to={`/equipment/${schedule.equipment.id}`}
-      className="text-sm text-primary-600 hover:text-primary-700 inline-block break-words"
-    >
-      Equipment: {schedule.equipment.name}
-    </Link>
-    <div className="text-xs text-gray-600 mt-0.5">
-      {schedule.equipment.inventory_number && (
-        <span className="mr-3">
-          📋 Nr. inventar: <span className="font-medium">{schedule.equipment.inventory_number}</span>
-        </span>
-      )}
-      {schedule.equipment.serial_number && (
-        <span>
-          🔢 Serie: <span className="font-medium">{schedule.equipment.serial_number}</span>
-        </span>
-      )}
-    </div>
-  </div>
-)}
+                        <div className="mb-2">
+                          <Link
+                            to={`/equipment/${schedule.equipment.id}`}
+                            className="text-sm text-primary-600 hover:text-primary-700 inline-block break-words font-medium"
+                          >
+                            Equipment: {schedule.equipment.name}
+                          </Link>
+                          <div className="text-xs text-gray-600 mt-0.5">
+                            {schedule.equipment.inventory_number && (
+                              <span className="mr-3">
+                                📋 Nr. inventar: <span className="font-medium">{schedule.equipment.inventory_number}</span>
+                              </span>
+                            )}
+                            {schedule.equipment.serial_number && (
+                              <span>
+                                🔢 Serie: <span className="font-medium">{schedule.equipment.serial_number}</span>
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      )}
 
                       {/* Description */}
                       {schedule.description && (
