@@ -47,7 +47,7 @@ export default function MaintenanceSchedules() {
         .from('maintenance_schedules')
         .select(`
           *,
-          equipment:equipment(id, name, serial_number, inventory_number),
+          equipment:equipment(id, name, serial_number),
           assigned_user:profiles!maintenance_schedules_assigned_to_fkey(id, full_name),
           checklist_template:checklist_templates(id, name, items),
           procedure_template:procedure_templates(id, name, steps),
@@ -90,7 +90,7 @@ export default function MaintenanceSchedules() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('equipment')
-        .select('id, name, serial_number, inventory_number')
+        .select('id, name, serial_number')
         .order('name')
       if (error) throw error
       return data
@@ -475,27 +475,14 @@ export default function MaintenanceSchedules() {
                       
                       {/* Equipment */}
                       {schedule.equipment && (
-  <div className="mb-2">
-    <Link
-      to={`/equipment/${schedule.equipment.id}`}
-      className="text-sm text-primary-600 hover:text-primary-700 inline-block break-words"
-    >
-      Equipment: {schedule.equipment.name}
-    </Link>
-    <div className="text-xs text-gray-600 mt-0.5">
-      {schedule.equipment.inventory_number && (
-        <span className="mr-3">
-          📋 Nr. inventar: <span className="font-medium">{schedule.equipment.inventory_number}</span>
-        </span>
-      )}
-      {schedule.equipment.serial_number && (
-        <span>
-          🔢 Serie: <span className="font-medium">{schedule.equipment.serial_number}</span>
-        </span>
-      )}
-    </div>
-  </div>
-)}
+                        <Link
+                          to={`/equipment/${schedule.equipment.id}`}
+                          className="text-sm text-primary-600 hover:text-primary-700 mb-2 inline-block break-words"
+                        >
+                          Equipment: {schedule.equipment.name}
+                          {schedule.equipment.serial_number && ` (SN: ${schedule.equipment.serial_number})`}
+                        </Link>
+                      )}
 
                       {/* Description */}
                       {schedule.description && (
