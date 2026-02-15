@@ -1,7 +1,6 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { useLanguage } from '../contexts/LanguageContext'
-import { useVehicleAlerts } from '../hooks/useVehicleAlerts'
 import {
   LayoutDashboard,
   Wrench,
@@ -19,7 +18,6 @@ import {
   Users,
   HelpCircle,
   Package,
-  Car,
 } from 'lucide-react'
 import { useState } from 'react'
 
@@ -28,7 +26,6 @@ const navigation = [
   { name: 'nav.scanQR', href: '/scan', icon: QrCode },
   { name: 'nav.equipment', href: '/equipment', icon: Wrench },
   { name: 'nav.locations', href: '/locations', icon: MapPin },
-  { name: 'nav.vehicles', href: '/vehicles', icon: Car },
   { name: 'nav.workOrders', href: '/work-orders', icon: ClipboardList },
   { name: 'nav.schedules', href: '/schedules', icon: Calendar },
   { name: 'nav.checklists', href: '/checklist-templates', icon: CheckSquare },
@@ -45,7 +42,6 @@ export default function Layout({ children }) {
   const navigate = useNavigate()
   const { user, profile, signOut } = useAuth()
   const { t } = useLanguage()
-  const { alertCount } = useVehicleAlerts()
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
   // Debug logging
@@ -106,28 +102,19 @@ export default function Layout({ children }) {
               })
               .map((item) => {
               const isActive = location.pathname.startsWith(item.href)
-              const showBadge = item.href === '/vehicles' && alertCount > 0
-              
               return (
                 <Link
                   key={item.name}
                   to={item.href}
-                  className={`flex items-center justify-between px-4 py-3 text-sm font-medium rounded-lg transition-colors ${
+                  className={`flex items-center px-4 py-3 text-sm font-medium rounded-lg transition-colors ${
                     isActive
                       ? 'bg-primary-50 text-primary-700'
                       : 'text-gray-700 hover:bg-gray-100'
                   }`}
                   onClick={() => setSidebarOpen(false)}
                 >
-                  <div className="flex items-center">
-                    <item.icon className="w-5 h-5 mr-3" />
-                    {t(item.name)}
-                  </div>
-                  {showBadge && (
-                    <span className="inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-white bg-red-600 rounded-full">
-                      {alertCount}
-                    </span>
-                  )}
+                  <item.icon className="w-5 h-5 mr-3" />
+                  {t(item.name)}
                 </Link>
               )
             })}

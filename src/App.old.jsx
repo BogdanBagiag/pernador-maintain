@@ -23,9 +23,6 @@ import Settings from './pages/Settings'
 import UserManagement from './pages/UserManagement'
 import LocationsList from './pages/LocationsList'
 import UnifiedLocationRouter from './pages/UnifiedLocationRouter'
-import VehicleList from './pages/VehicleList'
-import VehicleForm from './pages/VehicleForm'
-import VehicleDetail from './pages/VehicleDetail'
 import PublicScanWrapper from './pages/PublicScanWrapper'
 import ScanPage from './pages/ScanPage'
 import ReportIssue from './pages/ReportIssue'
@@ -136,12 +133,6 @@ function App() {
                       <Route path="/equipment/new" element={<EquipmentForm />} />
                       <Route path="/equipment/:id" element={<EquipmentDetail />} />
                       <Route path="/equipment/:id/edit" element={<EquipmentForm />} />
-                      
-                      {/* Vehicle Routes */}
-                      <Route path="/vehicles" element={<VehicleList />} />
-                      <Route path="/vehicles/new" element={<VehicleForm />} />
-                      <Route path="/vehicles/:id" element={<VehicleDetail />} />
-                      <Route path="/vehicles/:id/edit" element={<VehicleForm />} />
                       
                       {/* Work Order Routes */}
                       <Route path="/work-orders" element={<WorkOrderList />} />

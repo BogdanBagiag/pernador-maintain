@@ -677,11 +677,6 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Vehicle Expiration Alerts Section */}
-      <div className="mb-6">
-        <VehicleExpirationAlerts />
-      </div>
-
       {/* Equipment and Locations Section */}
       <div className="mb-6">
         <div className="flex items-center gap-2 mb-4">
@@ -754,6 +749,11 @@ export default function Dashboard() {
       {/* Work Order Reminders Section */}
       <div className="mb-6">
         <WorkOrderRemindersCard />
+      </div>
+
+      {/* Vehicle Expiration Alerts Section */}
+      <div className="mb-6">
+        <VehicleExpirationAlerts />
       </div>
 
       {/* Charts Row */}

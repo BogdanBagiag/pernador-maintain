@@ -17,7 +17,6 @@ import {
 import { BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
 import LoadingSpinner from '../components/LoadingSpinner'
 import WorkOrderRemindersCard from '../components/WorkOrderRemindersCard'
-import VehicleExpirationAlerts from '../components/VehicleExpirationAlerts'
 
 export default function Dashboard() {
   const [dateRange, setDateRange] = useState('all') // all, 7days, 30days, 90days, custom
@@ -675,11 +674,6 @@ export default function Dashboard() {
             )}
           </div>
         </div>
-      </div>
-
-      {/* Vehicle Expiration Alerts Section */}
-      <div className="mb-6">
-        <VehicleExpirationAlerts />
       </div>
 
       {/* Equipment and Locations Section */}
