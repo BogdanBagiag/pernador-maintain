@@ -41,7 +41,6 @@ export default function Reports() {
   const [minCost, setMinCost] = useState('')
   const [maxCost, setMaxCost] = useState('')
   const [expandedReports, setExpandedReports] = useState({}) // Track which reports are expanded
-  const [activeTab, setActiveTab] = useState('repairs') // 'repairs' or 'maintenance'
   
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1)
@@ -50,7 +49,7 @@ export default function Reports() {
   // Reset pagination when filters change
   useEffect(() => {
     setCurrentPage(1)
-  }, [dateFilter, customStartDate, customEndDate, searchQuery, technicianFilter, equipmentFilter, minCost, maxCost, activeTab])
+  }, [dateFilter, customStartDate, customEndDate, searchQuery, technicianFilter, equipmentFilter, minCost, maxCost])
 
   // Fetch completed work orders with reports
   const { data: completedWorkOrders, isLoading } = useQuery({
@@ -228,38 +227,26 @@ export default function Reports() {
     const now = new Date()
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
     
-    if (dateFilter === 'week') {
-      // Ultima săptămână (7 zile)
+    if (dateFilter === 'today') {
+      filtered = filtered.filter(wo => {
+        const completedDate = new Date(wo.completed_date)
+        return completedDate >= today
+      })
+    } else if (dateFilter === 'week') {
       const weekAgo = new Date(today)
       weekAgo.setDate(weekAgo.getDate() - 7)
       filtered = filtered.filter(wo => {
         const completedDate = new Date(wo.completed_date)
         return completedDate >= weekAgo
       })
-    } else if (dateFilter === 'current_month') {
-      // Luna curentă
-      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1)
+    } else if (dateFilter === 'month') {
+      const monthAgo = new Date(today)
+      monthAgo.setMonth(monthAgo.getMonth() - 1)
       filtered = filtered.filter(wo => {
         const completedDate = new Date(wo.completed_date)
-        return completedDate >= monthStart
-      })
-    } else if (dateFilter === 'last_month') {
-      // Luna trecută
-      const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1)
-      const lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59)
-      filtered = filtered.filter(wo => {
-        const completedDate = new Date(wo.completed_date)
-        return completedDate >= lastMonthStart && completedDate <= lastMonthEnd
-      })
-    } else if (dateFilter === 'current_year') {
-      // Anul curent
-      const yearStart = new Date(now.getFullYear(), 0, 1)
-      filtered = filtered.filter(wo => {
-        const completedDate = new Date(wo.completed_date)
-        return completedDate >= yearStart
+        return completedDate >= monthAgo
       })
     } else if (dateFilter === 'custom' && customStartDate && customEndDate) {
-      // Perioadă personalizată
       const startDate = new Date(customStartDate)
       const endDate = new Date(customEndDate)
       endDate.setHours(23, 59, 59)
@@ -267,15 +254,6 @@ export default function Reports() {
         const completedDate = new Date(wo.completed_date)
         return completedDate >= startDate && completedDate <= endDate
       })
-    }
-
-    // Tab filter (Reparații vs Mentenanță)
-    if (activeTab === 'repairs') {
-      // Reparații = work orders fără schedule_completion
-      filtered = filtered.filter(wo => !wo.schedule_completion)
-    } else if (activeTab === 'maintenance') {
-      // Mentenanță = work orders cu schedule_completion
-      filtered = filtered.filter(wo => wo.schedule_completion)
     }
 
     // Technician filter
@@ -405,36 +383,6 @@ export default function Reports() {
         <p className="text-gray-600 mt-2">Rapoarte detaliate pentru work orders completate</p>
       </div>
 
-      {/* Tabs */}
-      <div className="mb-6">
-        <div className="border-b border-gray-200">
-          <nav className="-mb-px flex space-x-8">
-            <button
-              onClick={() => setActiveTab('repairs')}
-              className={`${
-                activeTab === 'repairs'
-                  ? 'border-primary-500 text-primary-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm flex items-center`}
-            >
-              <Wrench className="w-5 h-5 mr-2" />
-              Reparații
-            </button>
-            <button
-              onClick={() => setActiveTab('maintenance')}
-              className={`${
-                activeTab === 'maintenance'
-                  ? 'border-primary-500 text-primary-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm flex items-center`}
-            >
-              <CheckCircle className="w-5 h-5 mr-2" />
-              Mentenanță
-            </button>
-          </nav>
-        </div>
-      </div>
-
       {/* Statistics Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
         <div className="card bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200">
@@ -532,11 +480,10 @@ export default function Reports() {
               className="input w-full"
             >
               <option value="all">Toate</option>
-              <option value="week">Ultima săptămână</option>
-              <option value="current_month">Luna curentă</option>
-              <option value="last_month">Luna trecută</option>
-              <option value="current_year">Anul curent</option>
-              <option value="custom">Perioadă personalizată</option>
+              <option value="today">Astazi</option>
+              <option value="week">Ultima saptamana</option>
+              <option value="month">Ultima luna</option>
+              <option value="custom">Perioada personalizata</option>
             </select>
           </div>
 

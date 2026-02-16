@@ -17,7 +17,7 @@ export function useVehicleAlerts() {
 
       // Count expiring insurance
       const { count: insuranceCount, error: insuranceError } = await supabase
-        .from('vehicle_insurance')
+        .from('vehicle_insurances')
         .select('*', { count: 'exact', head: true })
         .eq('is_active', true)
         .gte('end_date', today)

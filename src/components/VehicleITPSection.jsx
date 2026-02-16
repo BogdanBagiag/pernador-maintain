@@ -480,17 +480,22 @@ export default function VehicleITPSection({ vehicleId, itpRecords, isLoading }) 
                 </div>
 
                 {/* Certificate Upload */}
-                {!editMode && (
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Certificat ITP</label>
-                    <input 
-                      type="file" 
-                      onChange={handleFileSelect} 
-                      accept=".pdf,.jpg,.jpeg,.png" 
-                      className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-primary-50 file:text-primary-700 hover:file:bg-primary-100" 
-                    />
-                  </div>
-                )}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Certificat ITP {editMode && '(opțional - înlocuiește existent)'}
+                  </label>
+                  {editMode && editingItem?.certificate_file_name && (
+                    <p className="text-xs text-gray-500 mb-1">
+                      📄 Curent: {editingItem.certificate_file_name}
+                    </p>
+                  )}
+                  <input 
+                    type="file" 
+                    onChange={handleFileSelect} 
+                    accept=".pdf,.jpg,.jpeg,.png" 
+                    className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-primary-50 file:text-primary-700 hover:file:bg-primary-100" 
+                  />
+                </div>
 
                 {/* Notes */}
                 <div>

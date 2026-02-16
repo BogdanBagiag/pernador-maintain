@@ -135,7 +135,7 @@ export default function VehicleInsuranceSection({ vehicleId, insurance, isLoadin
 
       // Update insurance
       const { error } = await supabase
-        .from('vehicle_insurance')
+        .from('vehicle_insurances')
         .update({
           insurance_type: formData.insurance_type,
           insurance_company: formData.insurance_company,
@@ -208,7 +208,7 @@ export default function VehicleInsuranceSection({ vehicleId, insurance, isLoadin
       // Insert new insurance
       // Note: trigger will deactivate old ones only if this one is active
       const { error } = await supabase
-        .from('vehicle_insurance')
+        .from('vehicle_insurances')
         .insert([{
           vehicle_id: vehicleId,
           insurance_type: formData.insurance_type,
@@ -244,7 +244,7 @@ export default function VehicleInsuranceSection({ vehicleId, insurance, isLoadin
   const deleteMutation = useMutation({
     mutationFn: async (insuranceId) => {
       const { error } = await supabase
-        .from('vehicle_insurance')
+        .from('vehicle_insurances')
         .delete()
         .eq('id', insuranceId)
 
@@ -561,7 +561,14 @@ export default function VehicleInsuranceSection({ vehicleId, insurance, isLoadin
 
                 {/* Policy File */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Document Poliță</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Document Poliță {editMode && '(opțional - înlocuiește existent)'}
+                  </label>
+                  {editMode && editingItem?.policy_file_name && (
+                    <p className="text-xs text-gray-500 mb-1">
+                      📄 Curent: {editingItem.policy_file_name}
+                    </p>
+                  )}
                   <input
                     type="file"
                     onChange={handleFileSelect}

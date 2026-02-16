@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
@@ -46,6 +46,13 @@ export default function VehicleDetail() {
     },
   })
 
+  // Resetează tab-ul dacă este pe 'vignette' și vehiculul este remorcă
+  useEffect(() => {
+    if (vehicle?.vehicle_type === 'remorca' && activeTab === 'vignette') {
+      setActiveTab('details')
+    }
+  }, [vehicle?.vehicle_type, activeTab])
+
   // Fetch vehicle documents
   const { data: documents, isLoading: isLoadingDocuments } = useQuery({
     queryKey: ['vehicle-documents', id],
@@ -66,7 +73,7 @@ export default function VehicleDetail() {
     queryKey: ['vehicle-insurance', id],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('vehicle_insurance')
+        .from('vehicle_insurances')
         .select('*')
         .eq('vehicle_id', id)
         .order('is_active', { ascending: false })  // Active first
@@ -204,7 +211,9 @@ export default function VehicleDetail() {
   }
 
   const statusBadge = getStatusBadge(vehicle.status)
-  const tabs = [
+  
+  // Tabs - exclude Roviniete pentru remorci (nu au nevoie de roviniete)
+  const allTabs = [
     { id: 'details', name: 'Detalii', icon: Settings },
     { id: 'documents', name: t('vehicles.documents'), icon: FileText },
     { id: 'insurance', name: t('vehicles.insurance'), icon: Shield },
@@ -213,6 +222,11 @@ export default function VehicleDetail() {
     { id: 'revisions', name: t('vehicles.revisions'), icon: Settings },
     { id: 'repairs', name: t('vehicles.repairs'), icon: Wrench }
   ]
+  
+  // Filtrează roviniete pentru remorci
+  const tabs = vehicle.vehicle_type === 'remorca' 
+    ? allTabs.filter(tab => tab.id !== 'vignette')
+    : allTabs
   return (
     <div className="max-w-7xl mx-auto">
       {/* Header */}
@@ -329,14 +343,46 @@ export default function VehicleDetail() {
         {/* Details Tab */}
         {activeTab === 'details' && (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Technical Information */}
+            {/* General Information */}
             <div className="bg-white shadow rounded-lg p-6">
-              <h2 className="text-lg font-medium text-gray-900 mb-4">Informații Tehnice</h2>
+              <h2 className="text-lg font-medium text-gray-900 mb-4 flex items-center">
+                <Car className="w-5 h-5 mr-2 text-primary-600" />
+                Informații Generale
+              </h2>
               <dl className="space-y-3">
-                {vehicle.vin && (
+                <div>
+                  <dt className="text-sm font-medium text-gray-500">Marcă</dt>
+                  <dd className="mt-1 text-sm text-gray-900 font-semibold">{vehicle.brand}</dd>
+                </div>
+                <div>
+                  <dt className="text-sm font-medium text-gray-500">Model</dt>
+                  <dd className="mt-1 text-sm text-gray-900 font-semibold">{vehicle.model}</dd>
+                </div>
+                <div>
+                  <dt className="text-sm font-medium text-gray-500">Număr Înmatriculare</dt>
+                  <dd className="mt-1 text-sm text-gray-900 font-mono font-bold tracking-wider">{vehicle.registration_number}</dd>
+                </div>
+                {vehicle.vehicle_type && (
                   <div>
-                    <dt className="text-sm font-medium text-gray-500">VIN</dt>
-                    <dd className="mt-1 text-sm text-gray-900 font-mono">{vehicle.vin}</dd>
+                    <dt className="text-sm font-medium text-gray-500">Tip Vehicul</dt>
+                    <dd className="mt-1">
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                        vehicle.vehicle_type === 'autovehicul' 
+                          ? 'bg-blue-100 text-blue-800' 
+                          : 'bg-gray-100 text-gray-800'
+                      }`}>
+                        {t(`vehicles.${vehicle.vehicle_type}`)}
+                      </span>
+                    </dd>
+                  </div>
+                )}
+                {vehicle.year && (
+                  <div>
+                    <dt className="text-sm font-medium text-gray-500">An Fabricație</dt>
+                    <dd className="mt-1 text-sm text-gray-900 flex items-center">
+                      <Calendar className="w-4 h-4 mr-2 text-gray-400" />
+                      {vehicle.year}
+                    </dd>
                   </div>
                 )}
                 {vehicle.color && (
@@ -345,24 +391,84 @@ export default function VehicleDetail() {
                     <dd className="mt-1 text-sm text-gray-900">{vehicle.color}</dd>
                   </div>
                 )}
-                {vehicle.engine_capacity && (
+                {vehicle.vin && (
                   <div>
-                    <dt className="text-sm font-medium text-gray-500">{t('vehicles.engineCapacity')}</dt>
-                    <dd className="mt-1 text-sm text-gray-900">{vehicle.engine_capacity} cmc</dd>
-                  </div>
-                )}
-                {vehicle.power_hp && (
-                  <div>
-                    <dt className="text-sm font-medium text-gray-500">{t('vehicles.powerHP')}</dt>
-                    <dd className="mt-1 text-sm text-gray-900">{vehicle.power_hp} CP</dd>
+                    <dt className="text-sm font-medium text-gray-500">VIN</dt>
+                    <dd className="mt-1 text-sm text-gray-900 font-mono bg-gray-50 px-2 py-1 rounded">{vehicle.vin}</dd>
                   </div>
                 )}
               </dl>
             </div>
 
+            {/* Technical Specifications - doar pentru autovehicule */}
+            {vehicle.vehicle_type === 'autovehicul' && (
+              <div className="bg-white shadow rounded-lg p-6">
+                <h2 className="text-lg font-medium text-gray-900 mb-4 flex items-center">
+                  <Settings className="w-5 h-5 mr-2 text-primary-600" />
+                  Specificații Tehnice
+                </h2>
+                <dl className="space-y-3">
+                  {vehicle.engine_capacity && (
+                    <div>
+                      <dt className="text-sm font-medium text-gray-500">{t('vehicles.engineCapacity')}</dt>
+                      <dd className="mt-1 text-sm text-gray-900 font-semibold">{vehicle.engine_capacity} cmc</dd>
+                    </div>
+                  )}
+                  {vehicle.power_hp && (
+                    <div>
+                      <dt className="text-sm font-medium text-gray-500">{t('vehicles.powerHP')}</dt>
+                      <dd className="mt-1 text-sm text-gray-900 font-semibold">{vehicle.power_hp} CP</dd>
+                    </div>
+                  )}
+                  {vehicle.fuel_type && (
+                    <div>
+                      <dt className="text-sm font-medium text-gray-500">{t('vehicles.fuelType')}</dt>
+                      <dd className="mt-1 text-sm text-gray-900">{getFuelTypeLabel(vehicle.fuel_type)}</dd>
+                    </div>
+                  )}
+                  {vehicle.transmission && (
+                    <div>
+                      <dt className="text-sm font-medium text-gray-500">{t('vehicles.transmission')}</dt>
+                      <dd className="mt-1 text-sm text-gray-900">{getTransmissionLabel(vehicle.transmission)}</dd>
+                    </div>
+                  )}
+                </dl>
+              </div>
+            )}
+
+            {/* Mileage & Status */}
+            <div className="bg-white shadow rounded-lg p-6">
+              <h2 className="text-lg font-medium text-gray-900 mb-4 flex items-center">
+                <Gauge className="w-5 h-5 mr-2 text-primary-600" />
+                Kilometraj & Status
+              </h2>
+              <dl className="space-y-3">
+                {vehicle.current_mileage && (
+                  <div>
+                    <dt className="text-sm font-medium text-gray-500">{t('vehicles.currentMileage')}</dt>
+                    <dd className="mt-1 text-sm text-gray-900 flex items-center">
+                      <Gauge className="w-4 h-4 mr-2 text-gray-400" />
+                      <span className="font-semibold">{vehicle.current_mileage.toLocaleString()} km</span>
+                    </dd>
+                  </div>
+                )}
+                <div>
+                  <dt className="text-sm font-medium text-gray-500">{t('vehicles.status')}</dt>
+                  <dd className="mt-1">
+                    <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${statusBadge.bg} ${statusBadge.text}`}>
+                      {statusBadge.label}
+                    </span>
+                  </dd>
+                </div>
+              </dl>
+            </div>
+
             {/* Assignment & Purchase */}
             <div className="bg-white shadow rounded-lg p-6">
-              <h2 className="text-lg font-medium text-gray-900 mb-4">Asignare & Achiziție</h2>
+              <h2 className="text-lg font-medium text-gray-900 mb-4 flex items-center">
+                <User className="w-5 h-5 mr-2 text-primary-600" />
+                Asignare & Achiziție
+              </h2>
               <dl className="space-y-3">
                 {vehicle.assigned_user && (
                   <div>
@@ -393,7 +499,7 @@ export default function VehicleDetail() {
                     <dt className="text-sm font-medium text-gray-500">{t('vehicles.purchasePrice')}</dt>
                     <dd className="mt-1 text-sm text-gray-900 flex items-center">
                       <DollarSign className="w-4 h-4 mr-2 text-gray-400" />
-                      {vehicle.purchase_price.toFixed(2)} RON
+                      <span className="font-semibold">{vehicle.purchase_price.toLocaleString()} RON</span>
                     </dd>
                   </div>
                 )}
@@ -403,8 +509,11 @@ export default function VehicleDetail() {
             {/* Notes */}
             {vehicle.notes && (
               <div className="bg-white shadow rounded-lg p-6 lg:col-span-2">
-                <h2 className="text-lg font-medium text-gray-900 mb-4">{t('vehicles.notes')}</h2>
-                <p className="text-sm text-gray-700 whitespace-pre-wrap">{vehicle.notes}</p>
+                <h2 className="text-lg font-medium text-gray-900 mb-4 flex items-center">
+                  <FileText className="w-5 h-5 mr-2 text-primary-600" />
+                  {t('vehicles.notes')}
+                </h2>
+                <p className="text-sm text-gray-700 whitespace-pre-wrap bg-gray-50 p-4 rounded">{vehicle.notes}</p>
               </div>
             )}
           </div>
@@ -428,8 +537,8 @@ export default function VehicleDetail() {
           />
         )}
 
-        {/* Vignette Tab */}
-        {activeTab === 'vignette' && (
+        {/* Vignette Tab - doar pentru autovehicule (remorcile nu au roviniete) */}
+        {activeTab === 'vignette' && vehicle.vehicle_type !== 'remorca' && (
           <VehicleVignetteSection
             vehicleId={id}
             vignettes={vignettes}

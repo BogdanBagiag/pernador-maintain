@@ -19,7 +19,7 @@ export default function VehicleExpirationAlerts() {
 
       // Fetch expiring insurance (active only, expiring in next 30 days)
       const { data: insuranceData, error: insuranceError } = await supabase
-        .from('vehicle_insurance')
+        .from('vehicle_insurances')
         .select(`
           id,
           insurance_type,

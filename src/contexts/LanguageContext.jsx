@@ -271,6 +271,8 @@ export const translations = {
     'vehicles.admis': 'Passed',
     'vehicles.respins': 'Failed',
     'vehicles.admis_conditii': 'Passed with Conditions',
+    'vehicles.autovehicul': 'Motor Vehicle',
+    'vehicles.remorca': 'Trailer / RV (no engine)',
     
     // Dashboard
     'dashboard.title': 'Dashboard',
@@ -506,7 +508,7 @@ export const translations = {
     'vehicles.fuelType': 'Tip Combustibil',
     'vehicles.transmission': 'Transmisie',
     'vehicles.engineCapacity': 'Capacitate Cilindrică (cmc)',
-    'vehicles.powerHP': 'Putere (CP)',
+    'vehicles.powerHP': 'Putere (KW)',
     'vehicles.currentMileage': 'Kilometraj Curent (km)',
     'vehicles.assignedTo': 'Asignat lui',
     'vehicles.department': 'Departament',
@@ -522,7 +524,7 @@ export const translations = {
     'vehicles.searchPlaceholder': 'Căutare mașini...',
     'vehicles.documents': 'Documente',
     'vehicles.insurance': 'Asigurări',
-    'vehicles.vignette': 'Roviniete',
+    'vehicles.vignette': 'Rovinietă',
     'vehicles.repairs': 'Reparații',
     'vehicles.rca': 'Asigurare RCA',
     'vehicles.casco': 'Asigurare CASCO',
@@ -606,6 +608,8 @@ export const translations = {
     'vehicles.admis': 'Admis',
     'vehicles.respins': 'Respins',
     'vehicles.admis_conditii': 'Admis cu Condiții',
+    'vehicles.autovehicul': 'Autovehicul (cu motor)',
+    'vehicles.remorca': 'Remorcă / Rulotă (fără motor)',
     
     // Dashboard
     'dashboard.title': 'Panou de Control',

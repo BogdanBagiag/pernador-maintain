@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -23,14 +23,6 @@ import {
 } from 'lucide-react'
 import LoadingSpinner from '../components/LoadingSpinner'
 
-// Development logging helper - log-urile apar doar în development
-const DEBUG = import.meta.env.DEV
-const debugLog = (...args) => {
-  if (DEBUG) {
-    console.log(...args)
-  }
-}
-
 export default function Reports() {
   const [dateFilter, setDateFilter] = useState('all')
   const [customStartDate, setCustomStartDate] = useState('')
@@ -41,22 +33,12 @@ export default function Reports() {
   const [minCost, setMinCost] = useState('')
   const [maxCost, setMaxCost] = useState('')
   const [expandedReports, setExpandedReports] = useState({}) // Track which reports are expanded
-  const [activeTab, setActiveTab] = useState('repairs') // 'repairs' or 'maintenance'
-  
-  // Pagination state
-  const [currentPage, setCurrentPage] = useState(1)
-  const [itemsPerPage, setItemsPerPage] = useState(10)
-
-  // Reset pagination when filters change
-  useEffect(() => {
-    setCurrentPage(1)
-  }, [dateFilter, customStartDate, customEndDate, searchQuery, technicianFilter, equipmentFilter, minCost, maxCost, activeTab])
 
   // Fetch completed work orders with reports
   const { data: completedWorkOrders, isLoading } = useQuery({
     queryKey: ['completed-work-orders-reports'],
     queryFn: async () => {
-      debugLog('🔍 [Reports] Starting query...')
+      console.log('🔍 [Reports] Starting query...')
       
       // First, fetch work orders
       const { data: workOrdersData, error: workOrdersError } = await supabase
@@ -80,8 +62,8 @@ export default function Reports() {
         .not('completed_date', 'is', null)
         .order('completed_date', { ascending: false })
       
-      debugLog('📊 [Reports] Work orders fetched:', workOrdersData?.length || 0)
-      debugLog('📋 [Reports] Work orders data:', workOrdersData)
+      console.log('📊 [Reports] Work orders fetched:', workOrdersData?.length || 0)
+      console.log('📋 [Reports] Work orders data:', workOrdersData)
       
       if (workOrdersError) {
         console.error('❌ [Reports] Work orders error:', workOrdersError)
@@ -90,7 +72,7 @@ export default function Reports() {
       
       // Then, fetch all parts usage for these work orders
       const workOrderIds = workOrdersData?.map(wo => wo.id) || []
-      debugLog('🔑 [Reports] Work order IDs:', workOrderIds)
+      console.log('🔑 [Reports] Work order IDs:', workOrderIds)
       
       let partsUsageData = []
       
@@ -112,8 +94,8 @@ export default function Reports() {
           .in('work_order_id', workOrderIds)
           .order('used_at', { ascending: false })
         
-        debugLog('🔧 [Reports] Parts usage fetched:', partsData?.length || 0)
-        debugLog('🔧 [Reports] Parts usage data:', partsData)
+        console.log('🔧 [Reports] Parts usage fetched:', partsData?.length || 0)
+        console.log('🔧 [Reports] Parts usage data:', partsData)
         
         if (partsError) {
           console.error('❌ [Reports] Parts usage error:', partsError)
@@ -157,18 +139,14 @@ export default function Reports() {
               user: null  // Temporar null - va fi adăugat mai târziu dacă e necesar
             }))
           
-          // Parts usage attached (log removed - too verbose for 47 WOs)
+          console.log(`📦 [Reports] WO ${wo.id} has ${wo.parts_usage?.length || 0} parts`)
           
           // Clean up
           delete wo.schedule_completions
         })
       }
       
-      // Summary log instead of individual WO logs
-      const totalPartsAttached = workOrdersData?.reduce((sum, wo) => sum + (wo.parts_usage?.length || 0), 0) || 0
-      debugLog(`📦 [Reports] Total parts attached across all WOs: ${totalPartsAttached}`)
-      
-      debugLog('✅ [Reports] Final data:', workOrdersData)
+      console.log('✅ [Reports] Final data:', workOrdersData)
       return workOrdersData
     },
   })
@@ -181,13 +159,13 @@ export default function Reports() {
     }))
   }
 
-  // Expand/Collapse all (doar pentru pagina curentă)
+  // Expand/Collapse all
   const expandAll = () => {
     const allExpanded = {}
-    paginatedWorkOrders.forEach(wo => {
+    filteredWorkOrders.forEach(wo => {
       allExpanded[wo.id] = true
     })
-    setExpandedReports(prev => ({ ...prev, ...allExpanded }))
+    setExpandedReports(allExpanded)
   }
 
   const collapseAll = () => {
@@ -228,38 +206,26 @@ export default function Reports() {
     const now = new Date()
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
     
-    if (dateFilter === 'week') {
-      // Ultima săptămână (7 zile)
+    if (dateFilter === 'today') {
+      filtered = filtered.filter(wo => {
+        const completedDate = new Date(wo.completed_date)
+        return completedDate >= today
+      })
+    } else if (dateFilter === 'week') {
       const weekAgo = new Date(today)
       weekAgo.setDate(weekAgo.getDate() - 7)
       filtered = filtered.filter(wo => {
         const completedDate = new Date(wo.completed_date)
         return completedDate >= weekAgo
       })
-    } else if (dateFilter === 'current_month') {
-      // Luna curentă
-      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1)
+    } else if (dateFilter === 'month') {
+      const monthAgo = new Date(today)
+      monthAgo.setMonth(monthAgo.getMonth() - 1)
       filtered = filtered.filter(wo => {
         const completedDate = new Date(wo.completed_date)
-        return completedDate >= monthStart
-      })
-    } else if (dateFilter === 'last_month') {
-      // Luna trecută
-      const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1)
-      const lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59)
-      filtered = filtered.filter(wo => {
-        const completedDate = new Date(wo.completed_date)
-        return completedDate >= lastMonthStart && completedDate <= lastMonthEnd
-      })
-    } else if (dateFilter === 'current_year') {
-      // Anul curent
-      const yearStart = new Date(now.getFullYear(), 0, 1)
-      filtered = filtered.filter(wo => {
-        const completedDate = new Date(wo.completed_date)
-        return completedDate >= yearStart
+        return completedDate >= monthAgo
       })
     } else if (dateFilter === 'custom' && customStartDate && customEndDate) {
-      // Perioadă personalizată
       const startDate = new Date(customStartDate)
       const endDate = new Date(customEndDate)
       endDate.setHours(23, 59, 59)
@@ -267,15 +233,6 @@ export default function Reports() {
         const completedDate = new Date(wo.completed_date)
         return completedDate >= startDate && completedDate <= endDate
       })
-    }
-
-    // Tab filter (Reparații vs Mentenanță)
-    if (activeTab === 'repairs') {
-      // Reparații = work orders fără schedule_completion
-      filtered = filtered.filter(wo => !wo.schedule_completion)
-    } else if (activeTab === 'maintenance') {
-      // Mentenanță = work orders cu schedule_completion
-      filtered = filtered.filter(wo => wo.schedule_completion)
     }
 
     // Technician filter
@@ -302,40 +259,6 @@ export default function Reports() {
   }
 
   const filteredWorkOrders = getFilteredWorkOrders()
-
-  // Pagination logic
-  const totalItems = filteredWorkOrders.length
-  const totalPages = Math.ceil(totalItems / itemsPerPage)
-  const startIndex = (currentPage - 1) * itemsPerPage
-  const endIndex = startIndex + itemsPerPage
-  const paginatedWorkOrders = filteredWorkOrders.slice(startIndex, endIndex)
-
-  // Reset to page 1 when filters change
-  const resetPagination = () => {
-    setCurrentPage(1)
-  }
-
-  // Pagination handlers
-  const goToPage = (page) => {
-    setCurrentPage(Math.max(1, Math.min(page, totalPages)))
-  }
-
-  const nextPage = () => {
-    if (currentPage < totalPages) {
-      setCurrentPage(currentPage + 1)
-    }
-  }
-
-  const previousPage = () => {
-    if (currentPage > 1) {
-      setCurrentPage(currentPage - 1)
-    }
-  }
-
-  const changeItemsPerPage = (newItemsPerPage) => {
-    setItemsPerPage(newItemsPerPage)
-    setCurrentPage(1) // Reset to first page
-  }
 
   // Calculate statistics
   const calculateStats = () => {
@@ -403,36 +326,6 @@ export default function Reports() {
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-gray-900">Rapoarte Finalizare</h1>
         <p className="text-gray-600 mt-2">Rapoarte detaliate pentru work orders completate</p>
-      </div>
-
-      {/* Tabs */}
-      <div className="mb-6">
-        <div className="border-b border-gray-200">
-          <nav className="-mb-px flex space-x-8">
-            <button
-              onClick={() => setActiveTab('repairs')}
-              className={`${
-                activeTab === 'repairs'
-                  ? 'border-primary-500 text-primary-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm flex items-center`}
-            >
-              <Wrench className="w-5 h-5 mr-2" />
-              Reparații
-            </button>
-            <button
-              onClick={() => setActiveTab('maintenance')}
-              className={`${
-                activeTab === 'maintenance'
-                  ? 'border-primary-500 text-primary-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm flex items-center`}
-            >
-              <CheckCircle className="w-5 h-5 mr-2" />
-              Mentenanță
-            </button>
-          </nav>
-        </div>
       </div>
 
       {/* Statistics Cards */}
@@ -532,11 +425,10 @@ export default function Reports() {
               className="input w-full"
             >
               <option value="all">Toate</option>
-              <option value="week">Ultima săptămână</option>
-              <option value="current_month">Luna curentă</option>
-              <option value="last_month">Luna trecută</option>
-              <option value="current_year">Anul curent</option>
-              <option value="custom">Perioadă personalizată</option>
+              <option value="today">Astazi</option>
+              <option value="week">Ultima saptamana</option>
+              <option value="month">Ultima luna</option>
+              <option value="custom">Perioada personalizata</option>
             </select>
           </div>
 
@@ -688,91 +580,6 @@ export default function Reports() {
           </div>
         </div>
 
-        {/* Pagination Controls - Top */}
-        {filteredWorkOrders.length > 0 && (
-          <div className="bg-white border-t border-gray-200 px-4 py-3 flex items-center justify-between sm:px-6">
-            <div className="flex-1 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-              {/* Items per page selector */}
-              <div className="flex items-center gap-2">
-                <label htmlFor="itemsPerPage" className="text-sm text-gray-700">
-                  Afișează:
-                </label>
-                <select
-                  id="itemsPerPage"
-                  value={itemsPerPage}
-                  onChange={(e) => changeItemsPerPage(parseInt(e.target.value))}
-                  className="rounded-md border-gray-300 py-1 pl-2 pr-8 text-sm focus:border-primary-500 focus:ring-primary-500"
-                >
-                  <option value={10}>10</option>
-                  <option value={20}>20</option>
-                  <option value={50}>50</option>
-                </select>
-                <span className="text-sm text-gray-700">per pagină</span>
-              </div>
-
-              {/* Results info */}
-              <div className="text-sm text-gray-700">
-                Afișează <span className="font-medium">{startIndex + 1}</span> -{' '}
-                <span className="font-medium">{Math.min(endIndex, totalItems)}</span> din{' '}
-                <span className="font-medium">{totalItems}</span> rapoarte
-              </div>
-
-              {/* Page navigation */}
-              <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
-                <button
-                  onClick={previousPage}
-                  disabled={currentPage === 1}
-                  className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <span className="sr-only">Previous</span>
-                  <svg className="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                    <path fillRule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clipRule="evenodd" />
-                  </svg>
-                </button>
-
-                {/* Page numbers */}
-                {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
-                  let pageNum
-                  if (totalPages <= 5) {
-                    pageNum = i + 1
-                  } else if (currentPage <= 3) {
-                    pageNum = i + 1
-                  } else if (currentPage >= totalPages - 2) {
-                    pageNum = totalPages - 4 + i
-                  } else {
-                    pageNum = currentPage - 2 + i
-                  }
-                  
-                  return (
-                    <button
-                      key={pageNum}
-                      onClick={() => goToPage(pageNum)}
-                      className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium ${
-                        currentPage === pageNum
-                          ? 'z-10 bg-primary-50 border-primary-500 text-primary-600'
-                          : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50'
-                      }`}
-                    >
-                      {pageNum}
-                    </button>
-                  )
-                })}
-
-                <button
-                  onClick={nextPage}
-                  disabled={currentPage === totalPages}
-                  className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <span className="sr-only">Next</span>
-                  <svg className="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                    <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
-                  </svg>
-                </button>
-              </nav>
-            </div>
-          </div>
-        )}
-
         {filteredWorkOrders.length === 0 ? (
           <div className="text-center py-12">
             <FileText className="w-16 h-16 text-gray-300 mx-auto mb-4" />
@@ -781,7 +588,7 @@ export default function Reports() {
           </div>
         ) : (
           <div className="space-y-4">
-            {paginatedWorkOrders.map((wo) => {
+            {filteredWorkOrders.map((wo) => {
               const totalCost = (parseFloat(wo.parts_cost) || 0) + (parseFloat(wo.labor_cost) || 0)
               const hasScheduleNotes = wo.schedule_completion?.procedure_notes || 
                                        (wo.schedule_completion?.checklist_results && Object.keys(wo.schedule_completion.checklist_results).length > 0)
@@ -1143,73 +950,6 @@ export default function Reports() {
                 </div>
               )
             })}
-          </div>
-        )}
-
-        {/* Pagination Controls - Bottom */}
-        {filteredWorkOrders.length > 0 && (
-          <div className="bg-white border-t border-gray-200 px-4 py-3 flex items-center justify-between sm:px-6 mt-4">
-            <div className="flex-1 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-              {/* Results info */}
-              <div className="text-sm text-gray-700">
-                Afișează <span className="font-medium">{startIndex + 1}</span> -{' '}
-                <span className="font-medium">{Math.min(endIndex, totalItems)}</span> din{' '}
-                <span className="font-medium">{totalItems}</span> rapoarte
-              </div>
-
-              {/* Page navigation */}
-              <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
-                <button
-                  onClick={previousPage}
-                  disabled={currentPage === 1}
-                  className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <span className="sr-only">Previous</span>
-                  <svg className="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                    <path fillRule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clipRule="evenodd" />
-                  </svg>
-                </button>
-
-                {/* Page numbers */}
-                {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
-                  let pageNum
-                  if (totalPages <= 5) {
-                    pageNum = i + 1
-                  } else if (currentPage <= 3) {
-                    pageNum = i + 1
-                  } else if (currentPage >= totalPages - 2) {
-                    pageNum = totalPages - 4 + i
-                  } else {
-                    pageNum = currentPage - 2 + i
-                  }
-                  
-                  return (
-                    <button
-                      key={pageNum}
-                      onClick={() => goToPage(pageNum)}
-                      className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium ${
-                        currentPage === pageNum
-                          ? 'z-10 bg-primary-50 border-primary-500 text-primary-600'
-                          : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50'
-                      }`}
-                    >
-                      {pageNum}
-                    </button>
-                  )
-                })}
-
-                <button
-                  onClick={nextPage}
-                  disabled={currentPage === totalPages}
-                  className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <span className="sr-only">Next</span>
-                  <svg className="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                    <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
-                  </svg>
-                </button>
-              </nav>
-            </div>
           </div>
         )}
       </div>

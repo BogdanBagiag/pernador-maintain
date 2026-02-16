@@ -21,6 +21,7 @@ export default function VehicleForm() {
     model: '',
     registration_number: '',
     vin: '',
+    vehicle_type: 'autovehicul',
     year: new Date().getFullYear(),
     color: '',
     fuel_type: 'benzina',
@@ -80,6 +81,7 @@ export default function VehicleForm() {
         model: vehicle.model || '',
         registration_number: vehicle.registration_number || '',
         vin: vehicle.vin || '',
+        vehicle_type: vehicle.vehicle_type || 'autovehicul',
         year: vehicle.year || new Date().getFullYear(),
         color: vehicle.color || '',
         fuel_type: vehicle.fuel_type || 'benzina',
@@ -256,12 +258,14 @@ export default function VehicleForm() {
       model: formData.model.trim(),
       registration_number: formData.registration_number.trim().toUpperCase(),
       vin: formData.vin?.trim() || null,
+      vehicle_type: formData.vehicle_type,
       year: formData.year ? parseInt(formData.year) : null,
       color: formData.color?.trim() || null,
-      fuel_type: formData.fuel_type,
-      engine_capacity: formData.engine_capacity ? parseInt(formData.engine_capacity) : null,
-      power_hp: formData.power_hp ? parseInt(formData.power_hp) : null,
-      transmission: formData.transmission,
+      // fuel_type și transmission sunt null pentru remorci
+      fuel_type: formData.vehicle_type === 'autovehicul' ? formData.fuel_type : null,
+      engine_capacity: formData.vehicle_type === 'autovehicul' && formData.engine_capacity ? parseInt(formData.engine_capacity) : null,
+      power_hp: formData.vehicle_type === 'autovehicul' && formData.power_hp ? parseInt(formData.power_hp) : null,
+      transmission: formData.vehicle_type === 'autovehicul' ? formData.transmission : null,
       status: formData.status,
       current_mileage: formData.current_mileage ? parseInt(formData.current_mileage) : null,
       assigned_to: formData.assigned_to || null,
@@ -414,74 +418,107 @@ export default function VehicleForm() {
               />
             </div>
 
-            {/* Fuel Type */}
+            {/* Vehicle Type */}
             <div>
-              <label htmlFor="fuel_type" className="block text-sm font-medium text-gray-700">
-                {t('vehicles.fuelType')}
+              <label htmlFor="vehicle_type" className="block text-sm font-medium text-gray-700">
+                Tip Vehicul <span className="text-red-500">*</span>
               </label>
               <select
-                name="fuel_type"
-                id="fuel_type"
-                value={formData.fuel_type}
+                name="vehicle_type"
+                id="vehicle_type"
+                required
+                value={formData.vehicle_type}
                 onChange={handleChange}
                 className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
               >
-                <option value="benzina">{t('vehicles.benzina')}</option>
-                <option value="motorina">{t('vehicles.motorina')}</option>
-                <option value="electric">{t('vehicles.electric')}</option>
-                <option value="hibrid">{t('vehicles.hibrid')}</option>
-                <option value="gpl">{t('vehicles.gpl')}</option>
+                <option value="autovehicul">{t('vehicles.autovehicul')}</option>
+                <option value="remorca">{t('vehicles.remorca')}</option>
               </select>
+              <p className="mt-1 text-xs text-gray-500">
+                {formData.vehicle_type === 'autovehicul' 
+                  ? 'Autovehicule: mașini, motociclete (cu motor și combustibil)' 
+                  : 'Remorci: rulote, remorci (fără motor, fără combustibil)'}
+              </p>
             </div>
 
-            {/* Transmission */}
-            <div>
-              <label htmlFor="transmission" className="block text-sm font-medium text-gray-700">
-                {t('vehicles.transmission')}
-              </label>
-              <select
-                name="transmission"
-                id="transmission"
-                value={formData.transmission}
-                onChange={handleChange}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
-              >
-                <option value="manuala">{t('vehicles.manuala')}</option>
-                <option value="automata">{t('vehicles.automata')}</option>
-              </select>
-            </div>
+            {/* Fuel Type - doar pentru autovehicule */}
+            {formData.vehicle_type === 'autovehicul' && (
+              <div>
+                <label htmlFor="fuel_type" className="block text-sm font-medium text-gray-700">
+                  {t('vehicles.fuelType')} <span className="text-red-500">*</span>
+                </label>
+                <select
+                  name="fuel_type"
+                  id="fuel_type"
+                  required
+                  value={formData.fuel_type}
+                  onChange={handleChange}
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
+                >
+                  <option value="benzina">{t('vehicles.benzina')}</option>
+                  <option value="motorina">{t('vehicles.motorina')}</option>
+                  <option value="electric">{t('vehicles.electric')}</option>
+                  <option value="hibrid">{t('vehicles.hibrid')}</option>
+                  <option value="gpl">{t('vehicles.gpl')}</option>
+                </select>
+              </div>
+            )}
 
-            {/* Engine Capacity */}
-            <div>
-              <label htmlFor="engine_capacity" className="block text-sm font-medium text-gray-700">
-                {t('vehicles.engineCapacity')}
-              </label>
-              <input
-                type="number"
-                name="engine_capacity"
-                id="engine_capacity"
-                value={formData.engine_capacity}
-                onChange={handleChange}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
-                placeholder="ex: 1600"
-              />
-            </div>
+            {/* Transmission - doar pentru autovehicule */}
+            {formData.vehicle_type === 'autovehicul' && (
+              <div>
+                <label htmlFor="transmission" className="block text-sm font-medium text-gray-700">
+                  {t('vehicles.transmission')} <span className="text-red-500">*</span>
+                </label>
+                <select
+                  name="transmission"
+                  id="transmission"
+                  required
+                  value={formData.transmission}
+                  onChange={handleChange}
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
+                >
+                  <option value="manuala">{t('vehicles.manuala')}</option>
+                  <option value="automata">{t('vehicles.automata')}</option>
+                </select>
+              </div>
+            )}
 
-            {/* Power HP */}
-            <div>
-              <label htmlFor="power_hp" className="block text-sm font-medium text-gray-700">
-                {t('vehicles.powerHP')}
-              </label>
-              <input
-                type="number"
-                name="power_hp"
-                id="power_hp"
-                value={formData.power_hp}
-                onChange={handleChange}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
-                placeholder="ex: 90"
-              />
-            </div>
+            {/* Engine Capacity - doar pentru autovehicule */}
+            {formData.vehicle_type === 'autovehicul' && (
+              <div>
+                <label htmlFor="engine_capacity" className="block text-sm font-medium text-gray-700">
+                  {t('vehicles.engineCapacity')}
+                </label>
+                <input
+                  type="number"
+                  name="engine_capacity"
+                  id="engine_capacity"
+                  value={formData.engine_capacity}
+                  onChange={handleChange}
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
+                  placeholder="ex: 1600"
+                />
+              </div>
+            )}
+
+            {/* Power HP - doar pentru autovehicule */}
+            {formData.vehicle_type === 'autovehicul' && (
+              <div>
+                <label htmlFor="power_hp" className="block text-sm font-medium text-gray-700">
+                  {t('vehicles.powerHP')}
+                </label>
+                <input
+                  type="number"
+                  name="power_hp"
+                  id="power_hp"
+                  value={formData.power_hp}
+                  onChange={handleChange}
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
+                  placeholder="ex: 90"
+                />
+              </div>
+            )}
 
             {/* Current Mileage */}
             <div>

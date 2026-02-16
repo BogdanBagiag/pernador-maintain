@@ -339,12 +339,17 @@ export default function VehicleVignetteSection({ vehicleId, vignettes, isLoading
                   <label className="block text-sm font-medium text-gray-700">Preț (RON) *</label>
                   <input type="number" step="0.01" required value={formData.price} onChange={(e) => setFormData({ ...formData, price: e.target.value })} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm" />
                 </div>
-                {!editMode && (
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Chitanță</label>
-                    <input type="file" onChange={handleFileSelect} accept=".pdf,.jpg,.jpeg,.png" className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-primary-50 file:text-primary-700 hover:file:bg-primary-100" />
-                  </div>
-                )}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Chitanță {editMode && '(opțional - înlocuiește existent)'}
+                  </label>
+                  {editMode && editingItem?.file_name && (
+                    <p className="text-xs text-gray-500 mb-1">
+                      📄 Curent: {editingItem.file_name}
+                    </p>
+                  )}
+                  <input type="file" onChange={handleFileSelect} accept=".pdf,.jpg,.jpeg,.png" className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-primary-50 file:text-primary-700 hover:file:bg-primary-100" />
+                </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700">Observații</label>
                   <textarea rows={2} value={formData.notes} onChange={(e) => setFormData({ ...formData, notes: e.target.value })} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm" />

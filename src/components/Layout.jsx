@@ -2,6 +2,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { useLanguage } from '../contexts/LanguageContext'
 import { useVehicleAlerts } from '../hooks/useVehicleAlerts'
+import { useMaintenanceAlerts } from '../hooks/useMaintenanceAlerts'
 import {
   LayoutDashboard,
   Wrench,
@@ -28,7 +29,7 @@ const navigation = [
   { name: 'nav.scanQR', href: '/scan', icon: QrCode },
   { name: 'nav.equipment', href: '/equipment', icon: Wrench },
   { name: 'nav.locations', href: '/locations', icon: MapPin },
-  { name: 'nav.vehicles', href: '/vehicles', icon: Car },
+  { name: 'nav.vehicles', href: '/vehicles', icon: Car, adminOnly: true },
   { name: 'nav.workOrders', href: '/work-orders', icon: ClipboardList },
   { name: 'nav.schedules', href: '/schedules', icon: Calendar },
   { name: 'nav.checklists', href: '/checklist-templates', icon: CheckSquare },
@@ -46,13 +47,8 @@ export default function Layout({ children }) {
   const { user, profile, signOut } = useAuth()
   const { t } = useLanguage()
   const { alertCount } = useVehicleAlerts()
+  const { workOrdersAlerts, schedulesAlerts } = useMaintenanceAlerts()
   const [sidebarOpen, setSidebarOpen] = useState(false)
-
-  // Debug logging
-  console.log('Layout - User:', user?.email)
-  console.log('Layout - Profile:', profile)
-  console.log('Layout - Profile Role:', profile?.role)
-  console.log('Layout - Is Admin?:', profile?.role === 'admin')
 
   const handleSignOut = async () => {
     try {
@@ -106,7 +102,33 @@ export default function Layout({ children }) {
               })
               .map((item) => {
               const isActive = location.pathname.startsWith(item.href)
-              const showBadge = item.href === '/vehicles' && alertCount > 0
+              
+              // Determine badge count and type based on route
+              let badgeCount = 0
+              let badgeType = 'default' // 'default', 'critical', 'warning'
+              
+              if (item.href === '/vehicles') {
+                badgeCount = alertCount
+                badgeType = alertCount > 0 ? 'critical' : 'default'
+              } else if (item.href === '/work-orders') {
+                badgeCount = workOrdersAlerts
+                badgeType = workOrdersAlerts > 0 ? 'critical' : 'default'
+              } else if (item.href === '/schedules') {
+                badgeCount = schedulesAlerts
+                badgeType = schedulesAlerts > 0 ? 'warning' : 'default'
+              }
+              
+              const showBadge = badgeCount > 0
+              
+              // Badge styling based on type
+              const getBadgeClass = () => {
+                if (badgeType === 'critical') {
+                  return 'bg-red-600 text-white animate-pulse'
+                } else if (badgeType === 'warning') {
+                  return 'bg-orange-500 text-white'
+                }
+                return 'bg-red-600 text-white'
+              }
               
               return (
                 <Link
@@ -124,8 +146,8 @@ export default function Layout({ children }) {
                     {t(item.name)}
                   </div>
                   {showBadge && (
-                    <span className="inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-white bg-red-600 rounded-full">
-                      {alertCount}
+                    <span className={`inline-flex items-center justify-center px-2.5 py-1 text-xs font-bold leading-none rounded-full ${getBadgeClass()}`}>
+                      {badgeCount}
                     </span>
                   )}
                 </Link>
