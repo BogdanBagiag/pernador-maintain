@@ -8,11 +8,11 @@ export function useMaintenanceAlerts() {
   const { data, isLoading } = useQuery({
     queryKey: ['maintenance-alerts-count'],
     queryFn: async () => {
-      // Count pending/in-progress work orders
+      // Count open/in-progress work orders
       const { count: workOrdersCount, error: woError } = await supabase
         .from('work_orders')
         .select('*', { count: 'exact', head: true })
-        .in('status', ['pending', 'in_progress'])
+        .in('status', ['open', 'in_progress'])
 
       if (woError) throw woError
 
