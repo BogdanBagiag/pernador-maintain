@@ -194,8 +194,8 @@ export default function WorkOrderList() {
         <div
           className={`cursor-pointer transition-all ${
             statusFilter === 'all'
-              ? 'card border-2 bg-gray-100 border-gray-400'
-              : 'card border-2 border-transparent hover:bg-gray-50'
+              ? 'card bg-gray-100 border-gray-400 border-2'
+              : 'card hover:bg-gray-50'
           }`}
         >
           <button
@@ -216,8 +216,8 @@ export default function WorkOrderList() {
         <div
           className={`cursor-pointer transition-all ${
             statusFilter === 'open'
-              ? 'card border-2 bg-blue-100 border-blue-400'
-              : 'card border-2 border-transparent hover:bg-blue-50'
+              ? 'card bg-blue-100 border-blue-400 border-2'
+              : 'card hover:bg-blue-50'
           }`}
         >
           <button
@@ -238,8 +238,8 @@ export default function WorkOrderList() {
         <div
           className={`cursor-pointer transition-all ${
             statusFilter === 'in_progress'
-              ? 'card border-2 bg-yellow-100 border-yellow-400'
-              : 'card border-2 border-transparent hover:bg-yellow-50'
+              ? 'card bg-yellow-100 border-yellow-400 border-2'
+              : 'card hover:bg-yellow-50'
           }`}
         >
           <button
@@ -260,8 +260,8 @@ export default function WorkOrderList() {
         <div
           className={`cursor-pointer transition-all ${
             statusFilter === 'on_hold'
-              ? 'card border-2 bg-gray-200 border-gray-400'
-              : 'card border-2 border-transparent hover:bg-gray-100'
+              ? 'card bg-gray-200 border-gray-400 border-2'
+              : 'card hover:bg-gray-100'
           }`}
         >
           <button
@@ -282,8 +282,8 @@ export default function WorkOrderList() {
         <div
           className={`cursor-pointer transition-all ${
             statusFilter === 'completed'
-              ? 'card border-2 bg-green-100 border-green-400'
-              : 'card border-2 border-transparent hover:bg-green-50'
+              ? 'card bg-green-100 border-green-400 border-2'
+              : 'card hover:bg-green-50'
           }`}
         >
           <button
@@ -304,8 +304,8 @@ export default function WorkOrderList() {
         <div
           className={`cursor-pointer transition-all ${
             statusFilter === 'cancelled'
-              ? 'card border-2 bg-red-100 border-red-400'
-              : 'card border-2 border-transparent hover:bg-red-50'
+              ? 'card bg-red-100 border-red-400 border-2'
+              : 'card hover:bg-red-50'
           }`}
         >
           <button

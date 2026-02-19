@@ -9,7 +9,7 @@ import QRCodeBulkPrint from '../components/QRCodeBulkPrint'
 
 export default function EquipmentList() {
   const [searchQuery, setSearchQuery] = useState('')
-  const [sortField, setSortField] = useState('inventory_number')
+  const [sortField, setSortField] = useState('name')
   const [sortDirection, setSortDirection] = useState('asc')
   const [showImportModal, setShowImportModal] = useState(false)
   const [filterTab, setFilterTab] = useState('all') // all, missing_serial, missing_manufacturer, missing_model, missing_location
@@ -25,7 +25,7 @@ export default function EquipmentList() {
           *,
           location:locations(id, name)
         `)
-        .order('inventory_number')
+        .order('name')
       
       if (error) throw error
       return data

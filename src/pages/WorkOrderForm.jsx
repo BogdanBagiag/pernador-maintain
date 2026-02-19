@@ -14,9 +14,18 @@ import {
   Wrench,
   Clock,
   Tag,
-  MapPin
+  MapPin,
+  Camera,
+  Upload,
+  X,
+  DollarSign,
+  CheckCircle,
+  Package,
+  Trash2,
+  Plus
 } from 'lucide-react'
 import LoadingSpinner from '../components/LoadingSpinner'
+import PartsUsageModal from '../components/PartsUsageModal'
 
 export default function WorkOrderForm() {
   const { id } = useParams()
@@ -45,6 +54,20 @@ export default function WorkOrderForm() {
   })
 
   const [errors, setErrors] = useState({})
+
+  const [completionData, setCompletionData] = useState({
+    completed_by: '',
+    parts_replaced: '',
+    parts_cost: '',
+    labor_cost: '',
+    actual_hours: '',
+    completion_notes: '',
+  })
+  const [imageFile, setImageFile] = useState(null)
+  const [imagePreview, setImagePreview] = useState(null)
+  const [uploadingImage, setUploadingImage] = useState(false)
+  const [editableParts, setEditableParts] = useState([])
+  const [showPartsModal, setShowPartsModal] = useState(false) // parts_usage records being edited
 
   // Fetch equipment list
   const { data: equipment } = useQuery({
@@ -101,6 +124,28 @@ export default function WorkOrderForm() {
     enabled: isEditing,
   })
 
+  // Fetch existing parts usage for this work order
+  const { data: existingParts } = useQuery({
+    queryKey: ['work-order-parts-edit', id],
+    queryFn: async () => {
+      if (!id) return []
+      const { data, error } = await supabase
+        .from('parts_usage')
+        .select(`
+          id,
+          quantity_used,
+          unit_cost,
+          notes,
+          part_id,
+          inventory_parts:part_id (id, name, unit_of_measure, quantity_in_stock)
+        `)
+        .eq('work_order_id', id)
+      if (error) throw error
+      return data
+    },
+    enabled: isEditing,
+  })
+
   // Populate form when editing
   useEffect(() => {
     if (workOrder) {
@@ -117,85 +162,143 @@ export default function WorkOrderForm() {
         scheduled_date: workOrder.scheduled_date ? workOrder.scheduled_date.split('T')[0] : '',
         estimated_hours: workOrder.estimated_hours || ''
       })
+      // Populate completion fields if completed
+      if (workOrder.status === 'completed') {
+        setCompletionData({
+          completed_by: workOrder.completed_by || '',
+          parts_replaced: workOrder.parts_replaced || '',
+          parts_cost: workOrder.parts_cost || '',
+          labor_cost: workOrder.labor_cost || '',
+          actual_hours: workOrder.actual_hours || '',
+          completion_notes: workOrder.completion_notes || '',
+        })
+        if (workOrder.image_url) {
+          setImagePreview(workOrder.image_url)
+        }
+      }
     }
   }, [workOrder])
 
+  // Populate editable parts when existing parts load
+  useEffect(() => {
+    if (existingParts && existingParts.length > 0) {
+      setEditableParts(existingParts.map(p => ({
+        usageId: p.id,
+        partId: p.part_id,
+        name: p.inventory_parts?.name || '',
+        unit: p.inventory_parts?.unit_of_measure || '',
+        stockAvailable: p.inventory_parts?.quantity_in_stock || 0,
+        quantity: p.quantity_used,
+        unitCost: p.unit_cost,
+        notes: p.notes || '',
+        isDeleted: false,
+      })))
+    }
+  }, [existingParts])
+
   // Create/Update mutation
   const saveMutation = useMutation({
-    mutationFn: async (data) => {
-      let workOrderId = id
+    mutationFn: async ({ dataToSave, imageFile, existingImageUrl }) => {
       let wasAssigned = false
       let assignedUserId = null
       let workOrderData = null
-      
+
+      // Upload image if a new one was selected
+      if (imageFile) {
+        setUploadingImage(true)
+        const fileExt = imageFile.name.split('.').pop()
+        const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`
+        const filePath = `issue-reports/${fileName}`
+        const { error: uploadError } = await supabase.storage
+          .from('maintenance-files')
+          .upload(filePath, imageFile, { cacheControl: '3600', upsert: false })
+        if (uploadError) throw new Error('Eroare la \xeenc\u0103rcarea imaginii')
+        const { data: { publicUrl } } = supabase.storage.from('maintenance-files').getPublicUrl(filePath)
+        dataToSave.image_url = publicUrl
+        setUploadingImage(false)
+      } else if (existingImageUrl && imagePreview) {
+        // Keep existing image
+        dataToSave.image_url = existingImageUrl
+      } else if (existingImageUrl && !imagePreview) {
+        // User removed the image - set to null
+        dataToSave.image_url = null
+      }
+
       if (isEditing) {
-        // Check if assigned_to changed
         const oldAssignedTo = workOrder?.assigned_to
-        const newAssignedTo = data.assigned_to
+        const newAssignedTo = dataToSave.assigned_to
         wasAssigned = newAssignedTo && newAssignedTo !== oldAssignedTo
         assignedUserId = newAssignedTo
-        
+
         const { error } = await supabase
           .from('work_orders')
-          .update(data)
+          .update(dataToSave)
           .eq('id', id)
         if (error) throw error
-        
-        workOrderData = { ...workOrder, ...data }
+
+        workOrderData = { ...workOrder, ...dataToSave }
       } else {
         const { data: newWO, error } = await supabase
           .from('work_orders')
-          .insert({ ...data, created_by: user.id })
+          .insert({ ...dataToSave, created_by: user.id })
           .select()
           .single()
         if (error) throw error
-        
-        workOrderId = newWO.id
-        wasAssigned = !!data.assigned_to
-        assignedUserId = data.assigned_to
+
+        wasAssigned = !!dataToSave.assigned_to
+        assignedUserId = dataToSave.assigned_to
         workOrderData = newWO
       }
-      
+
       // Send push notification
       if (wasAssigned && assignedUserId) {
-        // Specific assignment - notify only assigned user
         try {
           const { data: assignedUser } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('id', assignedUserId)
-            .single()
-          
-          if (assignedUser) {
-            await notifyWorkOrderAssigned(workOrderData, assignedUser)
-          }
-        } catch (err) {
-          console.error('âŒ Notification error:', err)
-        }
+            .from('profiles').select('*').eq('id', assignedUserId).single()
+          if (assignedUser) await notifyWorkOrderAssigned(workOrderData, assignedUser)
+        } catch (err) { console.error('Notification error:', err) }
       } else if (!isEditing && !assignedUserId) {
-        // New work order without assignment - notify all admins, managers & technicians
         try {
-          const { data: users } = await supabase
-            .from('profiles')
-            .select('*')
-            .in('role', ['admin', 'manager', 'technician'])
-          
-          
-          if (users && users.length > 0) {
-            // Notify all
-            await Promise.all(
-              users.map(u => {
-                return notifyWorkOrderAssigned(workOrderData, u)
-              })
-            )
+          const { data: allUsers } = await supabase
+            .from('profiles').select('*').in('role', ['admin', 'manager', 'technician'])
+          if (allUsers?.length > 0) {
+            await Promise.all(allUsers.map(u => notifyWorkOrderAssigned(workOrderData, u)))
           }
-        } catch (err) {
-          console.error('âŒ Notification error:', err)
-        }
-      } else {
+        } catch (err) { console.error('Notification error:', err) }
       }
     },
-    onSuccess: () => {
+    onSuccess: async () => {
+      // Save parts changes if editing a completed work order
+      if (isEditing && formData.status === 'completed' && editableParts.length > 0) {
+        const toDelete = editableParts.filter(p => p.isDeleted && p.usageId)
+        const toUpdate = editableParts.filter(p => !p.isDeleted && p.usageId)
+        const toInsert = editableParts.filter(p => !p.isDeleted && !p.usageId)
+
+        if (toDelete.length > 0) {
+          await supabase.from('parts_usage').delete().in('id', toDelete.map(p => p.usageId))
+        }
+        for (const p of toUpdate) {
+          await supabase.from('parts_usage')
+            .update({ quantity_used: p.quantity, unit_cost: p.unitCost, notes: p.notes })
+            .eq('id', p.usageId)
+        }
+        if (toInsert.length > 0) {
+          await supabase.from('parts_usage').insert(
+            toInsert.map(p => ({
+              part_id: p.partId,
+              work_order_id: id,
+              equipment_id: workOrder?.equipment_id || null,
+              quantity_used: p.quantity,
+              unit_cost: p.unitCost,
+              used_by: user.id,
+              notes: p.notes || 'Adăugat la editare WO'
+            }))
+          )
+        }
+        queryClient.invalidateQueries({ queryKey: ['inventory-parts'] })
+        queryClient.invalidateQueries({ queryKey: ['work-order-parts-edit', id] })
+      }
+
       queryClient.invalidateQueries({ queryKey: ['work-orders'] })
       queryClient.invalidateQueries({ queryKey: ['dashboard-work-orders'] })
       navigate('/work-orders')
@@ -205,10 +308,30 @@ export default function WorkOrderForm() {
   const handleChange = (e) => {
     const { name, value } = e.target
     setFormData(prev => ({ ...prev, [name]: value }))
-    // Clear error when user starts typing
     if (errors[name]) {
       setErrors(prev => ({ ...prev, [name]: '' }))
     }
+  }
+
+  const handleCompletionChange = (e) => {
+    const { name, value } = e.target
+    setCompletionData(prev => ({ ...prev, [name]: value }))
+  }
+
+  const handleImageChange = (e) => {
+    const file = e.target.files[0]
+    if (!file) return
+    if (!file.type.startsWith('image/')) { alert('Selectați un fișier imagine'); return }
+    if (file.size > 5 * 1024 * 1024) { alert('Imaginea este prea mare. Maxim 5MB.'); return }
+    setImageFile(file)
+    const reader = new FileReader()
+    reader.onloadend = () => setImagePreview(reader.result)
+    reader.readAsDataURL(file)
+  }
+
+  const removeImage = () => {
+    setImageFile(null)
+    setImagePreview(null)
   }
 
   const validate = () => {
@@ -278,7 +401,17 @@ export default function WorkOrderForm() {
       dataToSave.estimated_hours = parseFloat(formData.estimated_hours)
     }
 
-    saveMutation.mutate(dataToSave)
+    // If completed, include completion fields
+    if (isEditing && formData.status === 'completed') {
+      if (completionData.completed_by) dataToSave.completed_by = completionData.completed_by
+      if (completionData.parts_replaced) dataToSave.parts_replaced = completionData.parts_replaced
+      if (completionData.parts_cost) dataToSave.parts_cost = parseFloat(completionData.parts_cost)
+      if (completionData.labor_cost) dataToSave.labor_cost = parseFloat(completionData.labor_cost)
+      if (completionData.actual_hours) dataToSave.actual_hours = parseFloat(completionData.actual_hours)
+      if (completionData.completion_notes) dataToSave.completion_notes = completionData.completion_notes
+    }
+
+    saveMutation.mutate({ dataToSave, imageFile, existingImageUrl: workOrder?.image_url })
   }
 
   if (isEditing && isLoading) {
@@ -290,6 +423,7 @@ export default function WorkOrderForm() {
   }
 
   return (
+    <>
     <div>
       {/* Header */}
       <div className="mb-8">
@@ -590,25 +724,289 @@ export default function WorkOrderForm() {
             </div>
           </div>
 
+          {/* Completion Details - only shown when editing a completed work order */}
+          {isEditing && formData.status === 'completed' && (
+            <div className="border-t border-gray-200 pt-6 space-y-6">
+              <h2 className="text-base font-semibold text-gray-900 flex items-center gap-2">
+                <CheckCircle className="w-5 h-5 text-green-600" />
+                Detalii Finalizare
+              </h2>
+
+              {/* Completed By */}
+              <div>
+                <label htmlFor="completed_by" className="block text-sm font-medium text-gray-700 mb-1">
+                  Finalizat De
+                </label>
+                <div className="relative">
+                  <User className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                  <input
+                    id="completed_by"
+                    name="completed_by"
+                    type="text"
+                    value={completionData.completed_by}
+                    onChange={handleCompletionChange}
+                    className="input pl-10"
+                    placeholder="Numele tehnicianului"
+                  />
+                </div>
+              </div>
+
+              {/* Parts Replaced */}
+              <div>
+                <label htmlFor="parts_replaced" className="block text-sm font-medium text-gray-700 mb-1">
+                  Piese Înlocuite
+                </label>
+                <div className="relative">
+                  <Wrench className="absolute left-3 top-3 w-5 h-5 text-gray-400" />
+                  <textarea
+                    id="parts_replaced"
+                    name="parts_replaced"
+                    rows={3}
+                    value={completionData.parts_replaced}
+                    onChange={handleCompletionChange}
+                    className="input pl-10"
+                    placeholder="ex: Rulment motor, Curea transmisie, Filtru ulei..."
+                  />
+                </div>
+              </div>
+
+              {/* Costs */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label htmlFor="parts_cost" className="block text-sm font-medium text-gray-700 mb-1">
+                    Cost Piese (Lei)
+                  </label>
+                  <div className="relative">
+                    <DollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                    <input
+                      id="parts_cost"
+                      name="parts_cost"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={completionData.parts_cost}
+                      onChange={handleCompletionChange}
+                      className="input pl-10"
+                      placeholder="0.00"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label htmlFor="labor_cost" className="block text-sm font-medium text-gray-700 mb-1">
+                    Cost Manoperă (Lei)
+                  </label>
+                  <div className="relative">
+                    <DollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                    <input
+                      id="labor_cost"
+                      name="labor_cost"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={completionData.labor_cost}
+                      onChange={handleCompletionChange}
+                      className="input pl-10"
+                      placeholder="0.00"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Total */}
+              {(completionData.parts_cost || completionData.labor_cost) && (
+                <div className="bg-green-50 border border-green-200 rounded-lg p-4 flex items-center justify-between">
+                  <span className="text-sm font-medium text-gray-700">Cost Total:</span>
+                  <span className="text-xl font-bold text-green-600">
+                    {(parseFloat(completionData.parts_cost || 0) + parseFloat(completionData.labor_cost || 0)).toFixed(2)} Lei
+                  </span>
+                </div>
+              )}
+
+              {/* Actual Hours */}
+              <div>
+                <label htmlFor="actual_hours" className="block text-sm font-medium text-gray-700 mb-1">
+                  Ore Lucrate
+                </label>
+                <div className="relative">
+                  <Clock className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                  <input
+                    id="actual_hours"
+                    name="actual_hours"
+                    type="number"
+                    step="0.5"
+                    min="0"
+                    value={completionData.actual_hours}
+                    onChange={handleCompletionChange}
+                    className="input pl-10"
+                    placeholder="0.0"
+                  />
+                </div>
+              </div>
+
+              {/* Image */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Fotografie Finalizare
+                </label>
+                {!imagePreview ? (
+                  <div className="space-y-3">
+                    <div className="border-2 border-dashed border-blue-300 rounded-lg p-4 hover:border-blue-400 transition-colors bg-blue-50">
+                      <input type="file" accept="image/*" capture="environment" onChange={handleImageChange} className="hidden" id="camera-capture" />
+                      <label htmlFor="camera-capture" className="cursor-pointer flex items-center gap-3">
+                        <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center flex-shrink-0">
+                          <Camera className="w-5 h-5 text-white" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-semibold text-gray-900">📷 Fă Poză cu Camera</p>
+                          <p className="text-xs text-gray-600">Fotografiază lucrarea finalizată</p>
+                        </div>
+                      </label>
+                    </div>
+                    <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 hover:border-gray-400 transition-colors">
+                      <input type="file" accept="image/*" onChange={handleImageChange} className="hidden" id="gallery-upload" />
+                      <label htmlFor="gallery-upload" className="cursor-pointer flex items-center gap-3">
+                        <div className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center flex-shrink-0">
+                          <Upload className="w-5 h-5 text-gray-600" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-semibold text-gray-900">🖼️ Alege din Galerie</p>
+                          <p className="text-xs text-gray-600">Selectează o poză existentă</p>
+                        </div>
+                      </label>
+                    </div>
+                    <p className="text-xs text-gray-500 text-center">PNG, JPG, GIF până la 5MB</p>
+                  </div>
+                ) : (
+                  <div className="relative">
+                    <img src={imagePreview} alt="Preview" className="w-full h-64 object-cover rounded-lg border-2 border-gray-200" />
+                    <button type="button" onClick={removeImage} className="absolute top-2 right-2 p-2 bg-red-500 text-white rounded-full hover:bg-red-600 shadow-lg">
+                      <X className="w-4 h-4" />
+                    </button>
+                    <div className="mt-2 flex items-center justify-between">
+                      <p className="text-xs text-gray-600">{imageFile?.name || 'Imagine existentă'}</p>
+                      <button type="button" onClick={removeImage} className="text-xs text-red-600 hover:text-red-700 font-medium">Schimbă poza</button>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Piese din Inventar Folosite */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
+                  <Package className="w-4 h-4 text-gray-500" />
+                  Piese din Inventar Folosite
+                </label>
+
+                {editableParts.filter(p => !p.isDeleted).length === 0 ? (
+                  <p className="text-sm text-gray-400 italic mb-3">Nicio piesă înregistrată.</p>
+                ) : (
+                  <div className="space-y-2">
+                    {editableParts.map((part, index) => {
+                      if (part.isDeleted) return null
+                      return (
+                        <div key={part.usageId || index} className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-lg p-3">
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-gray-900 truncate">{part.name}</p>
+                            <p className="text-xs text-gray-500">{part.unit} · Cost unitar: {part.unitCost} Lei</p>
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <label className="text-xs text-gray-500">Cant.:</label>
+                            <input
+                              type="number"
+                              min="0.01"
+                              step="0.01"
+                              value={part.quantity}
+                              onChange={(e) => {
+                                const val = parseFloat(e.target.value) || 0
+                                setEditableParts(prev => prev.map((p, i) =>
+                                  i === index ? { ...p, quantity: val } : p
+                                ))
+                              }}
+                              className="w-20 text-sm border border-gray-300 rounded px-2 py-1 focus:ring-primary-500 focus:border-primary-500"
+                            />
+                            <span className="text-xs text-gray-500 w-12 text-right font-medium text-gray-700">
+                              {(part.quantity * part.unitCost).toFixed(2)} L
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => setEditableParts(prev => prev.map((p, i) =>
+                                i === index ? { ...p, isDeleted: true } : p
+                              ))}
+                              className="p-1 text-red-500 hover:text-red-700 hover:bg-red-50 rounded"
+                              title="Elimină piesa"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </div>
+                      )
+                    })}
+
+                    {/* Total piese */}
+                    {editableParts.filter(p => !p.isDeleted).length > 0 && (
+                      <div className="flex justify-end pt-1">
+                        <span className="text-sm font-semibold text-gray-700">
+                          Total piese: {editableParts
+                            .filter(p => !p.isDeleted)
+                            .reduce((sum, p) => sum + p.quantity * p.unitCost, 0)
+                            .toFixed(2)} Lei
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Buton adaugă piesă nouă */}
+                <button
+                  type="button"
+                  onClick={() => setShowPartsModal(true)}
+                  className="mt-3 inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-primary-700 bg-primary-50 border border-primary-200 rounded-lg hover:bg-primary-100 transition-colors"
+                >
+                  <Plus className="w-4 h-4" />
+                  Adaugă Piesă din Inventar
+                </button>
+              </div>
+
+              {/* Completion Notes */}
+              <div>
+                <label htmlFor="completion_notes" className="block text-sm font-medium text-gray-700 mb-1">
+                  Note Finalizare
+                </label>
+                <div className="relative">
+                  <FileText className="absolute left-3 top-3 w-5 h-5 text-gray-400" />
+                  <textarea
+                    id="completion_notes"
+                    name="completion_notes"
+                    rows={4}
+                    value={completionData.completion_notes}
+                    onChange={handleCompletionChange}
+                    className="input pl-10"
+                    placeholder="Detalii suplimentare despre reparație, probleme găsite, recomandări..."
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Action Buttons */}
           <div className="flex items-center justify-end space-x-3 pt-6 border-t border-gray-200">
             <button
               type="button"
               onClick={() => navigate('/work-orders')}
               className="btn-secondary"
-              disabled={saveMutation.isLoading}
+              disabled={saveMutation.isPending}
             >
               Cancel
             </button>
             <button
               type="submit"
               className="btn-primary inline-flex items-center"
-              disabled={saveMutation.isLoading}
+              disabled={saveMutation.isPending || uploadingImage}
             >
-              {saveMutation.isLoading ? (
+              {saveMutation.isPending || uploadingImage ? (
                 <>
                   <LoadingSpinner size="sm" />
-                  <span className="ml-2">Saving...</span>
+                  <span className="ml-2">{uploadingImage ? 'Se încarcă imaginea...' : 'Saving...'}</span>
                 </>
               ) : (
                 <>
@@ -621,5 +1019,32 @@ export default function WorkOrderForm() {
         </div>
       </form>
     </div>
+
+    {/* Parts Modal - outside form to prevent submit on close */}
+    {showPartsModal && (
+      <PartsUsageModal
+        workOrderId={id}
+        equipmentId={workOrder?.equipment_id || null}
+        onClose={() => setShowPartsModal(false)}
+        onSave={(newParts) => {
+          setEditableParts(prev => [
+            ...prev,
+            ...newParts.map(p => ({
+              usageId: null, // nou, fără ID în DB încă
+              partId: p.partId,
+              name: p.partName,
+              unit: p.unitOfMeasure,
+              stockAvailable: p.maxStock,
+              quantity: p.quantity,
+              unitCost: p.unitCost,
+              notes: '',
+              isDeleted: false,
+            }))
+          ])
+          setShowPartsModal(false)
+        }}
+      />
+    )}
+  </>
   )
 }

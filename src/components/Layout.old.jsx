@@ -56,6 +56,7 @@ export default function Layout({ children }) {
     } catch (error) {
       console.error('Error signing out:', error.message)
     } finally {
+      // Redirectăm întotdeauna către login, chiar dacă apare o eroare
       navigate('/login')
     }
   }
@@ -78,21 +79,21 @@ export default function Layout({ children }) {
       >
         <div className="flex flex-col h-full">
           {/* Logo */}
-          <div className="flex items-center justify-between h-14 px-5 border-b border-gray-200">
+          <div className="flex items-center justify-between h-16 px-6 border-b border-gray-200">
             <Link to="/dashboard" className="flex items-center space-x-2">
-              <Wrench className="w-7 h-7 text-primary-600" />
-              <span className="text-lg font-bold text-gray-900">Pernador</span>
+              <Wrench className="w-8 h-8 text-primary-600" />
+              <span className="text-xl font-bold text-gray-900">Pernador</span>
             </Link>
             <button
               onClick={() => setSidebarOpen(false)}
               className="lg:hidden text-gray-500 hover:text-gray-700"
             >
-              <X className="w-5 h-5" />
+              <X className="w-6 h-6" />
             </button>
           </div>
 
           {/* Navigation */}
-          <nav className="flex-1 px-3 py-3 space-y-0.5 overflow-y-auto">
+          <nav className="flex-1 px-4 py-6 space-y-1 overflow-y-auto">
             {navigation
               .filter(item => {
                 if (item.adminOnly) return profile?.role === 'admin'
@@ -102,8 +103,9 @@ export default function Layout({ children }) {
               .map((item) => {
               const isActive = location.pathname.startsWith(item.href)
               
+              // Determine badge count and type based on route
               let badgeCount = 0
-              let badgeType = 'default'
+              let badgeType = 'default' // 'default', 'critical', 'warning'
               
               if (item.href === '/vehicles') {
                 badgeCount = alertCount
@@ -118,9 +120,13 @@ export default function Layout({ children }) {
               
               const showBadge = badgeCount > 0
               
+              // Badge styling based on type
               const getBadgeClass = () => {
-                if (badgeType === 'critical') return 'bg-red-600 text-white animate-pulse'
-                if (badgeType === 'warning') return 'bg-orange-500 text-white'
+                if (badgeType === 'critical') {
+                  return 'bg-red-600 text-white animate-pulse'
+                } else if (badgeType === 'warning') {
+                  return 'bg-orange-500 text-white'
+                }
                 return 'bg-red-600 text-white'
               }
               
@@ -128,7 +134,7 @@ export default function Layout({ children }) {
                 <Link
                   key={item.name}
                   to={item.href}
-                  className={`flex items-center justify-between px-3 py-2 text-sm font-medium rounded-lg transition-colors ${
+                  className={`flex items-center justify-between px-4 py-3 text-sm font-medium rounded-lg transition-colors ${
                     isActive
                       ? 'bg-primary-50 text-primary-700'
                       : 'text-gray-700 hover:bg-gray-100'
@@ -136,11 +142,11 @@ export default function Layout({ children }) {
                   onClick={() => setSidebarOpen(false)}
                 >
                   <div className="flex items-center">
-                    <item.icon className="w-4 h-4 mr-3 flex-shrink-0" />
+                    <item.icon className="w-5 h-5 mr-3" />
                     {t(item.name)}
                   </div>
                   {showBadge && (
-                    <span className={`inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 text-xs font-bold leading-none rounded-full ${getBadgeClass()}`}>
+                    <span className={`inline-flex items-center justify-center px-2.5 py-1 text-xs font-bold leading-none rounded-full ${getBadgeClass()}`}>
                       {badgeCount}
                     </span>
                   )}
@@ -150,8 +156,8 @@ export default function Layout({ children }) {
           </nav>
 
           {/* User info and logout */}
-          <div className="p-3 border-t border-gray-200">
-            <div className="flex items-center justify-between mb-2">
+          <div className="p-4 border-t border-gray-200">
+            <div className="flex items-center justify-between mb-3">
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-gray-900 truncate">
                   {profile?.full_name || user?.email}
@@ -163,7 +169,7 @@ export default function Layout({ children }) {
             </div>
             <button
               onClick={handleSignOut}
-              className="flex items-center w-full px-3 py-2 text-sm font-medium text-red-700 bg-red-50 rounded-lg hover:bg-red-100 transition-colors"
+              className="flex items-center w-full px-4 py-2 text-sm font-medium text-red-700 bg-red-50 rounded-lg hover:bg-red-100 transition-colors"
             >
               <LogOut className="w-4 h-4 mr-2" />
               {t('nav.logout')}
@@ -175,7 +181,7 @@ export default function Layout({ children }) {
       {/* Main content */}
       <div className="lg:pl-64">
         {/* Mobile header */}
-        <div className="sticky top-0 z-10 flex items-center h-14 bg-white border-b border-gray-200 lg:hidden">
+        <div className="sticky top-0 z-10 flex items-center h-16 bg-white border-b border-gray-200 lg:hidden">
           <button
             onClick={() => setSidebarOpen(true)}
             className="px-4 text-gray-500 hover:text-gray-700"
@@ -183,8 +189,8 @@ export default function Layout({ children }) {
             <Menu className="w-6 h-6" />
           </button>
           <Link to="/dashboard" className="flex items-center space-x-2">
-            <Wrench className="w-5 h-5 text-primary-600" />
-            <span className="text-base font-bold text-gray-900">Pernador</span>
+            <Wrench className="w-6 h-6 text-primary-600" />
+            <span className="text-lg font-bold text-gray-900">Pernador</span>
           </Link>
         </div>
 

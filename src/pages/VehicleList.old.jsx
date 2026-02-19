@@ -34,86 +34,6 @@ export default function VehiclesList() {
     },
   })
 
-  // Fetch active vignettes
-  const { data: vignettes } = useQuery({
-    queryKey: ['all-vehicle-vignettes'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('vehicle_vignettes')
-        .select('*')
-        .eq('is_active', true)
-      if (error) throw error
-      return data
-    },
-  })
-
-  // Fetch active insurances (RCA + CASCO)
-  const { data: insurances } = useQuery({
-    queryKey: ['all-vehicle-insurances'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('vehicle_insurances')
-        .select('*')
-        .eq('is_active', true)
-      if (error) throw error
-      return data
-    },
-  })
-
-  // Fetch active ITP records
-  const { data: itpRecords } = useQuery({
-    queryKey: ['all-vehicle-itp'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('vehicle_itp')
-        .select('*')
-        .eq('is_active', true)
-      if (error) throw error
-      return data
-    },
-  })
-
-  // Helper: găsește documentele active pentru un vehicul
-  const getVehicleDocs = (vehicleId) => {
-    const fmt = (d) => new Date(d).toLocaleDateString('ro-RO', { day: '2-digit', month: '2-digit', year: 'numeric' })
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
-
-    const docStatus = (startDate, endDate) => {
-      if (!endDate) return null
-      const expiry = new Date(endDate)
-      const isExpired = expiry < today
-      const daysLeft = Math.ceil((expiry - today) / (1000 * 60 * 60 * 24))
-      const isExpiringSoon = !isExpired && daysLeft <= 30
-      return {
-        isExpired,
-        isExpiringSoon,
-        text: isExpired
-          ? `Expirat în data de ${fmt(expiry)}`
-          : startDate
-            ? `Activ ${fmt(new Date(startDate))} – ${fmt(expiry)}`
-            : `Activ până pe ${fmt(expiry)}`,
-        color: isExpired
-          ? 'bg-red-100 text-red-800'
-          : isExpiringSoon
-            ? 'bg-yellow-100 text-yellow-800'
-            : 'bg-green-100 text-green-800',
-      }
-    }
-
-    const vignette = vignettes?.find(v => v.vehicle_id === vehicleId)
-    const rca = insurances?.find(i => i.vehicle_id === vehicleId && i.insurance_type === 'rca')
-    const casco = insurances?.find(i => i.vehicle_id === vehicleId && i.insurance_type === 'casco')
-    const itp = itpRecords?.find(i => i.vehicle_id === vehicleId)
-
-    return [
-      vignette ? { label: 'Rovinietă', ...docStatus(vignette.start_date, vignette.end_date) } : null,
-      rca      ? { label: 'RCA',       ...docStatus(rca.start_date, rca.end_date) }           : null,
-      casco    ? { label: 'CASCO',     ...docStatus(casco.start_date, casco.end_date) }        : null,
-      itp      ? { label: 'ITP',       ...docStatus(itp.itp_date, itp.expiry_date) }           : null,
-    ].filter(Boolean)
-  }
-
   const getStatusBadge = (status) => {
     const badges = {
       operational: { bg: 'bg-green-100', text: 'text-green-800', label: 'Operațional' },
@@ -299,22 +219,6 @@ export default function VehiclesList() {
                       Asignat: {vehicle.assigned_user.full_name || vehicle.assigned_user.email}
                     </p>
                   )}
-
-                  {/* Documente active */}
-                  {(() => {
-                    const docs = getVehicleDocs(vehicle.id)
-                    if (docs.length === 0) return null
-                    return (
-                      <div className="mt-3 pt-3 border-t border-gray-100 space-y-1.5">
-                        {docs.map(({ label, text, color }) => (
-                          <div key={label} className={`flex items-start gap-2 px-2 py-1 rounded text-xs font-medium ${color}`}>
-                            <span className="font-semibold shrink-0">{label}:</span>
-                            <span>{text}</span>
-                          </div>
-                        ))}
-                      </div>
-                    )
-                  })()}
                 </div>
               </Link>
             )
