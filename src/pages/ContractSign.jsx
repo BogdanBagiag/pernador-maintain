@@ -174,7 +174,11 @@ export default function ContractSign() {
       if (y + needed > 280) { doc.addPage(); y = 20 }
     }
 
-    // Aplica shortcodes in template
+    // Marcaje speciale pentru semnaturi
+    const SIG_BUYER  = '__SIG_BUYER__'
+    const SIG_SELLER = '__SIG_SELLER__'
+
+    // Aplica shortcodes — semnaturile devin marcaje speciale
     const applyShortcodes = (text) => {
       if (!text) return ''
       const map = {
@@ -184,7 +188,6 @@ export default function ContractSign() {
         '{{SELLER_ADDRESS}}':             nl(c.seller_address || ''),
         '{{SELLER_J_CODE}}':              nl(c.seller_j_code || ''),
         '{{SELLER_CUI}}':                 nl(c.seller_cui || ''),
-        '{{SELLER_COUNTY}}':              nl(c.seller_county || ''),
         '{{SELLER_REPRESENTATIVE}}':      nl(c.seller_representative || ''),
         '{{SELLER_REPRESENTATIVE_ROLE}}': nl(c.seller_representative_role || ''),
         '{{BUYER_NAME}}':                 nl(c.buyer_name || ''),
@@ -203,6 +206,8 @@ export default function ContractSign() {
         '{{INVOICE_TERM_TEXT}}':          nl(c.invoice_term_text || ''),
         '{{INVOICE_TERM_PERCENT}}':       String(c.invoice_term_percent || ''),
         '{{NOTES}}':                      nl(c.notes || ''),
+        '{{SIGNATURE_BUYER}}':            SIG_BUYER,
+        '{{SIGNATURE_SELLER}}':           SIG_SELLER,
       }
       let result = text
       for (const [key, val] of Object.entries(map)) {
@@ -211,8 +216,8 @@ export default function ContractSign() {
       return result
     }
 
-    // Extrage text din HTML folosind DOM
-    const htmlToText = (html) => {
+    // Extrage linii din HTML folosind DOM
+    const htmlToLines = (html) => {
       if (!html) return []
       const div = document.createElement('div')
       div.innerHTML = html
@@ -227,24 +232,53 @@ export default function ContractSign() {
       return text.split('\n')
     }
 
+    // Insereaza imaginea semnaturii cumparatorului
+    const insertBuyerSignature = () => {
+      checkNewPage(30)
+      try {
+        doc.addImage(signatureData, 'PNG', margin, y, 70, 22)
+        y += 24
+      } catch (e) {
+        doc.setDrawColor(180, 180, 180)
+        doc.rect(margin, y, 70, 22)
+        y += 24
+      }
+    }
+
+    // Insereaza box gol pentru semnatura vanzatorului
+    const insertSellerSignature = () => {
+      checkNewPage(30)
+      doc.setDrawColor(180, 180, 180)
+      doc.rect(margin, y, 70, 22)
+      doc.setFontSize(7)
+      doc.setTextColor(160, 160, 160)
+      doc.text('Semnatura si stampila', margin + 3, y + 18)
+      doc.setTextColor(0, 0, 0)
+      y += 26
+    }
+
     // Randeaza linii in PDF
     const renderLines = (lines) => {
       for (const rawLine of lines) {
-        const line = nl(rawLine)
-        if (line.trim() === '') { y += 3; continue }
+        const line = rawLine.trim()
 
-        const upperLine = line.trim().toUpperCase()
-        const isAllCaps = upperLine === line.trim() && line.trim().length > 4
-        const isRomanTitle = /^(I|II|III|IV|V|VI|VII|VIII|IX|X|XI|XII|XIII|XIV|XV|XVI|XVII|XVIII|XIX|XX|XXI|XXII)\./.test(line.trim())
-        const isNumTitle = /^\d{1,2}\.\d?\s/.test(line.trim())
+        // Semnaturi speciale
+        if (line === SIG_BUYER) { insertBuyerSignature(); continue }
+        if (line === SIG_SELLER) { insertSellerSignature(); continue }
+
+        if (line === '') { y += 3; continue }
+
+        const isAllCaps = line === line.toUpperCase() && line.length > 4 && !/\d/.test(line)
+        const isRomanTitle = /^(I|II|III|IV|V|VI|VII|VIII|IX|X|XI|XII|XIII|XIV|XV|XVI|XVII|XVIII|XIX|XX|XXI|XXII)\./.test(line)
+        const isNumTitle   = /^\d{1,2}\.\d?\s/.test(line)
 
         let fSize = 9
-        let bold = false
+        let bold  = false
         let color = [0, 0, 0]
         let align = 'left'
 
-        if (isAllCaps && !isRomanTitle) {
-          fSize = 11; bold = true; color = [30, 64, 175]; align = 'center'
+        if (isAllCaps && !isRomanTitle && !isNumTitle) {
+          fSize = 10; bold = true; color = [30, 64, 175]; align = 'center'
         } else if (isRomanTitle) {
           fSize = 10; bold = true
         } else if (isNumTitle) {
@@ -255,9 +289,9 @@ export default function ContractSign() {
         doc.setFont('helvetica', bold ? 'bold' : 'normal')
         doc.setTextColor(color[0], color[1], color[2])
 
-        const wrapped = doc.splitTextToSize(line.trim(), textW)
-        const blockH = wrapped.length * (fSize * 0.42 + 1.5)
-        checkNewPage(blockH + 4)
+        const wrapped = doc.splitTextToSize(line, textW)
+        const blockH  = wrapped.length * (fSize * 0.42 + 1.5)
+        checkNewPage(blockH + 3)
 
         const x = align === 'center' ? pageW / 2 : margin
         doc.text(wrapped, x, y, { align, maxWidth: textW })
@@ -269,17 +303,16 @@ export default function ContractSign() {
     // GENEREAZA PDF
     if (c.template_content) {
       const withData = applyShortcodes(c.template_content)
-      const lines = htmlToText(withData)
+      const lines    = htmlToLines(withData)
       renderLines(lines)
     } else {
-      // Fallback minimal
+      // Fallback minimal daca nu exista template
       doc.setFontSize(13)
       doc.setFont('helvetica', 'bold')
       doc.setTextColor(30, 64, 175)
       doc.text('CONTRACT DE VANZARE-CUMPARARE', pageW / 2, y, { align: 'center' })
       y += 8
-      doc.setFontSize(10)
-      doc.setTextColor(0, 0, 0)
+      doc.setFontSize(10); doc.setTextColor(0, 0, 0)
       doc.text(nl(c.contract_number || ''), pageW / 2, y, { align: 'center' })
       y += 10
       const addRow = (lbl, val) => {
@@ -295,35 +328,13 @@ export default function ContractSign() {
       addRow('Reprezentant:', c.seller_representative); y += 4
       doc.setFont('helvetica', 'bold'); doc.text('CUMPARATOR:', margin, y); y += 6
       addRow('Denumire:', c.buyer_name); addRow('CUI:', c.buyer_cui)
-      addRow('Reprezentant:', c.buyer_representative)
+      addRow('Reprezentant:', c.buyer_representative); y += 6
+      insertSellerSignature(); y += 6
+      insertBuyerSignature()
     }
 
-    // SEMNATURI
-    checkNewPage(70)
-    y += 8
-    doc.setDrawColor(200, 200, 200)
-    doc.line(margin, y, pageW - margin, y)
-    y += 6
-    doc.setFontSize(10); doc.setFont('helvetica', 'bold')
-    doc.text('SEMNATURI', margin, y); y += 8
-    doc.setFontSize(9); doc.setFont('helvetica', 'normal')
-    doc.text('VANZATOR', margin + 5, y)
-    doc.text('CUMPARATOR', margin + 115, y); y += 5
-    doc.text(nl(c.seller_name || ''), margin + 5, y, { maxWidth: 85 })
-    doc.text(nl(c.buyer_name || ''), margin + 115, y, { maxWidth: 80 }); y += 5
-    if (c.seller_representative) { doc.text(nl(c.seller_representative), margin + 5, y) }
-    y += 16
-    doc.setDrawColor(180, 180, 180)
-    doc.rect(margin + 2, y - 13, 82, 22)
-    doc.setFontSize(7); doc.setTextColor(160, 160, 160)
-    doc.text('Semnatura si stampila', margin + 5, y + 7)
-    try {
-      doc.addImage(signatureData, 'PNG', margin + 112, y - 15, 76, 24)
-    } catch (e) {
-      doc.rect(margin + 112, y - 13, 76, 22)
-    }
-    doc.text('Semnatura cumparator', margin + 115, y + 7)
-    doc.setTextColor(0, 0, 0); y += 18
+    // Data semnarii electronice
+    y += 4
     doc.setFontSize(8); doc.setTextColor(120, 120, 120)
     const signedAt = format(new Date(), 'dd MMMM yyyy, HH:mm', { locale: ro })
     doc.text(nl('Contract semnat electronic la ' + signedAt), margin, y)
