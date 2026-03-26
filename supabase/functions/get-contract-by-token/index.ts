@@ -34,7 +34,7 @@ serve(async (req: Request) => {
       .from('contracts')
       .select(`
         id, contract_number, contract_date, status,
-        seller_name, seller_address, seller_j_code, seller_cui,
+        seller_name, seller_address, seller_county, seller_j_code, seller_cui,
         seller_representative, seller_representative_role,
         buyer_name, buyer_address, buyer_county, buyer_j_code,
         buyer_cui, buyer_representative, buyer_representative_role,
@@ -42,7 +42,7 @@ serve(async (req: Request) => {
         payment_term_days, payment_term_text,
         advance_percent, delivery_percent,
         invoice_term_days, invoice_term_text, invoice_term_percent,
-        notes, sign_token, signed_at
+        notes, sign_token, signed_at, template_id
       `)
       .eq('sign_token', token)
       .single()
@@ -54,14 +54,26 @@ serve(async (req: Request) => {
       })
     }
 
-    // Fetch template activ
-    const { data: template } = await supabase
-      .from('contract_templates')
-      .select('content')
-      .eq('is_active', true)
-      .order('updated_at', { ascending: false })
-      .limit(1)
-      .maybeSingle()
+    // Fetch template: folosește template_id din contract, altfel cel activ
+    let template = null
+    if (contract.template_id) {
+      const { data } = await supabase
+        .from('contract_templates')
+        .select('content')
+        .eq('id', contract.template_id)
+        .maybeSingle()
+      template = data
+    }
+    if (!template) {
+      const { data } = await supabase
+        .from('contract_templates')
+        .select('content')
+        .eq('is_active', true)
+        .order('updated_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+      template = data
+    }
 
     return new Response(JSON.stringify({
       ...contract,

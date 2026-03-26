@@ -184,6 +184,7 @@ export default function ContractSign() {
         '{{SELLER_ADDRESS}}':             nl(c.seller_address || ''),
         '{{SELLER_J_CODE}}':              nl(c.seller_j_code || ''),
         '{{SELLER_CUI}}':                 nl(c.seller_cui || ''),
+        '{{SELLER_COUNTY}}':              nl(c.seller_county || ''),
         '{{SELLER_REPRESENTATIVE}}':      nl(c.seller_representative || ''),
         '{{SELLER_REPRESENTATIVE_ROLE}}': nl(c.seller_representative_role || ''),
         '{{BUYER_NAME}}':                 nl(c.buyer_name || ''),

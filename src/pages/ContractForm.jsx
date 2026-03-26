@@ -16,6 +16,7 @@ const schema = z.object({
   seller_address: z.string().optional(),
   seller_j_code: z.string().optional(),
   seller_cui: z.string().optional(),
+  seller_county: z.string().optional(),
   seller_representative: z.string().optional(),
   seller_representative_role: z.string().optional(),
   buyer_name: z.string().min(1, 'Denumirea cumpărătorului este obligatorie'),
@@ -35,6 +36,7 @@ const schema = z.object({
   invoice_term_percent: z.coerce.number().min(0).max(100).default(100),
   contract_date: z.string().min(1, 'Data este obligatorie'),
   notes: z.string().optional(),
+  template_id: z.string().optional(),
 })
 
 function SectionTitle({ icon: Icon, title, subtitle, action }) {
@@ -89,7 +91,7 @@ export default function ContractForm() {
     resolver: zodResolver(schema),
     defaultValues: {
       seller_name: '', seller_address: '', seller_j_code: '',
-      seller_cui: '', seller_representative: '', seller_representative_role: 'Administrator',
+      seller_cui: '', seller_county: '', seller_representative: '', seller_representative_role: 'Administrator',
       buyer_name: '', buyer_address: '', buyer_county: '',
       buyer_j_code: '', buyer_cui: '', buyer_representative: '',
       buyer_representative_role: 'Administrator', buyer_email: '',
@@ -113,6 +115,18 @@ export default function ContractForm() {
     },
   })
 
+  // Fetch șabloane disponibile
+  const { data: templates = [] } = useQuery({
+    queryKey: ['contract-templates'],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('contract_templates')
+        .select('id, name, is_active')
+        .order('updated_at', { ascending: false })
+      return data || []
+    },
+  })
+
   // Încarcă contractul existent la editare
   const { data: existing, isLoading } = useQuery({
     queryKey: ['contract', id],
@@ -123,6 +137,14 @@ export default function ContractForm() {
     },
     enabled: isEditing,
   })
+
+  // Setează automat șablonul activ la creare
+  useEffect(() => {
+    if (!isEditing && templates.length > 0) {
+      const active = templates.find(t => t.is_active)
+      if (active) setValue('template_id', active.id)
+    }
+  }, [templates, isEditing, setValue])
 
   // Aplică datele firmei la creare (nu la editare)
   useEffect(() => {
@@ -276,6 +298,32 @@ export default function ContractForm() {
           </Field>
         </div>
 
+        {/* ── ȘABLON ── */}
+        {templates.length > 0 && (
+          <div className="bg-white rounded-xl border border-gray-200 p-6">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="p-2 bg-purple-50 rounded-lg">
+                <FileText className="w-5 h-5 text-purple-600" />
+              </div>
+              <div>
+                <h2 className="text-base font-semibold text-gray-900">Șablon contract</h2>
+                <p className="text-xs text-gray-500">Șablonul folosit pentru generarea PDF-ului</p>
+              </div>
+            </div>
+            <select
+              {...register('template_id')}
+              className={inputClass}
+            >
+              <option value="">— Fără șablon —</option>
+              {templates.map(t => (
+                <option key={t.id} value={t.id}>
+                  {t.name}{t.is_active ? ' ★ (activ)' : ''}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+
         {/* ── VÂNZĂTOR ── */}
         <div className="bg-white rounded-xl border border-gray-200 p-6">
           <SectionTitle
@@ -320,6 +368,9 @@ export default function ContractForm() {
             </Field>
             <Field label="CUI / CIF">
               <input {...register('seller_cui')} placeholder="ex. RO12345678" className={inputClass} />
+            </Field>
+            <Field label="Județ">
+              <input {...register('seller_county')} placeholder="ex. Iași" className={inputClass} />
             </Field>
             <Field label="Reprezentat prin">
               <input {...register('seller_representative')} placeholder="Nume Prenume" className={inputClass} />
