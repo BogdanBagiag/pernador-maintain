@@ -157,17 +157,13 @@ export default function ContractSign() {
     const textW = pageW - margin * 2
     let y = 20
 
-    // Normalizare diacritice
+    // Normalizare diacritice - NFD descompune orice diacritic Latin
     const nl = (t) => {
       if (!t) return ''
       return String(t)
-        .replace(/ș/g, 's').replace(/ț/g, 't')
-        .replace(/ş/g, 's').replace(/ţ/g, 't')
-        .replace(/Ș/g, 'S').replace(/Ț/g, 'T')
-        .replace(/Ş/g, 'S').replace(/Ţ/g, 'T')
-        .replace(/ă/g, 'a').replace(/â/g, 'a')
-        .replace(/î/g, 'i').replace(/Ă/g, 'A')
-        .replace(/Â/g, 'A').replace(/Î/g, 'I')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^\x00-\x7F]/g, '?')
     }
 
     const checkNewPage = (needed = 15) => {
