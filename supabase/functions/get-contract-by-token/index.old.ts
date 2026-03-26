@@ -29,8 +29,7 @@ serve(async (req: Request) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     )
 
-    // Fetch contract
-    const { data: contract, error } = await supabase
+    const { data, error } = await supabase
       .from('contracts')
       .select(`
         id, contract_number, contract_date, status,
@@ -47,26 +46,14 @@ serve(async (req: Request) => {
       .eq('sign_token', token)
       .single()
 
-    if (error || !contract) {
+    if (error || !data) {
       return new Response(JSON.stringify({ error: 'Contract negăsit sau link invalid' }), {
         status: 404,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
 
-    // Fetch template activ
-    const { data: template } = await supabase
-      .from('contract_templates')
-      .select('content')
-      .eq('is_active', true)
-      .order('updated_at', { ascending: false })
-      .limit(1)
-      .maybeSingle()
-
-    return new Response(JSON.stringify({
-      ...contract,
-      template_content: template?.content || null,
-    }), {
+    return new Response(JSON.stringify(data), {
       status: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
