@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useParams } from 'react-router-dom'
 import { CheckCircle, AlertCircle, ArrowRight, ArrowLeft, Loader2 } from 'lucide-react'
 import SignaturePad from '../components/SignaturePad'
