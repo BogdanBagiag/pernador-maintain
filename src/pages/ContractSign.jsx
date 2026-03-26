@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useParams } from 'react-router-dom'
-import { CheckCircle, AlertCircle, ArrowRight, ArrowLeft, Loader2 } from 'lucide-react'
+import { CheckCircle, AlertCircle, ArrowRight, ArrowLeft, Loader2, Pen } from 'lucide-react'
 import SignaturePad from '../components/SignaturePad'
 import { format } from 'date-fns'
 import { ro } from 'date-fns/locale'
