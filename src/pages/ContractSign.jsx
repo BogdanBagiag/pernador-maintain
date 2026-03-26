@@ -77,14 +77,6 @@ export default function ContractSign() {
     }
   }
 
-  const startDraw = useCallback((e) => {
-    e.preventDefault()
-    const canvas = canvasRef.current
-    if (!canvas) return
-    isDrawing.current = true
-    lastPos.current = getPos(e, canvas)
-  }, [])
-
   const draw = useCallback((e) => {
     e.preventDefault()
     if (!isDrawing.current) return
@@ -98,44 +90,6 @@ export default function ContractSign() {
     ctx.stroke()
     lastPos.current = pos
   }, [])
-
-  const endDraw = useCallback(() => {
-    isDrawing.current = false
-  }, [])
-
-  const clearCanvas = () => {
-    const canvas = canvasRef.current
-    if (!canvas) return
-    const ctx = canvas.getContext('2d')
-    ctx.fillStyle = '#ffffff'
-    ctx.fillRect(0, 0, canvas.width, canvas.height)
-  }
-
-  const handleImageUpload = (e) => {
-    const file = e.target.files[0]
-    if (!file) return
-    const reader = new FileReader()
-    reader.onload = (ev) => setUploadedSig(ev.target.result)
-    reader.readAsDataURL(file)
-  }
-
-  const getSignatureData = () => {
-    if (signMode === 'upload') return uploadedSig
-    const canvas = canvasRef.current
-    if (!canvas) return null
-    return canvas.toDataURL('image/png')
-  }
-
-  const isCanvasBlank = () => {
-    const canvas = canvasRef.current
-    if (!canvas) return true
-    const ctx = canvas.getContext('2d')
-    const data = ctx.getImageData(0, 0, canvas.width, canvas.height).data
-    for (let i = 0; i < data.length; i += 4) {
-      if (data[i] < 250 || data[i + 1] < 250 || data[i + 2] < 250) return false
-    }
-    return true
-  }
 
   // Load jsPDF from CDN
   const loadJsPDF = () =>
@@ -339,13 +293,8 @@ export default function ContractSign() {
   }
 
   const handleSubmit = async () => {
-    const signatureData = getSignatureData()
     if (!signatureData) {
       alert('Te rugăm să adaugi semnătura înainte de a trimite.')
-      return
-    }
-    if (signMode === 'draw' && isCanvasBlank()) {
-      alert('Canvas-ul de semnătură este gol. Te rugăm să semnezi.')
       return
     }
 
@@ -524,98 +473,13 @@ export default function ContractSign() {
             <div className="bg-white rounded-xl border border-gray-200 p-5">
               <h2 className="text-base font-semibold text-gray-900 mb-1">Semnați contractul</h2>
               <p className="text-xs text-gray-500 mb-4">
-                Desenați semnătura dvs. în spațiul de mai jos sau încărcați o imagine cu semnătura.
+                Desenați semnătura sau folosiți una salvată în contul dvs.
               </p>
-
-              {/* Toggle mod semnătură */}
-              <div className="flex gap-2 mb-4">
-                <button
-                  onClick={() => setSignMode('draw')}
-                  className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-sm font-medium border transition-colors ${
-                    signMode === 'draw'
-                      ? 'bg-primary-50 border-primary-300 text-primary-700'
-                      : 'bg-gray-50 border-gray-200 text-gray-600'
-                  }`}
-                >
-                  <Pen className="w-4 h-4" />
-                  Desenez
-                </button>
-                <button
-                  onClick={() => setSignMode('upload')}
-                  className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-sm font-medium border transition-colors ${
-                    signMode === 'upload'
-                      ? 'bg-primary-50 border-primary-300 text-primary-700'
-                      : 'bg-gray-50 border-gray-200 text-gray-600'
-                  }`}
-                >
-                  <Upload className="w-4 h-4" />
-                  Încarc imagine
-                </button>
-              </div>
-
-              {/* Canvas pentru desenat */}
-              {signMode === 'draw' && (
-                <div className="relative">
-                  <canvas
-                    ref={canvasRef}
-                    className="w-full h-40 border-2 border-dashed border-gray-300 rounded-xl bg-white cursor-crosshair touch-none"
-                    style={{ touchAction: 'none' }}
-                    onMouseDown={startDraw}
-                    onMouseMove={draw}
-                    onMouseUp={endDraw}
-                    onMouseLeave={endDraw}
-                    onTouchStart={startDraw}
-                    onTouchMove={draw}
-                    onTouchEnd={endDraw}
-                  />
-                  <p className="text-xs text-gray-400 text-center mt-2">Trageți cu degetul sau mouse-ul pentru a semna</p>
-                  <button
-                    onClick={clearCanvas}
-                    className="absolute top-2 right-2 flex items-center gap-1 px-2 py-1 text-xs text-gray-500 bg-white border border-gray-200 rounded-lg hover:bg-gray-50"
-                  >
-                    <RotateCcw className="w-3 h-3" />
-                    Șterge
-                  </button>
-                </div>
-              )}
-
-              {/* Upload imagine */}
-              {signMode === 'upload' && (
-                <div>
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept="image/*"
-                    onChange={handleImageUpload}
-                    className="hidden"
-                  />
-                  {uploadedSig ? (
-                    <div className="relative border-2 border-primary-300 rounded-xl p-4 bg-gray-50 text-center">
-                      <img src={uploadedSig} alt="Semnătură" className="max-h-32 mx-auto" />
-                      <button
-                        onClick={() => {
-                          setUploadedSig(null)
-                          if (fileInputRef.current) fileInputRef.current.value = ''
-                        }}
-                        className="mt-2 text-xs text-red-500 hover:underline"
-                      >
-                        Șterge și reîncarcă
-                      </button>
-                    </div>
-                  ) : (
-                    <button
-                      onClick={() => fileInputRef.current?.click()}
-                      className="w-full h-40 border-2 border-dashed border-gray-300 rounded-xl flex flex-col items-center justify-center gap-3 hover:border-primary-400 hover:bg-primary-50 transition-colors"
-                    >
-                      <Upload className="w-8 h-8 text-gray-400" />
-                      <div>
-                        <p className="text-sm font-medium text-gray-600">Apasă pentru a încărca</p>
-                        <p className="text-xs text-gray-400">PNG, JPG sau GIF</p>
-                      </div>
-                    </button>
-                  )}
-                </div>
-              )}
+              <SignaturePad
+                onSignature={setSignatureData}
+                showSaveOption={false}
+                height={160}
+              />
             </div>
 
             <div className="flex gap-3">
@@ -628,7 +492,7 @@ export default function ContractSign() {
               </button>
               <button
                 onClick={handleSubmit}
-                disabled={submitting || (signMode === 'upload' && !uploadedSig)}
+                disabled={submitting || !signatureData}
                 className="flex-1 flex items-center justify-center gap-2 py-3 bg-green-600 text-white font-medium rounded-xl hover:bg-green-700 disabled:opacity-50 transition-colors"
               >
                 {submitting ? (
