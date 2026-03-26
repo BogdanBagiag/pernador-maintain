@@ -1,6 +1,6 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import { useParams } from 'react-router-dom'
-import { CheckCircle, AlertCircle, ArrowRight, ArrowLeft, Loader2, Pen } from 'lucide-react'
+import { CheckCircle, AlertCircle, Pen, Upload, RotateCcw, ArrowRight, ArrowLeft, Loader2 } from 'lucide-react'
 import SignaturePad from '../components/SignaturePad'
 import { format } from 'date-fns'
 import { ro } from 'date-fns/locale'
@@ -20,6 +20,10 @@ export default function ContractSign() {
   const [submitting, setSubmitting] = useState(false)
   const [done, setDone] = useState(false)
   const [signatureData, setSignatureData] = useState(null)
+  const canvasRef = useRef(null)
+  const isDrawing = useRef(false)
+  const lastPos = useRef({ x: 0, y: 0 })
+  const fileInputRef = useRef(null)
 
   // Fetch contract by token via Edge Function
   useEffect(() => {
@@ -54,6 +58,14 @@ export default function ContractSign() {
     }
   }
 
+  const startDraw = useCallback((e) => {
+    e.preventDefault()
+    const canvas = canvasRef.current
+    if (!canvas) return
+    isDrawing.current = true
+    lastPos.current = getPos(e, canvas)
+  }, [])
+
   const draw = useCallback((e) => {
     e.preventDefault()
     if (!isDrawing.current) return
@@ -68,6 +80,37 @@ export default function ContractSign() {
     lastPos.current = pos
   }, [])
 
+  const endDraw = useCallback(() => {
+    isDrawing.current = false
+  }, [])
+
+  const clearCanvas = () => {
+    const canvas = canvasRef.current
+    if (!canvas) return
+    const ctx = canvas.getContext('2d')
+    ctx.fillStyle = '#ffffff'
+    ctx.fillRect(0, 0, canvas.width, canvas.height)
+  }
+
+  const handleImageUpload = (e) => {
+    const file = e.target.files[0]
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = (ev) => setUploadedSig(ev.target.result)
+    reader.readAsDataURL(file)
+  }
+
+  const isCanvasBlank = () => {
+    const canvas = canvasRef.current
+    if (!canvas) return true
+    const ctx = canvas.getContext('2d')
+    const data = ctx.getImageData(0, 0, canvas.width, canvas.height).data
+    for (let i = 0; i < data.length; i += 4) {
+      if (data[i] < 250 || data[i + 1] < 250 || data[i + 2] < 250) return false
+    }
+    return true
+  }
+
   // Load jsPDF from CDN
   const loadJsPDF = () =>
     new Promise((resolve, reject) => {
@@ -79,45 +122,35 @@ export default function ContractSign() {
       document.head.appendChild(script)
     })
 
-  // Inlocuieste diacriticele cu versiuni ASCII corecte (fara pierdere de litere)
-  const fixDiacritics = (t) => {
-    if (!t) return ''
-    return String(t)
-      .replace(/[\u0103\u0105]/g, 'a').replace(/[\u0102\u0104]/g, 'A')
-      .replace(/[\u00E2\u00E3]/g, 'a').replace(/[\u00C2\u00C3]/g, 'A')
-      .replace(/[\u0219\u015F\u015B]/g, 's').replace(/[\u0218\u015E\u015A]/g, 'S')
-      .replace(/[\u021B\u0163\u0165]/g, 't').replace(/[\u021A\u0162\u0164]/g, 'T')
-      .replace(/[\u00EE\u00EF]/g, 'i').replace(/[\u00CE\u00CF]/g, 'I')
-      .replace(/[\u00E9\u00E8\u00EA\u00EB]/g, 'e').replace(/[\u00C9\u00C8\u00CA\u00CB]/g, 'E')
-      .replace(/[\u00F3\u00F2\u00F4\u00F5]/g, 'o').replace(/[\u00D3\u00D2\u00D4\u00D5]/g, 'O')
-      .replace(/[\u00FA\u00F9\u00FB]/g, 'u').replace(/[\u00DA\u00D9\u00DB]/g, 'U')
-      .replace(/[\u201C\u201D\u201E\u201F]/g, '"')
-      .replace(/[\u2018\u2019]/g, "'")
-      .replace(/\u2013/g, '-').replace(/\u2014/g, '--')
-      .replace(/[^\x00-\x7E]/g, '?')
-  }
-
-  const generatePDF = async (signatureData) => {
+  const generatePDF = async (sigData) => {
     const JsPDF = await loadJsPDF()
     const doc = new JsPDF({ format: 'a4', unit: 'mm' })
     const c = contract
     const pageW = 210
-    const margin = 18
-    const textW = pageW - margin * 2  // 174mm - mai mult spatiu
-    let y = 18
+    const margin = 20
+    const textW = pageW - margin * 2
+    let y = 20
 
-    // Normalizare diacritice - NFD descompune orice diacritic Latin
-    const nl = fixDiacritics
+    const nl = (t) => {
+      if (!t) return ''
+      return String(t)
+        .replace(/\u0219/g,'s').replace(/\u021B/g,'t').replace(/\u015F/g,'s').replace(/\u0163/g,'t')
+        .replace(/\u0218/g,'S').replace(/\u021A/g,'T').replace(/\u015E/g,'S').replace(/\u0162/g,'T')
+        .replace(/\u0103/g,'a').replace(/\u00E2/g,'a').replace(/\u00EE/g,'i')
+        .replace(/\u0102/g,'A').replace(/\u00C2/g,'A').replace(/\u00CE/g,'I')
+        .replace(/\u201C/g,'"').replace(/\u201D/g,'"').replace(/\u201E/g,'"')
+        .replace(/\u2018/g,"'").replace(/\u2019/g,"'")
+        .replace(/\u2013/g,'-').replace(/\u2014/g,'--')
+        .replace(/[^\x00-\x7E]/g,'?')
+    }
 
     const checkNewPage = (needed = 15) => {
       if (y + needed > 280) { doc.addPage(); y = 20 }
     }
 
-    // Marcaje speciale pentru semnaturi
     const SIG_BUYER  = '__SIG_BUYER__'
     const SIG_SELLER = '__SIG_SELLER__'
 
-    // Aplica shortcodes — semnaturile devin marcaje speciale
     const applyShortcodes = (text) => {
       if (!text) return ''
       const map = {
@@ -149,13 +182,10 @@ export default function ContractSign() {
         '{{SIGNATURE_SELLER}}':           SIG_SELLER,
       }
       let result = text
-      for (const [key, val] of Object.entries(map)) {
-        result = result.replaceAll(key, val)
-      }
+      for (const [key, val] of Object.entries(map)) result = result.replaceAll(key, val)
       return result
     }
 
-    // Extrage linii din HTML folosind DOM
     const htmlToLines = (html) => {
       if (!html) return []
       const div = document.createElement('div')
@@ -163,118 +193,78 @@ export default function ContractSign() {
       div.querySelectorAll('p,div,h1,h2,h3,h4,h5,h6,li').forEach(el => {
         el.insertAdjacentText('afterend', '\n')
       })
-      div.querySelectorAll('br').forEach(el => {
-        el.replaceWith(document.createTextNode('\n'))
-      })
+      div.querySelectorAll('br').forEach(el => el.replaceWith(document.createTextNode('\n')))
       let text = div.textContent || ''
       text = text.replace(/\r\n/g, '\n').replace(/\n{3,}/g, '\n\n')
       return text.split('\n')
     }
 
-    // Insereaza imaginea semnaturii cumparatorului
-    const insertBuyerSignature = () => {
+    const insertBuyerSig = () => {
       checkNewPage(30)
-      try {
-        doc.addImage(signatureData, 'PNG', margin, y, 70, 22)
-        y += 24
-      } catch (e) {
-        doc.setDrawColor(180, 180, 180)
-        doc.rect(margin, y, 70, 22)
-        y += 24
-      }
+      try { doc.addImage(sigData, 'PNG', margin, y, 70, 22); y += 26 }
+      catch (e) { doc.setDrawColor(180,180,180); doc.rect(margin, y, 70, 22); y += 26 }
     }
 
-    // Insereaza box gol pentru semnatura vanzatorului
-    const insertSellerSignature = () => {
+    const insertSellerSig = () => {
       checkNewPage(30)
-      doc.setDrawColor(180, 180, 180)
-      doc.rect(margin, y, 70, 22)
-      doc.setFontSize(7)
-      doc.setTextColor(160, 160, 160)
-      doc.text('Semnatura si stampila', margin + 3, y + 18)
-      doc.setTextColor(0, 0, 0)
-      y += 26
+      doc.setDrawColor(180,180,180); doc.rect(margin, y, 70, 22)
+      doc.setFontSize(7); doc.setTextColor(160,160,160)
+      doc.text('Semnatura si stampila', margin+3, y+18)
+      doc.setTextColor(0,0,0); y += 26
     }
 
-    // Randeaza linii in PDF
     const renderLines = (lines) => {
-      for (const rawLine of lines) {
-        const line = rawLine.trim()
-
-        // Semnaturi speciale
-        if (line === SIG_BUYER) { insertBuyerSignature(); continue }
-        if (line === SIG_SELLER) { insertSellerSignature(); continue }
-
+      for (const raw of lines) {
+        const line = raw.trim()
+        if (line === SIG_BUYER)  { insertBuyerSig();  continue }
+        if (line === SIG_SELLER) { insertSellerSig(); continue }
         if (line === '') { y += 3; continue }
 
-        const isAllCaps = line === line.toUpperCase() && line.length > 4 && !/\d/.test(line)
+        const isAllCaps   = line === line.toUpperCase() && line.length > 4 && !/\d/.test(line)
         const isRomanTitle = /^(I|II|III|IV|V|VI|VII|VIII|IX|X|XI|XII|XIII|XIV|XV|XVI|XVII|XVIII|XIX|XX|XXI|XXII)\./.test(line)
-        const isNumTitle   = /^\d{1,2}\.\d?\s/.test(line)
+        const isNumTitle  = /^\d{1,2}\.\d?\s/.test(line)
 
-        let fSize = 8.5
-        let bold  = false
-        let color = [0, 0, 0]
-        let align = 'left'
-
-        if (isAllCaps && !isRomanTitle && !isNumTitle) {
-          fSize = 10; bold = true; color = [30, 64, 175]; align = 'center'
-        } else if (isRomanTitle) {
-          fSize = 9.5; bold = true
-        } else if (isNumTitle) {
-          fSize = 8.5; bold = false
-        }
+        let fSize = 9, bold = false, color = [0,0,0], align = 'left'
+        if (isAllCaps && !isRomanTitle && !isNumTitle) { fSize=10; bold=true; color=[30,64,175]; align='center' }
+        else if (isRomanTitle) { fSize=10; bold=true }
 
         doc.setFontSize(fSize)
         doc.setFont('helvetica', bold ? 'bold' : 'normal')
         doc.setTextColor(color[0], color[1], color[2])
-
         const wrapped = doc.splitTextToSize(line, textW)
         const blockH  = wrapped.length * (fSize * 0.42 + 1.5)
         checkNewPage(blockH + 3)
-
-        const x = align === 'center' ? pageW / 2 : margin
-        doc.text(wrapped, x, y, { align, maxWidth: textW })
-        doc.setTextColor(0, 0, 0)
+        doc.text(wrapped, align === 'center' ? pageW/2 : margin, y, { align, maxWidth: textW })
+        doc.setTextColor(0,0,0)
         y += blockH + (isAllCaps ? 3 : 1.5)
       }
     }
 
-    // GENEREAZA PDF
     if (c.template_content) {
-      const withData = applyShortcodes(c.template_content)
-      const lines    = htmlToLines(withData)
-      renderLines(lines)
+      renderLines(htmlToLines(applyShortcodes(c.template_content)))
     } else {
-      // Fallback minimal daca nu exista template
-      doc.setFontSize(13)
-      doc.setFont('helvetica', 'bold')
-      doc.setTextColor(30, 64, 175)
-      doc.text('CONTRACT DE VANZARE-CUMPARARE', pageW / 2, y, { align: 'center' })
-      y += 8
-      doc.setFontSize(10); doc.setTextColor(0, 0, 0)
-      doc.text(nl(c.contract_number || ''), pageW / 2, y, { align: 'center' })
-      y += 10
+      // Fallback minimal
+      doc.setFontSize(13); doc.setFont('helvetica','bold'); doc.setTextColor(30,64,175)
+      doc.text('CONTRACT DE VANZARE-CUMPARARE', pageW/2, y, { align:'center' }); y+=8
+      doc.setFontSize(10); doc.setTextColor(0,0,0)
+      doc.text(nl(c.contract_number||''), pageW/2, y, { align:'center' }); y+=10
       const addRow = (lbl, val) => {
-        doc.setFont('helvetica', 'bold')
-        doc.text(nl(lbl), margin, y)
-        doc.setFont('helvetica', 'normal')
-        const w = doc.splitTextToSize(nl(val || ''), textW - 45)
-        doc.text(w, margin + 45, y)
-        y += Math.max(w.length, 1) * 5 + 1
+        doc.setFont('helvetica','bold'); doc.text(nl(lbl), margin, y)
+        doc.setFont('helvetica','normal')
+        const w = doc.splitTextToSize(nl(val||''), textW-45)
+        doc.text(w, margin+45, y); y += Math.max(w.length,1)*5+1
       }
-      doc.setFont('helvetica', 'bold'); doc.text('VANZATOR:', margin, y); y += 6
+      doc.setFont('helvetica','bold'); doc.text('VANZATOR:', margin, y); y+=6
       addRow('Denumire:', c.seller_name); addRow('CUI:', c.seller_cui)
-      addRow('Reprezentant:', c.seller_representative); y += 4
-      doc.setFont('helvetica', 'bold'); doc.text('CUMPARATOR:', margin, y); y += 6
+      addRow('Reprezentant:', c.seller_representative); y+=4
+      doc.setFont('helvetica','bold'); doc.text('CUMPARATOR:', margin, y); y+=6
       addRow('Denumire:', c.buyer_name); addRow('CUI:', c.buyer_cui)
-      addRow('Reprezentant:', c.buyer_representative); y += 6
-      insertSellerSignature(); y += 6
-      insertBuyerSignature()
+      addRow('Reprezentant:', c.buyer_representative); y+=6
+      insertSellerSig(); y+=4; insertBuyerSig()
     }
 
-    // Data semnarii electronice
     y += 4
-    doc.setFontSize(8); doc.setTextColor(120, 120, 120)
+    doc.setFontSize(8); doc.setTextColor(120,120,120)
     const signedAt = format(new Date(), 'dd MMMM yyyy, HH:mm', { locale: ro })
     doc.text(nl('Contract semnat electronic la ' + signedAt), margin, y)
 
@@ -282,7 +272,8 @@ export default function ContractSign() {
   }
 
   const handleSubmit = async () => {
-    if (!signatureData) {
+    const sigData = signatureData
+    if (!sigData) {
       alert('Te rugăm să adaugi semnătura înainte de a trimite.')
       return
     }
@@ -462,8 +453,9 @@ export default function ContractSign() {
             <div className="bg-white rounded-xl border border-gray-200 p-5">
               <h2 className="text-base font-semibold text-gray-900 mb-1">Semnați contractul</h2>
               <p className="text-xs text-gray-500 mb-4">
-                Desenați semnătura sau folosiți una salvată în contul dvs.
+                Desenați semnătura dvs. în spațiul de mai jos sau încărcați o imagine cu semnătura.
               </p>
+
               <SignaturePad
                 onSignature={setSignatureData}
                 showSaveOption={false}
