@@ -18,22 +18,18 @@ import MaintenanceSchedules from './pages/MaintenanceSchedules'
 import ChecklistTemplates from './pages/ChecklistTemplates'
 import ProcedureTemplates from './pages/ProcedureTemplates'
 import Reports from './pages/Reports'
+import PartsInventory from './pages/PartsInventory'
 import Settings from './pages/Settings'
 import UserManagement from './pages/UserManagement'
 import LocationsList from './pages/LocationsList'
-import LocationForm from './pages/LocationForm'
-import LocationDetail from './pages/LocationDetail'
-import PublicLocationWrapper from './pages/PublicLocationWrapper'
+import UnifiedLocationRouter from './pages/UnifiedLocationRouter'
+import VehicleList from './pages/VehicleList'
+import VehicleForm from './pages/VehicleForm'
+import VehicleDetail from './pages/VehicleDetail'
 import PublicScanWrapper from './pages/PublicScanWrapper'
 import ScanPage from './pages/ScanPage'
 import ReportIssue from './pages/ReportIssue'
-
-// Contracts
-import ContractsList from './pages/ContractsList'
-import ContractForm from './pages/ContractForm'
-import ContractDetail from './pages/ContractDetail'
-import ContractSign from './pages/ContractSign'
-import ContractTemplateEditor from './pages/ContractTemplateEditor'
+import UserManual from './pages/UserManual'
 
 // Components
 import Layout from './components/Layout'
@@ -114,11 +110,17 @@ function App() {
             {/* Public Scan Route (No Auth Required) */}
             <Route path="/scan" element={<PublicScanWrapper />} />
             
-            {/* Public Location Route - Smart Redirect */}
-            <Route path="/locations/:id" element={<PublicLocationWrapper />} />
-
-            {/* Public Contract Signing Route (No Auth Required) */}
-            <Route path="/semna-contract/:token" element={<ContractSign />} />
+            {/* Location Routes - Unified handler for all location paths */}
+            {/* This handles: /locations, /locations/new, /locations/:id, /locations/:id/edit */}
+            <Route path="/locations" element={
+              <ProtectedRoute>
+                <Layout>
+                  <LocationsList />
+                </Layout>
+              </ProtectedRoute>
+            } />
+            <Route path="/locations/:id" element={<UnifiedLocationRouter />} />
+            <Route path="/locations/:id/:action" element={<UnifiedLocationRouter />} />
 
             {/* Protected Routes */}
             <Route
@@ -135,30 +137,27 @@ function App() {
                       <Route path="/equipment/:id" element={<EquipmentDetail />} />
                       <Route path="/equipment/:id/edit" element={<EquipmentForm />} />
                       
+                      {/* Vehicle Routes */}
+                      <Route path="/vehicles" element={<VehicleList />} />
+                      <Route path="/vehicles/new" element={<VehicleForm />} />
+                      <Route path="/vehicles/:id" element={<VehicleDetail />} />
+                      <Route path="/vehicles/:id/edit" element={<VehicleForm />} />
+                      
                       {/* Work Order Routes */}
                       <Route path="/work-orders" element={<WorkOrderList />} />
                       <Route path="/work-orders/new" element={<WorkOrderForm />} />
                       <Route path="/work-orders/:id" element={<WorkOrderDetail />} />
                       <Route path="/work-orders/:id/edit" element={<WorkOrderForm />} />
                       
-                      {/* Location Routes */}
-                      <Route path="/locations" element={<LocationsList />} />
-                      <Route path="/locations/new" element={<LocationForm />} />
-                      <Route path="/locations/:id/edit" element={<LocationForm />} />
-                      
-                      {/* Contract Routes */}
-                      <Route path="/contracte" element={<ContractsList />} />
-                      <Route path="/contracte/nou" element={<ContractForm />} />
-                      <Route path="/contracte/:id" element={<ContractDetail />} />
-                      <Route path="/contracte/:id/editeaza" element={<ContractForm />} />
-                      
                       {/* Other Routes */}
                       <Route path="/schedules" element={<MaintenanceSchedules />} />
                       <Route path="/checklist-templates" element={<ChecklistTemplates />} />
                       <Route path="/procedure-templates" element={<ProcedureTemplates />} />
                       <Route path="/reports" element={<Reports />} />
+                      <Route path="/parts-inventory" element={<PartsInventory />} />
                       <Route path="/users" element={<UserManagement />} />
                       <Route path="/settings" element={<Settings />} />
+                      <Route path="/manual" element={<UserManual />} />
                     </Routes>
                   </Layout>
                 </ProtectedRoute>
