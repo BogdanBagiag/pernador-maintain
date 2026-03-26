@@ -19,12 +19,7 @@ export default function ContractSign() {
   const [error, setError] = useState(null)
   const [submitting, setSubmitting] = useState(false)
   const [done, setDone] = useState(false)
-  const [signMode, setSignMode] = useState('draw') // 'draw' | 'upload'
-  const [uploadedSig, setUploadedSig] = useState(null)
-  const canvasRef = useRef(null)
-  const isDrawing = useRef(false)
-  const lastPos = useRef({ x: 0, y: 0 })
-  const fileInputRef = useRef(null)
+  const [signatureData, setSignatureData] = useState(null)
 
   // Fetch contract by token via Edge Function
   useEffect(() => {
@@ -49,25 +44,6 @@ export default function ContractSign() {
     }
     if (token) fetchContract()
   }, [token])
-
-  // Canvas setup
-  useEffect(() => {
-    if (step !== 2 || signMode !== 'draw') return
-    const canvas = canvasRef.current
-    if (!canvas) return
-    const ctx = canvas.getContext('2d')
-    const dpr = window.devicePixelRatio || 1
-    const rect = canvas.getBoundingClientRect()
-    canvas.width = rect.width * dpr
-    canvas.height = rect.height * dpr
-    ctx.scale(dpr, dpr)
-    ctx.strokeStyle = '#1e293b'
-    ctx.lineWidth = 2.5
-    ctx.lineCap = 'round'
-    ctx.lineJoin = 'round'
-    ctx.fillStyle = '#ffffff'
-    ctx.fillRect(0, 0, canvas.width, canvas.height)
-  }, [step, signMode])
 
   const getPos = (e, canvas) => {
     const rect = canvas.getBoundingClientRect()
