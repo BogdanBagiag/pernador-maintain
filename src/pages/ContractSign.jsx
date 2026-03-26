@@ -79,23 +79,35 @@ export default function ContractSign() {
       document.head.appendChild(script)
     })
 
+  // Inlocuieste diacriticele cu versiuni ASCII corecte (fara pierdere de litere)
+  const fixDiacritics = (t) => {
+    if (!t) return ''
+    return String(t)
+      .replace(/[\u0103\u0105]/g, 'a').replace(/[\u0102\u0104]/g, 'A')
+      .replace(/[\u00E2\u00E3]/g, 'a').replace(/[\u00C2\u00C3]/g, 'A')
+      .replace(/[\u0219\u015F\u015B]/g, 's').replace(/[\u0218\u015E\u015A]/g, 'S')
+      .replace(/[\u021B\u0163\u0165]/g, 't').replace(/[\u021A\u0162\u0164]/g, 'T')
+      .replace(/[\u00EE\u00EF]/g, 'i').replace(/[\u00CE\u00CF]/g, 'I')
+      .replace(/[\u00E9\u00E8\u00EA\u00EB]/g, 'e').replace(/[\u00C9\u00C8\u00CA\u00CB]/g, 'E')
+      .replace(/[\u00F3\u00F2\u00F4\u00F5]/g, 'o').replace(/[\u00D3\u00D2\u00D4\u00D5]/g, 'O')
+      .replace(/[\u00FA\u00F9\u00FB]/g, 'u').replace(/[\u00DA\u00D9\u00DB]/g, 'U')
+      .replace(/[\u201C\u201D\u201E\u201F]/g, '"')
+      .replace(/[\u2018\u2019]/g, "'")
+      .replace(/\u2013/g, '-').replace(/\u2014/g, '--')
+      .replace(/[^\x00-\x7E]/g, '?')
+  }
+
   const generatePDF = async (signatureData) => {
     const JsPDF = await loadJsPDF()
     const doc = new JsPDF({ format: 'a4', unit: 'mm' })
     const c = contract
     const pageW = 210
-    const margin = 20
-    const textW = pageW - margin * 2
-    let y = 20
+    const margin = 18
+    const textW = pageW - margin * 2  // 174mm - mai mult spatiu
+    let y = 18
 
     // Normalizare diacritice - NFD descompune orice diacritic Latin
-    const nl = (t) => {
-      if (!t) return ''
-      return String(t)
-        .normalize('NFD')
-        .replace(/[\u0300-\u036f]/g, '')
-        .replace(/[^\x00-\x7F]/g, '?')
-    }
+    const nl = fixDiacritics
 
     const checkNewPage = (needed = 15) => {
       if (y + needed > 280) { doc.addPage(); y = 20 }
@@ -199,7 +211,7 @@ export default function ContractSign() {
         const isRomanTitle = /^(I|II|III|IV|V|VI|VII|VIII|IX|X|XI|XII|XIII|XIV|XV|XVI|XVII|XVIII|XIX|XX|XXI|XXII)\./.test(line)
         const isNumTitle   = /^\d{1,2}\.\d?\s/.test(line)
 
-        let fSize = 9
+        let fSize = 8.5
         let bold  = false
         let color = [0, 0, 0]
         let align = 'left'
@@ -207,9 +219,9 @@ export default function ContractSign() {
         if (isAllCaps && !isRomanTitle && !isNumTitle) {
           fSize = 10; bold = true; color = [30, 64, 175]; align = 'center'
         } else if (isRomanTitle) {
-          fSize = 10; bold = true
+          fSize = 9.5; bold = true
         } else if (isNumTitle) {
-          fSize = 9; bold = false
+          fSize = 8.5; bold = false
         }
 
         doc.setFontSize(fSize)
