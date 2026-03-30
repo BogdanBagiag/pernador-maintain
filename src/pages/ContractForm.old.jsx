@@ -8,8 +8,7 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import {
   ArrowLeft, Save, Building2, CreditCard, FileText,
-  User, Search, Loader2, CheckCircle, AlertCircle, BookmarkCheck,
-  Package, Plus, Trash2
+  User, Search, Loader2, CheckCircle, AlertCircle, BookmarkCheck
 } from 'lucide-react'
 
 const schema = z.object({
@@ -75,19 +74,6 @@ export default function ContractForm() {
   const { user } = useAuth()
   const queryClient = useQueryClient()
   const isEditing = Boolean(id)
-
-  // Produse
-  const [products, setProducts] = useState([])
-
-  const addProduct = () => {
-    setProducts(prev => [...prev, { name: '', quantity: '1', unit: 'buc', price: '', vat: '21' }])
-  }
-  const removeProduct = (idx) => {
-    setProducts(prev => prev.filter((_, i) => i !== idx))
-  }
-  const updateProduct = (idx, field, value) => {
-    setProducts(prev => prev.map((p, i) => i === idx ? { ...p, [field]: value } : p))
-  }
 
   // ANAF state
   const [anafLoading, setAnafLoading] = useState(false)
@@ -176,10 +162,6 @@ export default function ContractForm() {
   useEffect(() => {
     if (existing) {
       reset({ ...existing, contract_date: existing.contract_date || today })
-      if (existing.products && Array.isArray(existing.products)) {
-        setProducts(existing.products)
-      }
-      setPaymentType(detectPaymentType(existing))
     }
   }, [existing, reset])
 
@@ -259,14 +241,13 @@ export default function ContractForm() {
 
   const mutation = useMutation({
     mutationFn: async (values) => {
-      const payload = { ...values, products, updated_at: new Date().toISOString() }
       if (isEditing) {
         const { error } = await supabase.from('contracts')
-          .update(payload).eq('id', id)
+          .update({ ...values, updated_at: new Date().toISOString() }).eq('id', id)
         if (error) throw error
       } else {
         const { data, error } = await supabase.from('contracts')
-          .insert({ ...payload, created_by: user.id }).select('id').single()
+          .insert({ ...values, created_by: user.id }).select('id').single()
         if (error) throw error
         return data
       }
@@ -277,65 +258,10 @@ export default function ContractForm() {
     },
   })
 
-  // ── Condiții plată ──
-  const detectPaymentType = (data) => {
-    const adv = Number(data?.advance_percent || 0)
-    const del = Number(data?.delivery_percent || 0)
-    if (adv > 0 && del > 0) return 'advance_delivery'
-    if (adv > 0) return 'advance_term'
-    return 'term'
-  }
-  const [paymentType, setPaymentType] = useState('term')
-
-  const DAYS_WORDS = {
-    7: 'șapte', 10: 'zece', 14: 'paisprezece', 15: 'cincisprezece',
-    21: 'douăzeci și una', 30: 'treizeci', 45: 'patruzeci și cinci',
-    60: 'șaizeci', 90: 'nouăzeci',
-  }
-  const toWords = (n) => DAYS_WORDS[Number(n)] || ''
-
-  const applyPaymentType = (type) => {
-    setPaymentType(type)
-    if (type === 'term') {
-      setValue('advance_percent', 0)
-      setValue('delivery_percent', 0)
-      setValue('invoice_term_percent', 100)
-    } else if (type === 'advance_delivery') {
-      const adv = Number(watch('advance_percent')) || 30
-      setValue('advance_percent', adv)
-      setValue('delivery_percent', 100 - adv)
-      setValue('invoice_term_percent', 0)
-      setValue('invoice_term_days', 0)
-      setValue('invoice_term_text', '')
-    } else if (type === 'advance_term') {
-      const adv = Number(watch('advance_percent')) || 30
-      setValue('advance_percent', adv)
-      setValue('delivery_percent', 0)
-      setValue('invoice_term_percent', 100 - adv)
-      if (!watch('invoice_term_days')) setValue('invoice_term_days', 30)
-      if (!watch('invoice_term_text')) setValue('invoice_term_text', 'treizeci')
-    }
-  }
-
   const adv = Number(watch('advance_percent') || 0)
   const del = Number(watch('delivery_percent') || 0)
   const inv = Number(watch('invoice_term_percent') || 0)
-  const invDays = Number(watch('invoice_term_days') || 0)
-  const ptDays = Number(watch('payment_term_days') || 0)
   const totalPercent = adv + del + inv
-
-  const paymentPreview = () => {
-    if (paymentType === 'term') {
-      return `Plata se va efectua integral în termen de ${ptDays} (${watch('payment_term_text') || toWords(ptDays) || '…'}) zile de la emiterea facturii.`
-    }
-    if (paymentType === 'advance_delivery') {
-      return `Plata se va efectua astfel: (i) ${adv}% avans la semnarea comenzii și (ii) ${del}% la livrarea produselor.`
-    }
-    if (paymentType === 'advance_term') {
-      return `Plata se va efectua astfel: (i) ${adv}% avans la semnarea comenzii și (iii) ${inv}% în termen de ${invDays} (${watch('invoice_term_text') || toWords(invDays) || '…'}) zile de la emiterea facturii.`
-    }
-    return ''
-  }
 
   if (isEditing && isLoading) {
     return (
@@ -540,319 +466,57 @@ export default function ContractForm() {
 
         {/* ── CONDIȚII PLATĂ ── */}
         <div className="bg-white rounded-xl border border-gray-200 p-6">
-          <SectionTitle icon={CreditCard} title="Condiții de Plată" subtitle="Selectează varianta de plată" />
+          <SectionTitle icon={CreditCard} title="Condiții de Plată" subtitle="Termene și modalități de plată" />
 
-          {/* Selector variante */}
-          <div className="grid grid-cols-1 gap-3 mb-6">
-
-            {/* Varianta 1: Plată integrală la termen */}
-            <label className={`relative flex items-start gap-4 p-4 rounded-xl border-2 cursor-pointer transition-colors ${
-              paymentType === 'term'
-                ? 'border-primary-500 bg-primary-50'
-                : 'border-gray-200 bg-white hover:border-gray-300'
-            }`}>
-              <input
-                type="radio"
-                name="payment_type"
-                className="mt-1 accent-primary-600"
-                checked={paymentType === 'term'}
-                onChange={() => applyPaymentType('term')}
-              />
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-gray-900">Plată integrală la termen</p>
-                <p className="text-xs text-gray-500 mt-0.5">Clientul achită 100% în termen de N zile de la facturare</p>
-                {paymentType === 'term' && (
-                  <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <Field label="Număr zile" error={errors.payment_term_days?.message}>
-                      <input
-                        type="number"
-                        {...register('payment_term_days', {
-                          onChange: (e) => {
-                            const w = toWords(e.target.value)
-                            if (w) setValue('payment_term_text', w)
-                          }
-                        })}
-                        min="1" placeholder="30"
-                        className={inputClass}
-                      />
-                    </Field>
-                    <Field label="În litere">
-                      <input {...register('payment_term_text')} placeholder="treizeci" className={inputClass} />
-                    </Field>
-                  </div>
-                )}
-              </div>
-            </label>
-
-            {/* Varianta 2: Avans + rest la livrare */}
-            <label className={`relative flex items-start gap-4 p-4 rounded-xl border-2 cursor-pointer transition-colors ${
-              paymentType === 'advance_delivery'
-                ? 'border-primary-500 bg-primary-50'
-                : 'border-gray-200 bg-white hover:border-gray-300'
-            }`}>
-              <input
-                type="radio"
-                name="payment_type"
-                className="mt-1 accent-primary-600"
-                checked={paymentType === 'advance_delivery'}
-                onChange={() => applyPaymentType('advance_delivery')}
-              />
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-gray-900">Avans + rest la livrare</p>
-                <p className="text-xs text-gray-500 mt-0.5">Un procent avans la semnare, restul la livrarea produselor</p>
-                {paymentType === 'advance_delivery' && (
-                  <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <Field label="Avans (%)">
-                      <input
-                        type="number"
-                        {...register('advance_percent', {
-                          onChange: (e) => {
-                            const a = Math.min(100, Math.max(0, Number(e.target.value) || 0))
-                            setValue('delivery_percent', 100 - a)
-                            setValue('invoice_term_percent', 0)
-                          }
-                        })}
-                        min="0" max="100" step="1" placeholder="30"
-                        className={inputClass}
-                      />
-                    </Field>
-                    <Field label="Rest la livrare (%)">
-                      <input
-                        type="number"
-                        {...register('delivery_percent')}
-                        readOnly
-                        className={`${inputClass} bg-gray-50 text-gray-500`}
-                      />
-                    </Field>
-                  </div>
-                )}
-              </div>
-            </label>
-
-            {/* Varianta 3: Avans + rest la termen */}
-            <label className={`relative flex items-start gap-4 p-4 rounded-xl border-2 cursor-pointer transition-colors ${
-              paymentType === 'advance_term'
-                ? 'border-primary-500 bg-primary-50'
-                : 'border-gray-200 bg-white hover:border-gray-300'
-            }`}>
-              <input
-                type="radio"
-                name="payment_type"
-                className="mt-1 accent-primary-600"
-                checked={paymentType === 'advance_term'}
-                onChange={() => applyPaymentType('advance_term')}
-              />
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-gray-900">Avans + rest la termen</p>
-                <p className="text-xs text-gray-500 mt-0.5">Un procent avans la semnare, restul în termen de N zile de la facturare</p>
-                {paymentType === 'advance_term' && (
-                  <div className="mt-3 space-y-3">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      <Field label="Avans (%)">
-                        <input
-                          type="number"
-                          {...register('advance_percent', {
-                            onChange: (e) => {
-                              const a = Math.min(100, Math.max(0, Number(e.target.value) || 0))
-                              setValue('invoice_term_percent', 100 - a)
-                              setValue('delivery_percent', 0)
-                            }
-                          })}
-                          min="0" max="100" step="1" placeholder="30"
-                          className={inputClass}
-                        />
-                      </Field>
-                      <Field label="Rest la termen (%)">
-                        <input
-                          type="number"
-                          {...register('invoice_term_percent')}
-                          readOnly
-                          className={`${inputClass} bg-gray-50 text-gray-500`}
-                        />
-                      </Field>
-                    </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      <Field label="Număr zile">
-                        <input
-                          type="number"
-                          {...register('invoice_term_days', {
-                            onChange: (e) => {
-                              const w = toWords(e.target.value)
-                              if (w) setValue('invoice_term_text', w)
-                            }
-                          })}
-                          min="1" placeholder="30"
-                          className={inputClass}
-                        />
-                      </Field>
-                      <Field label="În litere">
-                        <input {...register('invoice_term_text')} placeholder="treizeci" className={inputClass} />
-                      </Field>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </label>
+          <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-lg">
+            <p className="text-xs text-amber-700 font-medium mb-3">
+              7.2 — Termenul de plată pentru produsele facturate
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <Field label="Număr zile" error={errors.payment_term_days?.message}>
+                <input type="number" {...register('payment_term_days')} min="1" placeholder="30" className={inputClass} />
+              </Field>
+              <Field label="În litere">
+                <input {...register('payment_term_text')} placeholder="treizeci" className={inputClass} />
+              </Field>
+            </div>
           </div>
 
-          {/* Preview text contract */}
-          <div className="p-3 bg-gray-50 border border-gray-200 rounded-lg">
-            <p className="text-xs text-gray-400 font-medium mb-1 uppercase tracking-wide">Text în contract</p>
-            <p className="text-sm text-gray-700 italic">{paymentPreview()}</p>
+          <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+            <p className="text-xs text-blue-700 font-medium mb-3">
+              7.4 — Modalitățile de plată per comandă
+            </p>
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <Field label="(i) Avans (%)">
+                  <input type="number" {...register('advance_percent')} min="0" max="100" step="0.01" className={inputClass} />
+                </Field>
+                <Field label="(ii) Plată la livrare (%)">
+                  <input type="number" {...register('delivery_percent')} min="0" max="100" step="0.01" className={inputClass} />
+                </Field>
+              </div>
+              <p className="text-xs text-blue-600 font-medium">(iii) Plată în termen de:</p>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <Field label="Număr zile">
+                  <input type="number" {...register('invoice_term_days')} min="0" className={inputClass} />
+                </Field>
+                <Field label="În litere">
+                  <input {...register('invoice_term_text')} placeholder="treizeci" className={inputClass} />
+                </Field>
+                <Field label="Procent (%)">
+                  <input type="number" {...register('invoice_term_percent')} min="0" max="100" step="0.01" className={inputClass} />
+                </Field>
+              </div>
+            </div>
+            <div className={`mt-3 flex items-center gap-2 text-xs font-medium ${
+              totalPercent === 100 ? 'text-green-600' : totalPercent > 100 ? 'text-red-600' : 'text-amber-600'
+            }`}>
+              <div className={`w-2 h-2 rounded-full ${
+                totalPercent === 100 ? 'bg-green-500' : totalPercent > 100 ? 'bg-red-500' : 'bg-amber-500'
+              }`} />
+              Total: {totalPercent}% {totalPercent !== 100 && '(trebuie să fie 100%)'}
+            </div>
           </div>
-
-          {/* Validare total */}
-          {totalPercent !== 100 && totalPercent > 0 && (
-            <div className="mt-3 flex items-center gap-2 text-xs font-medium text-amber-600">
-              <div className="w-2 h-2 rounded-full bg-amber-500" />
-              Total procente: {totalPercent}% (trebuie să fie 100%)
-            </div>
-          )}
-        </div>
-
-        {/* ── PRODUSE ── */}
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
-          <SectionTitle
-            icon={Package}
-            title="Produse / Servicii"
-            subtitle="Opțional — folosiți shortcode-ul {{PRODUCTS_TABLE}} în șablon"
-            action={
-              <button
-                type="button"
-                onClick={addProduct}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-primary-600 rounded-lg hover:bg-primary-700"
-              >
-                <Plus className="w-3.5 h-3.5" />
-                Adaugă produs
-              </button>
-            }
-          />
-
-          {products.length === 0 ? (
-            <div className="text-center py-6 border-2 border-dashed border-gray-200 rounded-xl">
-              <Package className="w-8 h-8 text-gray-300 mx-auto mb-2" />
-              <p className="text-sm text-gray-400">Niciun produs adăugat</p>
-              <button
-                type="button"
-                onClick={addProduct}
-                className="mt-2 text-xs text-primary-600 hover:underline"
-              >
-                + Adaugă primul produs
-              </button>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {/* Table */}
-              <div className="border border-gray-200 rounded-xl overflow-hidden">
-                <table className="w-full text-sm">
-                  <thead className="bg-gray-50 border-b border-gray-200">
-                    <tr>
-                      <th className="text-left text-xs font-semibold text-gray-500 px-3 py-2 uppercase tracking-wide">Denumire</th>
-                      <th className="text-center text-xs font-semibold text-gray-500 px-2 py-2 uppercase tracking-wide w-20">Cant.</th>
-                      <th className="text-center text-xs font-semibold text-gray-500 px-2 py-2 uppercase tracking-wide w-20">U.M.</th>
-                      <th className="text-right text-xs font-semibold text-gray-500 px-2 py-2 uppercase tracking-wide w-28">Preț fără TVA</th>
-                      <th className="text-center text-xs font-semibold text-gray-500 px-2 py-2 uppercase tracking-wide w-20">TVA</th>
-                      <th className="text-right text-xs font-semibold text-gray-500 px-3 py-2 uppercase tracking-wide w-28">Total+TVA</th>
-                      <th className="w-8"></th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-100">
-                    {products.map((p, idx) => {
-                      const sub = (Number(p.quantity) || 0) * (Number(p.price) || 0)
-                      const totalTva = sub * (1 + (Number(p.vat) || 0) / 100)
-                      return (
-                        <tr key={idx} className="hover:bg-gray-50">
-                          <td className="px-3 py-2">
-                            <input
-                              type="text"
-                              value={p.name}
-                              onChange={e => updateProduct(idx, 'name', e.target.value)}
-                              placeholder="Denumire produs sau serviciu"
-                              className="w-full px-2 py-1 border border-gray-200 rounded text-sm focus:ring-1 focus:ring-primary-500 focus:border-primary-500"
-                            />
-                          </td>
-                          <td className="px-2 py-2">
-                            <input
-                              type="number"
-                              value={p.quantity}
-                              onChange={e => updateProduct(idx, 'quantity', e.target.value)}
-                              min="0" step="0.01"
-                              className="w-full px-2 py-1 border border-gray-200 rounded text-sm text-center focus:ring-1 focus:ring-primary-500"
-                            />
-                          </td>
-                          <td className="px-2 py-2">
-                            <select
-                              value={p.unit}
-                              onChange={e => updateProduct(idx, 'unit', e.target.value)}
-                              className="w-full px-1 py-1 border border-gray-200 rounded text-sm focus:ring-1 focus:ring-primary-500"
-                            >
-                              {['buc', 'kg', 'm', 'm²', 'm³', 'l', 'h', 'set', 'pachet', 'pereche'].map(u => (
-                                <option key={u} value={u}>{u}</option>
-                              ))}
-                            </select>
-                          </td>
-                          <td className="px-2 py-2">
-                            <input
-                              type="number"
-                              value={p.price}
-                              onChange={e => updateProduct(idx, 'price', e.target.value)}
-                              placeholder="0.00"
-                              min="0" step="0.01"
-                              className="w-full px-2 py-1 border border-gray-200 rounded text-sm text-right focus:ring-1 focus:ring-primary-500"
-                            />
-                          </td>
-                          <td className="px-2 py-2">
-                            <select
-                              value={p.vat}
-                              onChange={e => updateProduct(idx, 'vat', e.target.value)}
-                              className="w-full px-1 py-1 border border-gray-200 rounded text-sm text-center focus:ring-1 focus:ring-primary-500"
-                            >
-                              {['0', '5', '9', '19', '21'].map(v => (
-                                <option key={v} value={v}>{v}%</option>
-                              ))}
-                            </select>
-                          </td>
-                          <td className="px-3 py-2 text-right font-medium text-gray-700 tabular-nums">
-                            {sub > 0 ? `${totalTva.toFixed(2)}` : <span className="text-gray-300">—</span>}
-                          </td>
-                          <td className="px-2 py-2">
-                            <button
-                              type="button"
-                              onClick={() => removeProduct(idx)}
-                              className="p-1 text-red-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          </td>
-                        </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
-              </div>
-
-              {/* Total general */}
-              <div className="flex justify-end pt-2 border-t border-gray-200">
-                <div className="text-sm">
-                  <span className="text-gray-500 mr-3">Total fără TVA:</span>
-                  <span className="font-semibold">
-                    {products.reduce((s, p) => s + (Number(p.quantity)||0)*(Number(p.price)||0), 0).toFixed(2)} RON
-                  </span>
-                </div>
-              </div>
-              <div className="flex justify-end">
-                <div className="text-sm">
-                  <span className="text-gray-500 mr-3">Total cu TVA:</span>
-                  <span className="font-bold text-primary-700">
-                    {products.reduce((s, p) => {
-                      const sub = (Number(p.quantity)||0)*(Number(p.price)||0)
-                      return s + sub * (1 + (Number(p.vat)||0)/100)
-                    }, 0).toFixed(2)} RON
-                  </span>
-                </div>
-              </div>
-            </div>
-          )}
         </div>
 
         {/* ── NOTE ── */}

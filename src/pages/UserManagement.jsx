@@ -20,6 +20,7 @@ import {
 } from 'lucide-react'
 import LoadingSpinner from '../components/LoadingSpinner'
 import UserActivityModal from '../components/UserActivityModal'
+import UserPermissionsEditor from '../components/UserPermissionsEditor'
 
 export default function UserManagement() {
   const { user, profile } = useAuth()
@@ -31,6 +32,7 @@ export default function UserManagement() {
   const [showPendingUsers, setShowPendingUsers] = useState(false)
   const [resetPasswordUser, setResetPasswordUser] = useState(null)
   const [viewingUser, setViewingUser] = useState(null)
+  const [permissionsUser, setPermissionsUser] = useState(null)
 
   // Fetch active users
   const { data: users, isLoading } = useQuery({
@@ -42,10 +44,8 @@ export default function UserManagement() {
         .order('created_at', { ascending: false })
       
       if (showPendingUsers) {
-        // Show only pending approval users
         query = query.eq('is_approved', false).eq('is_active', true)
       } else {
-        // Show active/deleted users
         query = query.eq('is_active', !showDeletedUsers)
       }
       
@@ -56,109 +56,55 @@ export default function UserManagement() {
     enabled: profile?.role === 'admin'
   })
 
-  // Update user role mutation
-  const updateRoleMutation = useMutation({
-    mutationFn: async ({ userId, newRole }) => {
-      const { error } = await supabase
-        .from('profiles')
-        .update({ role: newRole })
-        .eq('id', userId)
-      if (error) throw error
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['users'] })
-      setEditingUser(null)
-    },
-  })
+  // Helper comun — apeleaza manage-user Edge Function cu service_role
+  const callManageUser = async (action, targetUserId, extra = {}) => {
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session?.access_token) throw new Error('Nu esti autentificat')
 
-  // Delete user mutation - marks as inactive
-  const deleteUserMutation = useMutation({
-    mutationFn: async (userId) => {
-      console.log('Attempting to delete user:', userId)
-      const { data, error } = await supabase
-        .from('profiles')
-        .update({ is_active: false })
-        .eq('id', userId)
-        .select()
-      
-      if (error) {
-        console.error('Delete error:', error)
-        throw error
+    const res = await fetch(
+      `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/manage-user`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+        },
+        body: JSON.stringify({ userToken: session.access_token, action, targetUserId, ...extra }),
       }
-      
-      console.log('Delete successful:', data)
-      return data
-    },
-    onSuccess: () => {
-      console.log('Delete mutation onSuccess triggered')
-      queryClient.invalidateQueries({ queryKey: ['users'] })
-    },
-    onError: (error) => {
-      console.error('Delete mutation onError:', error)
-      alert('Failed to delete user: ' + error.message)
-    }
+    )
+    const result = await res.json()
+    if (!res.ok) throw new Error(result?.error || `Eroare ${res.status}`)
+    return result
+  }
+
+  const updateRoleMutation = useMutation({
+    mutationFn: ({ userId, newRole }) => callManageUser('update_role', userId, { newRole }),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['users'] }); setEditingUser(null) },
+    onError: (error) => alert('Eroare la schimbarea rolului: ' + error.message),
   })
 
-  // Reactivate user mutation
+  const deleteUserMutation = useMutation({
+    mutationFn: (userId) => callManageUser('delete', userId),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['users'] }),
+    onError: (error) => alert('Eroare la stergerea utilizatorului: ' + error.message),
+  })
+
   const reactivateMutation = useMutation({
-    mutationFn: async (userId) => {
-      const { data, error } = await supabase
-        .from('profiles')
-        .update({ is_active: true })
-        .eq('id', userId)
-        .select()
-      
-      if (error) throw error
-      return data
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['users'] })
-    },
-    onError: (error) => {
-      alert('Failed to reactivate user: ' + error.message)
-    }
+    mutationFn: (userId) => callManageUser('reactivate', userId),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['users'] }),
+    onError: (error) => alert('Eroare la reactivarea utilizatorului: ' + error.message),
   })
 
-  // Approve user mutation
   const approveUserMutation = useMutation({
-    mutationFn: async (userId) => {
-      const { data, error } = await supabase
-        .from('profiles')
-        .update({ is_approved: true })
-        .eq('id', userId)
-        .select()
-      
-      if (error) throw error
-      return data
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['users'] })
-    },
-    onError: (error) => {
-      console.error('Approve user error:', error)
-      alert('Eroare la aprobarea utilizatorului: ' + error.message)
-    }
+    mutationFn: (userId) => callManageUser('approve', userId),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['users'] }),
+    onError: (error) => alert('Eroare la aprobarea utilizatorului: ' + error.message),
   })
 
-  // Reject user mutation (delete account)
   const rejectUserMutation = useMutation({
-    mutationFn: async (userId) => {
-      const { data, error } = await supabase
-        .from('profiles')
-        .update({ is_active: false })
-        .eq('id', userId)
-        .select()
-      
-      if (error) throw error
-      return data
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['users'] })
-    },
-    onError: (error) => {
-      console.error('Reject user error:', error)
-      alert('Eroare la respingerea utilizatorului: ' + error.message)
-    }
+    mutationFn: (userId) => callManageUser('reject', userId),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['users'] }),
+    onError: (error) => alert('Eroare la respingerea utilizatorului: ' + error.message),
   })
 
   const handleRoleChange = (userId, newRole) => {
@@ -471,7 +417,7 @@ export default function UserManagement() {
                         </button>
                       </div>
                     ) : (
-                      // Active users - show View Activity, Edit, Reset Password and Delete
+                      // Active users - show View Activity, Permissions, Edit, Reset Password and Delete
                       <div className="flex items-center justify-end gap-2">
                         <button
                           onClick={() => setViewingUser(userData)}
@@ -479,6 +425,14 @@ export default function UserManagement() {
                           title="View user activity"
                         >
                           <Eye className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => setPermissionsUser(userData)}
+                          disabled={userData.role === 'admin'}
+                          className="p-2 text-purple-600 hover:bg-purple-50 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                          title="Permisiuni acces"
+                        >
+                          <Shield className="w-4 h-4" />
                         </button>
                         <button
                           onClick={() => setEditingUser(userData.id)}
@@ -531,6 +485,14 @@ export default function UserManagement() {
         <UserActivityModal
           userData={viewingUser}
           onClose={() => setViewingUser(null)}
+        />
+      )}
+
+      {/* User Permissions Modal */}
+      {permissionsUser && (
+        <UserPermissionsEditor
+          targetUser={permissionsUser}
+          onClose={() => setPermissionsUser(null)}
         />
       )}
     </div>
@@ -744,22 +706,42 @@ function InviteUserModal({ onClose }) {
 
   const inviteMutation = useMutation({
     mutationFn: async (data) => {
-      // Use signup instead of admin API
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email: data.email,
-        password: data.password,
-        options: {
-          data: {
-            invited_by: user.id,
-            role: data.role,
-            full_name: data.full_name
-          }
-        }
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session?.access_token) throw new Error('Nu esti autentificat. Te rog reconecteaza-te.')
+
+      const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/create-user`
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          // Folosim anon key pentru gateway (ca si celelalte functii)
+          // User token-ul il trimitem in body pentru verificare interna
+          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+        },
+        body: JSON.stringify({
+          userToken: session.access_token,
+          email: data.email,
+          password: data.password,
+          full_name: data.full_name,
+          role: data.role,
+        }),
       })
 
-      if (authError) throw authError
+      // Citim body-ul indiferent de status
+      const text = await res.text()
+      let result
+      try {
+        result = JSON.parse(text)
+      } catch (_) {
+        throw new Error(`Raspuns invalid de la server (${res.status}): ${text.substring(0, 200)}`)
+      }
 
-      return { authData, password: data.password }
+      if (!res.ok) {
+        // Supabase gateway returneaza { message } iar codul nostru returneaza { error }
+        throw new Error(result?.error || result?.message || `Eroare HTTP ${res.status}: ${JSON.stringify(result)}`)
+      }
+
+      return { ...result, password: data.password }
     },
     onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ['users'] })

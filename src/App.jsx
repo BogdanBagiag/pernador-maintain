@@ -2,6 +2,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
 import { LanguageProvider } from './contexts/LanguageContext'
+import { PermissionsProvider } from './contexts/PermissionsContext'
 
 // Pages
 import LandingPage from './pages/LandingPage'
@@ -27,6 +28,11 @@ import PublicLocationWrapper from './pages/PublicLocationWrapper'
 import PublicScanWrapper from './pages/PublicScanWrapper'
 import ScanPage from './pages/ScanPage'
 import ReportIssue from './pages/ReportIssue'
+
+// Vehicles
+import VehicleList from './pages/VehicleList'
+import VehicleDetail from './pages/VehicleDetail'
+import VehicleForm from './pages/VehicleForm'
 
 // Contracts
 import ContractsList from './pages/ContractsList'
@@ -83,6 +89,7 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <LanguageProvider>
+          <PermissionsProvider>
           <Router>
           <Routes>
             {/* Public Routes */}
@@ -146,6 +153,12 @@ function App() {
                       <Route path="/locations/new" element={<LocationForm />} />
                       <Route path="/locations/:id/edit" element={<LocationForm />} />
                       
+                      {/* Vehicle Routes */}
+                      <Route path="/vehicles" element={<VehicleList />} />
+                      <Route path="/vehicles/new" element={<VehicleForm />} />
+                      <Route path="/vehicles/:id" element={<VehicleDetail />} />
+                      <Route path="/vehicles/:id/edit" element={<VehicleForm />} />
+
                       {/* Contract Routes */}
                       <Route path="/contracte" element={<ContractsList />} />
                       <Route path="/contracte/nou" element={<ContractForm />} />
@@ -166,6 +179,7 @@ function App() {
             />
           </Routes>
         </Router>
+          </PermissionsProvider>
       </LanguageProvider>
       </AuthProvider>
     </QueryClientProvider>

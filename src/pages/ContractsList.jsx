@@ -5,7 +5,7 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import {
   Plus, FileText, Search, Filter, Eye, Edit2, Trash2,
-  Send, CheckCircle, Clock, XCircle, AlertCircle, ChevronDown, Settings2
+  Send, CheckCircle, Clock, XCircle, AlertCircle, ChevronDown, Settings2, Ban, Archive, RotateCcw
 } from 'lucide-react'
 import { format } from 'date-fns'
 import { ro } from 'date-fns/locale'
@@ -26,6 +26,8 @@ export default function ContractsList() {
   const [statusFilter, setStatusFilter] = useState('all')
   const [deleteConfirm, setDeleteConfirm] = useState(null)
   const [activeTab, setActiveTab] = useState('list') // 'list' | 'template'
+  const [showDeleted, setShowDeleted] = useState(false)
+  const [cancelConfirm, setCancelConfirm] = useState(null)
   const isAdmin = profile?.role === 'admin'
   const canEdit = profile?.role === 'admin' || profile?.role === 'technician'
 
@@ -35,7 +37,21 @@ export default function ContractsList() {
       const { data, error } = await supabase
         .from('contracts')
         .select('*, creator:created_by(full_name)')
+        .eq('is_deleted', false)
         .order('created_at', { ascending: false })
+      if (error) throw error
+      return data
+    },
+  })
+
+  const { data: deletedContracts = [] } = useQuery({
+    queryKey: ['contracts-deleted'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('contracts')
+        .select('*, creator:created_by(full_name)')
+        .eq('is_deleted', true)
+        .order('deleted_at', { ascending: false })
       if (error) throw error
       return data
     },
@@ -43,12 +59,75 @@ export default function ContractsList() {
 
   const deleteMutation = useMutation({
     mutationFn: async (id) => {
-      const { error } = await supabase.from('contracts').delete().eq('id', id)
+      const { error } = await supabase.from('contracts')
+        .update({ is_deleted: true, deleted_at: new Date().toISOString() })
+        .eq('id', id)
       if (error) throw error
     },
     onSuccess: () => {
       queryClient.invalidateQueries(['contracts'])
+      queryClient.invalidateQueries(['contracts-deleted'])
       setDeleteConfirm(null)
+    },
+  })
+
+  const cancelMutation = useMutation({
+    mutationFn: async (id) => {
+      const { error } = await supabase.from('contracts')
+        .update({ status: 'cancelled' })
+        .eq('id', id)
+      if (error) throw error
+      // Trimite email notificare anulare (fire-and-forget)
+      const { data: { session } } = await supabase.auth.getSession()
+      if (session) {
+        fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-contract-notification`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
+            'Authorization': `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({ contractId: id, type: 'cancelled' }),
+        }).catch(e => console.warn('Email notificare anulare failed:', e))
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries(['contracts'])
+      setCancelConfirm(null)
+    },
+  })
+
+  const restoreMutation = useMutation({
+    mutationFn: async (id) => {
+      // Fetch current contract to determine previous status
+      const { data: current } = await supabase.from('contracts')
+        .select('status, is_deleted, signed_at').eq('id', id).single()
+      const updatePayload = { is_deleted: false, deleted_at: null }
+      if (current?.status === 'cancelled') {
+        // Dacă a fost semnat anterior, restaurăm la 'signed', altfel la 'draft'
+        updatePayload.status = current?.signed_at ? 'signed' : 'draft'
+      }
+      const { error } = await supabase.from('contracts')
+        .update(updatePayload)
+        .eq('id', id)
+      if (error) throw error
+      // Trimite email notificare restaurare (fire-and-forget)
+      const { data: { session } } = await supabase.auth.getSession()
+      if (session) {
+        fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-contract-notification`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
+            'Authorization': `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({ contractId: id, type: 'restored' }),
+        }).catch(e => console.warn('Email notificare restaurare failed:', e))
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries(['contracts'])
+      queryClient.invalidateQueries(['contracts-deleted'])
     },
   })
 
@@ -87,9 +166,7 @@ export default function ContractsList() {
         <button
           onClick={() => setActiveTab('list')}
           className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
-            activeTab === 'list'
-              ? 'bg-white text-gray-900 shadow-sm'
-              : 'text-gray-500 hover:text-gray-700'
+            activeTab === 'list' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
           }`}
         >
           <FileText className="w-4 h-4" />
@@ -99,9 +176,7 @@ export default function ContractsList() {
           <button
             onClick={() => setActiveTab('template')}
             className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
-              activeTab === 'template'
-                ? 'bg-white text-gray-900 shadow-sm'
-                : 'text-gray-500 hover:text-gray-700'
+              activeTab === 'template' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
             }`}
           >
             <Settings2 className="w-4 h-4" />
@@ -112,6 +187,76 @@ export default function ContractsList() {
 
       {/* Template Editor */}
       {activeTab === 'template' && <ContractTemplateEditor />}
+
+      {/* Deleted contracts tab */}
+      {showDeleted && activeTab === 'list' && (
+        <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+          {deletedContracts.length === 0 ? (
+            <div className="text-center py-12">
+              <Archive className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+              <p className="text-gray-500 font-medium">Niciun contract șters</p>
+            </div>
+          ) : (
+            <table className="w-full">
+              <thead>
+                <tr className="bg-gray-50 border-b border-gray-200">
+                  <th className="text-left text-xs font-semibold text-gray-500 uppercase tracking-wider px-4 py-3">Nr. Contract</th>
+                  <th className="text-left text-xs font-semibold text-gray-500 uppercase tracking-wider px-4 py-3">Cumpărător</th>
+                  <th className="text-left text-xs font-semibold text-gray-500 uppercase tracking-wider px-4 py-3">Status anterior</th>
+                  <th className="text-left text-xs font-semibold text-gray-500 uppercase tracking-wider px-4 py-3">Șters la</th>
+                  <th className="text-right text-xs font-semibold text-gray-500 uppercase tracking-wider px-4 py-3">Acțiuni</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {deletedContracts.map(contract => {
+                  const cfg = STATUS_CONFIG[contract.status]
+                  return (
+                    <tr key={contract.id} className="hover:bg-gray-50 opacity-75">
+                      <td className="px-4 py-3">
+                        <span className="font-mono text-sm font-medium text-gray-500 line-through">{contract.contract_number}</span>
+                      </td>
+                      <td className="px-4 py-3">
+                        <p className="text-sm text-gray-600">{contract.buyer_name}</p>
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${cfg?.color || 'bg-gray-100 text-gray-600'}`}>
+                          {cfg?.label || contract.status}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-400">
+                        {contract.deleted_at
+                          ? format(new Date(contract.deleted_at), 'dd MMM yyyy', { locale: ro })
+                          : '—'}
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center justify-end gap-1">
+                          <Link
+                            to={`/contracte/${contract.id}`}
+                            className="p-1.5 text-gray-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"
+                            title="Vizualizează"
+                          >
+                            <Eye className="w-4 h-4" />
+                          </Link>
+                          {isAdmin && (
+                            <button
+                              onClick={() => restoreMutation.mutate(contract.id)}
+                              disabled={restoreMutation.isPending}
+                              className="p-1.5 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors"
+                              title="Restaurează"
+                            >
+                              <RotateCcw className="w-4 h-4" />
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          )}
+        </div>
+      )}
 
       {/* List content — shown only on list tab */}
       {activeTab === 'list' && <>
@@ -141,7 +286,7 @@ export default function ContractsList() {
       </div>
 
       {/* Stats rapide */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
         {Object.entries(STATUS_CONFIG).map(([key, cfg]) => {
           const count = contracts.filter(c => c.status === key).length
           const Icon = cfg.icon
@@ -161,6 +306,19 @@ export default function ContractsList() {
             </button>
           )
         })}
+        {/* Card Șterse */}
+        <button
+          onClick={() => setShowDeleted(v => !v)}
+          className={`p-3 rounded-xl border-2 transition-all text-left ${
+            showDeleted ? 'border-primary-500 bg-primary-50' : 'border-gray-200 bg-white hover:border-gray-300'
+          }`}
+        >
+          <div className="flex items-center justify-between">
+            <span className="text-2xl font-bold text-gray-900">{deletedContracts.length}</span>
+            <Archive className="w-5 h-5 text-gray-400" />
+          </div>
+          <p className="text-xs text-gray-500 mt-1">Șterse</p>
+        </button>
       </div>
 
       {/* Tabel / Liste */}
@@ -240,11 +398,30 @@ export default function ContractsList() {
                               <Edit2 className="w-4 h-4" />
                             </Link>
                           )}
+                          {canEdit && contract.status !== 'cancelled' && (
+                            <button
+                              onClick={() => setCancelConfirm(contract)}
+                              className="p-1.5 text-gray-400 hover:text-orange-600 hover:bg-orange-50 rounded-lg transition-colors"
+                              title="Anulează"
+                            >
+                              <Ban className="w-4 h-4" />
+                            </button>
+                          )}
+                          {contract.status === 'cancelled' && (
+                            <button
+                              onClick={() => restoreMutation.mutate(contract.id)}
+                              disabled={restoreMutation.isPending}
+                              className="p-1.5 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors"
+                              title="Restaurează (reactivează)"
+                            >
+                              <RotateCcw className="w-4 h-4" />
+                            </button>
+                          )}
                           {isAdmin && (
                             <button
                               onClick={() => setDeleteConfirm(contract)}
                               className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                              title="Șterge"
+                              title="Șterge (mută în arhivă)"
                             >
                               <Trash2 className="w-4 h-4" />
                             </button>
@@ -300,6 +477,39 @@ export default function ContractsList() {
 
       </>
       }
+
+      {/* Modal confirmare anulare */}
+      {cancelConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
+          <div className="bg-white rounded-xl shadow-xl max-w-sm w-full p-6">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-2 bg-orange-100 rounded-full">
+                <Ban className="w-5 h-5 text-orange-600" />
+              </div>
+              <h3 className="text-lg font-semibold text-gray-900">Anulează contractul</h3>
+            </div>
+            <p className="text-sm text-gray-600 mb-6">
+              Ești sigur că vrei să anulezi contractul <strong>{cancelConfirm.contract_number}</strong> cu{' '}
+              <strong>{cancelConfirm.buyer_name}</strong>? Statusul va fi schimbat în <strong>Anulat</strong>.
+            </p>
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={() => setCancelConfirm(null)}
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200"
+              >
+                Nu
+              </button>
+              <button
+                onClick={() => cancelMutation.mutate(cancelConfirm.id)}
+                disabled={cancelMutation.isPending}
+                className="px-4 py-2 text-sm font-medium text-white bg-orange-600 rounded-lg hover:bg-orange-700 disabled:opacity-50"
+              >
+                {cancelMutation.isPending ? 'Se anulează...' : 'Anulează contractul'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Modal confirmare ștergere */}
       {deleteConfirm && (

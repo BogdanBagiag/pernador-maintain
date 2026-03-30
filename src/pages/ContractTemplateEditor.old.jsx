@@ -71,9 +71,6 @@ const SHORTCODE_GROUPS = [
     color: 'gray',
     codes: [
       { code: '{{NOTES}}', label: 'Observații / Clauze speciale' },
-      { code: '{{PRODUCTS_TABLE}}', label: 'Tabel produse/servicii' },
-      { code: '{{SIGNATURE_SELLER}}', label: 'Semnătură Vânzător' },
-      { code: '{{SIGNATURE_BUYER}}', label: 'Semnătură Cumpărător' },
     ],
   },
 ]
@@ -127,18 +124,6 @@ export function applyTemplate(templateHtml, contract) {
     '{{NOTES}}':                      contract.notes || '',
     '{{SIGNATURE_SELLER}}':           '[Semnătură Vânzător]',
     '{{SIGNATURE_BUYER}}':            '[Semnătură Cumpărător]',
-    '{{PRODUCTS_TABLE}}':             (() => {
-      const prods = Array.isArray(contract.products) ? contract.products.filter(p => p && p.name) : []
-      if (!prods.length) return ''
-      const trs = prods.map((p, i) => {
-        const sub = (Number(p.quantity)||0)*(Number(p.price)||0)
-        const tot = sub*(1+(Number(p.vat)||0)/100)
-        return `<tr><td style="border:1px solid #ddd;padding:3px 6px;text-align:center">${i+1}</td><td style="border:1px solid #ddd;padding:3px 6px">${p.name}</td><td style="border:1px solid #ddd;padding:3px 6px;text-align:center">${p.quantity} ${p.unit}</td><td style="border:1px solid #ddd;padding:3px 6px;text-align:right">${Number(p.price||0).toFixed(2)}</td><td style="border:1px solid #ddd;padding:3px 6px;text-align:center">${p.vat}%</td><td style="border:1px solid #ddd;padding:3px 6px;text-align:right;font-weight:bold">${tot.toFixed(2)}</td></tr>`
-      }).join('')
-      const totalFara = prods.reduce((s,p)=>s+(Number(p.quantity)||0)*(Number(p.price)||0),0)
-      const totalCu = prods.reduce((s,p)=>{const sub=(Number(p.quantity)||0)*(Number(p.price)||0);return s+sub*(1+(Number(p.vat)||0)/100)},0)
-      return `<table style="width:100%;border-collapse:collapse;font-size:10.5px;margin:8px 0"><thead><tr style="background:#f3f4f6"><td style="border:1px solid #ddd;padding:4px 6px;text-align:center;font-weight:bold">Nr.</td><td style="border:1px solid #ddd;padding:4px 6px;font-weight:bold">Denumire</td><td style="border:1px solid #ddd;padding:4px 6px;text-align:center;font-weight:bold">Cant.</td><td style="border:1px solid #ddd;padding:4px 6px;text-align:right;font-weight:bold">Pret fara TVA</td><td style="border:1px solid #ddd;padding:4px 6px;text-align:center;font-weight:bold">TVA</td><td style="border:1px solid #ddd;padding:4px 6px;text-align:right;font-weight:bold">Total</td></tr></thead><tbody>${trs}</tbody><tfoot><tr><td colspan="5" style="border:1px solid #ddd;padding:4px 6px;text-align:right;background:#fafafa">Total fara TVA:</td><td style="border:1px solid #ddd;padding:4px 6px;text-align:right;font-weight:bold;background:#fafafa">${totalFara.toFixed(2)} RON</td></tr><tr><td colspan="5" style="border:1px solid #ddd;padding:4px 6px;text-align:right;background:#eff6ff;font-weight:bold">Total cu TVA:</td><td style="border:1px solid #ddd;padding:4px 6px;text-align:right;font-weight:bold;color:#1e40af;background:#eff6ff">${totalCu.toFixed(2)} RON</td></tr></tfoot></table>`
-    })(),
   }
   let result = templateHtml
   for (const [key, val] of Object.entries(map)) {

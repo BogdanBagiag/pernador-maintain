@@ -2,8 +2,7 @@ import { useState } from 'react'
 import { useLanguage } from '../contexts/LanguageContext'
 import { useAuth } from '../contexts/AuthContext'
 import { supabase } from '../lib/supabase'
-import { Globe, Lock, User, Check, AlertCircle, Bell, PenLine } from 'lucide-react'
-import SignaturePad from '../components/SignaturePad'
+import { Globe, Lock, User, Check, AlertCircle, Bell } from 'lucide-react'
 import LoadingSpinner from '../components/LoadingSpinner'
 import PushNotificationToggle from '../components/PushNotificationToggle'
 import TestNotificationButton from '../components/TestNotificationButton'
@@ -115,7 +114,7 @@ export default function Settings() {
                 }`}
               >
                 <div className="flex items-center justify-center">
-                  <span className="text-2xl mr-3">ðŸ‡¬ðŸ‡§</span>
+                  <span className="text-2xl mr-3">🇬🇧</span>
                   <div className="text-left">
                     <p className={`font-semibold ${language === 'en' ? 'text-blue-900' : 'text-gray-900'}`}>
                       {t('settings.english')}
@@ -134,12 +133,12 @@ export default function Settings() {
                 }`}
               >
                 <div className="flex items-center justify-center">
-                  <span className="text-2xl mr-3">ðŸ‡·ðŸ‡´</span>
+                  <span className="text-2xl mr-3">🇷🇴</span>
                   <div className="text-left">
                     <p className={`font-semibold ${language === 'ro' ? 'text-blue-900' : 'text-gray-900'}`}>
                       {t('settings.romanian')}
                     </p>
-                    <p className="text-sm text-gray-600">RomÃ¢nÄƒ</p>
+                    <p className="text-sm text-gray-600">Română</p>
                   </div>
                 </div>
               </button>
@@ -151,25 +150,25 @@ export default function Settings() {
         <div className="card">
           <h2 className="text-xl font-semibold text-gray-900 mb-6 flex items-center">
             <Bell className="w-6 h-6 mr-2" />
-            NotificÄƒri Push
+            Notificări Push
           </h2>
           
           <div className="space-y-4">
             <p className="text-sm text-gray-600 mb-4">
-              PrimeÈ™te notificÄƒri instant pentru work orders noi, statusuri actualizate È™i comentarii.
+              Primește notificări instant pentru work orders noi, statusuri actualizate și comentarii.
             </p>
             
             <PushNotificationToggle />
             
             <div className="mt-4 pt-4 border-t border-gray-200">
-              <p className="text-sm font-medium text-gray-700 mb-3">TesteazÄƒ NotificÄƒrile:</p>
+              <p className="text-sm font-medium text-gray-700 mb-3">Testează Notificările:</p>
               <TestNotificationButton />
             </div>
             
             <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
               <p className="text-xs text-blue-800">
-                ðŸ’¡ <strong>Info:</strong> NotificÄƒrile funcÈ›ioneazÄƒ pe desktop È™i mobil. 
-                Trebuie sÄƒ permiÈ›i notificÄƒrile Ã®n browser-ul tÄƒu.
+                 <strong>Info:</strong> Notificările funcționează pe desktop și mobil. 
+                Trebuie să permiți notificările în browser-ul tău.
               </p>
             </div>
           </div>
@@ -305,24 +304,6 @@ export default function Settings() {
             </button>
           </form>
         </div>
-      </div>
-
-      {/* Semnătură */}
-      <div className="bg-white rounded-xl border border-gray-200 p-6">
-        <div className="flex items-center gap-3 mb-6">
-          <div className="p-2 bg-primary-50 rounded-lg">
-            <PenLine className="w-5 h-5 text-primary-600" />
-          </div>
-          <div>
-            <h2 className="text-lg font-semibold text-gray-900">Semnătura mea</h2>
-            <p className="text-sm text-gray-500">Salvată în contul tău, accesibilă doar de tine</p>
-          </div>
-        </div>
-        <SignaturePad
-          onSignature={() => {}}
-          showSaveOption={true}
-          height={180}
-        />
       </div>
     </div>
   )

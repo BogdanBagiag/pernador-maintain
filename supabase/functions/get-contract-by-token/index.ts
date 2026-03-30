@@ -34,7 +34,7 @@ serve(async (req: Request) => {
       .from('contracts')
       .select(`
         id, contract_number, contract_date, status,
-        seller_name, seller_address, seller_j_code, seller_cui,
+        seller_name, seller_address, seller_county, seller_j_code, seller_cui,
         seller_representative, seller_representative_role,
         buyer_name, buyer_address, buyer_county, buyer_j_code,
         buyer_cui, buyer_representative, buyer_representative_role,
@@ -42,7 +42,7 @@ serve(async (req: Request) => {
         payment_term_days, payment_term_text,
         advance_percent, delivery_percent,
         invoice_term_days, invoice_term_text, invoice_term_percent,
-        notes, sign_token, signed_at, created_by
+        notes, products, sign_token, signed_at, created_by
       `)
       .eq('sign_token', token)
       .single()

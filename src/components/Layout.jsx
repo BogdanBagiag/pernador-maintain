@@ -1,6 +1,7 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { useLanguage } from '../contexts/LanguageContext'
+import { usePermissions } from '../contexts/PermissionsContext'
 import {
   LayoutDashboard,
   Wrench,
@@ -17,6 +18,7 @@ import {
   FileText,
   Users,
   ScrollText,
+  Car,
 } from 'lucide-react'
 import { useState } from 'react'
 
@@ -30,6 +32,7 @@ const navigation = [
   { name: 'nav.checklists', href: '/checklist-templates', icon: CheckSquare },
   { name: 'nav.procedures', href: '/procedure-templates', icon: FileText },
   { name: 'nav.contracts', href: '/contracte', icon: ScrollText },
+  { name: 'nav.vehicles', href: '/vehicles', icon: Car },
   { name: 'nav.reports', href: '/reports', icon: BarChart3 },
   { name: 'nav.users', href: '/users', icon: Users, adminOnly: true },
   { name: 'nav.settings', href: '/settings', icon: Settings },
@@ -40,6 +43,7 @@ export default function Layout({ children }) {
   const navigate = useNavigate()
   const { user, profile, signOut } = useAuth()
   const { t } = useLanguage()
+  const { visibleModules } = usePermissions()
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
   // Debug logging
@@ -101,7 +105,14 @@ export default function Layout({ children }) {
           {/* Navigation */}
           <nav className="flex-1 px-4 py-6 space-y-1 overflow-y-auto">
             {navigation
-              .filter(item => !item.adminOnly || profile?.role === 'admin')
+              .filter(item => {
+                // Dashboard and Settings are always visible
+                if (item.href === '/dashboard' || item.href === '/settings') return true
+                // Users page: admin only
+                if (item.adminOnly) return profile?.role === 'admin'
+                // All other items: check visibleModules (admins get all via PermissionsContext)
+                return visibleModules.some(m => m.href === item.href)
+              })
               .map((item) => {
               const isActive = location.pathname.startsWith(item.href)
               return (
