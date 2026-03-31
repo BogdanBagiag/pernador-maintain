@@ -56,8 +56,18 @@ export default function ContractDetail() {
   })
 
   const { data: contractTemplate } = useQuery({
-    queryKey: ['contract-template'],
+    queryKey: ['contract-template', contract?.template_id],
     queryFn: async () => {
+      // Folosește șablonul ales pe contract dacă există
+      if (contract?.template_id) {
+        const { data } = await supabase
+          .from('contract_templates')
+          .select('content, annex_content')
+          .eq('id', contract.template_id)
+          .maybeSingle()
+        if (data) return data
+      }
+      // Fallback: șablonul activ global
       const { data } = await supabase
         .from('contract_templates')
         .select('content, annex_content')
@@ -67,6 +77,7 @@ export default function ContractDetail() {
         .maybeSingle()
       return data
     },
+    enabled: !!contract,
   })
 
   const { data: paymentConditionTemplate } = useQuery({

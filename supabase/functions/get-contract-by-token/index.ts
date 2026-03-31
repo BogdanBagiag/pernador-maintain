@@ -42,6 +42,7 @@ serve(async (req: Request) => {
         payment_term_days, payment_term_text,
         advance_percent, delivery_percent,
         invoice_term_days, invoice_term_text, invoice_term_percent,
+        template_id,
         notes, products, sign_token, signed_at, created_by
       `)
       .eq('sign_token', token)
@@ -54,24 +55,20 @@ serve(async (req: Request) => {
       })
     }
 
-    // Fetch template activ (annex_content graceful — column may not exist yet)
+    // Fetch template: folosește cel ales pe contract, cu fallback la cel activ
     let template = null
-    try {
+    if (contract.template_id) {
       const { data: t1 } = await supabase
         .from('contract_templates')
         .select('content, annex_content')
-        .eq('is_active', true)
-        .order('updated_at', { ascending: false })
-        .limit(1)
+        .eq('id', contract.template_id)
         .maybeSingle()
       template = t1
-    } catch (_) {
-      // annex_content column may not exist yet, fallback to content only
     }
     if (!template) {
       const { data: t2 } = await supabase
         .from('contract_templates')
-        .select('content')
+        .select('content, annex_content')
         .eq('is_active', true)
         .order('updated_at', { ascending: false })
         .limit(1)
