@@ -2,10 +2,11 @@ import { useState } from 'react'
 import { useLanguage } from '../contexts/LanguageContext'
 import { useAuth } from '../contexts/AuthContext'
 import { supabase } from '../lib/supabase'
-import { Globe, Lock, User, Check, AlertCircle, Bell } from 'lucide-react'
+import { Globe, Lock, User, Check, AlertCircle, Bell, PenLine } from 'lucide-react'
 import LoadingSpinner from '../components/LoadingSpinner'
 import PushNotificationToggle from '../components/PushNotificationToggle'
 import TestNotificationButton from '../components/TestNotificationButton'
+import SignaturePad from '../components/SignaturePad'
 
 export default function Settings() {
   const { language, setLanguage, t } = useLanguage()
@@ -230,6 +231,21 @@ export default function Settings() {
               )}
             </button>
           </form>
+        </div>
+
+        {/* Semnătură contract */}
+        <div className="card">
+          <h2 className="text-xl font-semibold text-gray-900 mb-2 flex items-center gap-2">
+            <PenLine className="w-6 h-6" />
+            Semnătură pentru contracte
+          </h2>
+          <p className="text-sm text-gray-500 mb-6">
+            Semnătura salvată aici va apărea automat pe contractele generate (zona VÂNZĂTOR).
+          </p>
+          <SignaturePad
+            onSignature={() => {}}
+            showSaveOption={true}
+          />
         </div>
 
         {/* Change Password */}
