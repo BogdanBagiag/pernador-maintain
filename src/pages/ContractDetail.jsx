@@ -12,6 +12,27 @@ import { format } from 'date-fns'
 import { ro } from 'date-fns/locale'
 import { applyTemplate, applyAnnex } from './ContractTemplateEditor'
 
+/** Forțează table-layout:fixed pe tabelele cu 1 rând și 2 coloane (bloc semnături)
+ *  astfel încât să apară side-by-side indiferent de CSS-ul global (Tailwind) */
+function fixTwoColTables(html) {
+  if (!html) return html
+  try {
+    const tmp = document.createElement('div')
+    tmp.innerHTML = html
+    tmp.querySelectorAll('table').forEach(t => {
+      if (t.rows.length === 1 && t.rows[0].cells.length === 2) {
+        t.style.tableLayout = 'fixed'
+        t.style.width = '100%'
+        Array.from(t.rows[0].cells).forEach(td => {
+          td.style.width = '50%'
+          td.style.verticalAlign = 'top'
+        })
+      }
+    })
+    return tmp.innerHTML
+  } catch(_) { return html }
+}
+
 const STATUS_CONFIG = {
   draft:     { label: 'Ciornă',  color: 'bg-gray-100 text-gray-700',   border: 'border-gray-300' },
   sent:      { label: 'Trimis',  color: 'bg-blue-100 text-blue-700',   border: 'border-blue-300' },
@@ -388,7 +409,7 @@ export default function ContractDetail() {
               <div
                 className="p-4 bg-white border border-gray-200 rounded-lg text-sm leading-relaxed"
                 style={{ fontFamily: 'Times New Roman, serif', fontSize: '13px' }}
-                dangerouslySetInnerHTML={{ __html: applyTemplate(contractTemplate.content, contract, paymentConditionTemplate?.content) }}
+                dangerouslySetInnerHTML={{ __html: fixTwoColTables(applyTemplate(contractTemplate.content, contract, paymentConditionTemplate?.content)) }}
               />
             ) : (
               <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-700">
@@ -407,7 +428,7 @@ export default function ContractDetail() {
                   <div
                     className="p-4 bg-white border border-gray-200 rounded-lg text-sm leading-relaxed"
                     style={{ fontFamily: 'Times New Roman, serif', fontSize: '13px' }}
-                    dangerouslySetInnerHTML={{ __html: annexHtml }}
+                    dangerouslySetInnerHTML={{ __html: fixTwoColTables(annexHtml) }}
                   />
                 </div>
               )
