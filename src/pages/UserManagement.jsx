@@ -537,7 +537,7 @@ function ResetPasswordModal({ user, onClose }) {
 
     try {
       const { data: { session } } = await supabase.auth.getSession()
-      if (!session?.access_token) throw new Error(‘Nu ești autentificat’)
+      if (!session?.access_token) throw new Error(‘Nu esti autentificat’)
 
       const res = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/manage-user`,

@@ -29,6 +29,7 @@ import PublicLocationWrapper from './pages/PublicLocationWrapper'
 import PublicScanWrapper from './pages/PublicScanWrapper'
 import ScanPage from './pages/ScanPage'
 import ReportIssue from './pages/ReportIssue'
+import ResetPassword from './pages/ResetPassword'
 
 // Vehicles
 import VehicleList from './pages/VehicleList'
@@ -148,6 +149,9 @@ function App() {
               }
             />
             
+            {/* Password Reset Route (No Auth Required) */}
+            <Route path="/reset-password" element={<ResetPassword />} />
+
             {/* Public Report Routes (No Auth Required) */}
             <Route path="/report/:equipmentId" element={<ReportIssue />} />
             <Route path="/report-issue" element={<ReportIssue />} />
