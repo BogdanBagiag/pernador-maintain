@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
+import { usePermissions } from '../contexts/PermissionsContext'
 import { 
   Wrench, 
   MapPin, 
@@ -20,6 +21,7 @@ import WorkOrderRemindersCard from '../components/WorkOrderRemindersCard'
 import VehicleExpirationAlerts from '../components/VehicleExpirationAlerts'
 
 export default function Dashboard() {
+  const { canView, loading: permLoading } = usePermissions()
   const [dateRange, setDateRange] = useState('all') // all, 7days, 30days, 90days, custom
   const [customStartDate, setCustomStartDate] = useState('')
   const [customEndDate, setCustomEndDate] = useState('')
@@ -49,7 +51,7 @@ export default function Dashboard() {
       end: null
     }
   }
-  // Fetch all data
+  // Fetch all data — fiecare query e activ doar dacă userul are permisiunea modulului
   const { data: equipment, isLoading: loadingEquipment } = useQuery({
     queryKey: ['dashboard-equipment'],
     queryFn: async () => {
@@ -59,6 +61,7 @@ export default function Dashboard() {
       if (error) throw error
       return data
     },
+    enabled: !permLoading && canView('equipment'),
   })
 
   const { data: workOrders, isLoading: loadingWorkOrders } = useQuery({
@@ -68,10 +71,10 @@ export default function Dashboard() {
         .from('work_orders')
         .select('*, equipment:equipment(id, name)')
         .order('created_at', { ascending: false })
-      
       if (error) throw error
       return data
     },
+    enabled: !permLoading && canView('work_orders'),
   })
 
   const { data: locations, isLoading: loadingLocations } = useQuery({
@@ -83,6 +86,7 @@ export default function Dashboard() {
       if (error) throw error
       return data
     },
+    enabled: !permLoading && canView('locations'),
   })
 
   // Fetch maintenance schedules for preventive maintenance tracking
@@ -100,9 +104,15 @@ export default function Dashboard() {
       if (error) throw error
       return data
     },
+    enabled: !permLoading && canView('schedules'),
   })
 
-  if (loadingEquipment || loadingWorkOrders || loadingLocations || loadingSchedules) {
+  const activeLoading = (canView('equipment') && loadingEquipment)
+    || (canView('work_orders') && loadingWorkOrders)
+    || (canView('locations') && loadingLocations)
+    || (canView('schedules') && loadingSchedules)
+
+  if (permLoading || activeLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <LoadingSpinner size="lg" />
@@ -392,7 +402,7 @@ export default function Dashboard() {
       </div>
 
       {/* Work Orders Section */}
-      <div className="mb-6">
+      {canView('work_orders') && <div className="mb-6">
         <div className="flex items-center gap-2 mb-4">
           <ClipboardList className="w-6 h-6 text-gray-700" />
           <h2 className="text-2xl font-bold text-gray-900">Ordine de Lucru</h2>
@@ -418,10 +428,10 @@ export default function Dashboard() {
             </div>
           </Link>
         </div>
-      </div>
+      </div>}
 
       {/* Maintenance Schedule Section */}
-      <div className="mb-6">
+      {canView('schedules') && <div className="mb-6">
         <div className="flex items-center gap-2 mb-4">
           <Calendar className="w-6 h-6 text-gray-700" />
           <h2 className="text-2xl font-bold text-gray-900">Mentenanță Preventivă</h2>
@@ -447,10 +457,10 @@ export default function Dashboard() {
             </div>
           </Link>
         </div>
-      </div>
+      </div>}
 
       {/* Periodic Inspections Section */}
-      <div className="mb-6">
+      {canView('equipment') && <div className="mb-6">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
             <Shield className="w-6 h-6 text-gray-700" />
@@ -675,21 +685,21 @@ export default function Dashboard() {
             )}
           </div>
         </div>
-      </div>
+      </div>}
 
       {/* Vehicle Expiration Alerts Section */}
-      <div className="mb-6">
+      {canView('vehicles') && <div className="mb-6">
         <VehicleExpirationAlerts />
-      </div>
+      </div>}
 
       {/* Equipment and Locations Section */}
-      <div className="mb-6">
+      {(canView('equipment') || canView('locations')) && <div className="mb-6">
         <div className="flex items-center gap-2 mb-4">
           <Wrench className="w-6 h-6 text-gray-700" />
           <h2 className="text-2xl font-bold text-gray-900">Echipamente și Locații</h2>
         </div>
         <div className="grid grid-cols-2 lg:grid-cols-2 gap-4">
-          <Link to="/equipment" className="card hover:shadow-lg transition-shadow bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200">
+          {canView('equipment') && <Link to="/equipment" className="card hover:shadow-lg transition-shadow bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-blue-600 font-medium mb-1">Total Echipamente</p>
@@ -697,9 +707,9 @@ export default function Dashboard() {
               </div>
               <Wrench className="w-10 h-10 text-blue-600 opacity-50" />
             </div>
-          </Link>
+          </Link>}
 
-          <Link to="/locations" className="card hover:shadow-lg transition-shadow bg-gradient-to-br from-purple-50 to-purple-100 border-purple-200">
+          {canView('locations') && <Link to="/locations" className="card hover:shadow-lg transition-shadow bg-gradient-to-br from-purple-50 to-purple-100 border-purple-200">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-purple-600 font-medium mb-1">Total Locații</p>
@@ -707,12 +717,12 @@ export default function Dashboard() {
               </div>
               <MapPin className="w-10 h-10 text-purple-600 opacity-50" />
             </div>
-          </Link>
+          </Link>}
         </div>
-      </div>
+      </div>}
 
-      {/* Secondary Stats */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* Secondary Stats — doar dacă are acces la work orders */}
+      {canView('work_orders') && <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="card bg-gray-50">
           <div className="flex items-center mb-2">
             <Clock className="w-5 h-5 text-gray-600 mr-2" />
@@ -749,17 +759,17 @@ export default function Dashboard() {
           </div>
           <p className="text-2xl font-bold text-gray-900">{totalWorkOrders}</p>
         </div>
-      </div>
+      </div>}
 
       {/* Work Order Reminders Section */}
-      <div className="mb-6">
+      {canView('work_orders') && <div className="mb-6">
         <WorkOrderRemindersCard />
-      </div>
+      </div>}
 
       {/* Charts Row */}
       <div className="grid lg:grid-cols-1 gap-6">
         {/* Equipment Status */}
-        {equipmentStatusData.length > 0 && (
+        {canView('equipment') && equipmentStatusData.length > 0 && (
           <div className="card">
             <h2 className="text-xl font-semibold text-gray-900 mb-4">Equipment Status</h2>
             <ResponsiveContainer width="100%" height={300}>
@@ -786,7 +796,7 @@ export default function Dashboard() {
       </div>
 
       {/* Maintenance Schedule Details */}
-      {recentCompletedMaintenance.length > 0 && (
+      {canView('schedules') && recentCompletedMaintenance.length > 0 && (
         <div className="card">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-xl font-semibold text-gray-900">Mentenanță Finalizată Recent</h2>
@@ -827,7 +837,7 @@ export default function Dashboard() {
       )}
 
       {/* Recent Activity */}
-      <div className="card">
+      {canView('work_orders') && <div className="card">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-xl font-semibold text-gray-900">Recent Completed Work Orders</h2>
           <Link to="/work-orders" className="text-primary-600 hover:text-primary-700 text-sm font-medium">
@@ -869,7 +879,7 @@ export default function Dashboard() {
             ))}
           </div>
         )}
-      </div>
+      </div>}
 
     </div>
   )
