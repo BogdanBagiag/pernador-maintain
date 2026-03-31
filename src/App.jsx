@@ -40,6 +40,7 @@ import ContractForm from './pages/ContractForm'
 import ContractDetail from './pages/ContractDetail'
 import ContractSign from './pages/ContractSign'
 import ContractTemplateEditor from './pages/ContractTemplateEditor'
+import PaymentConditionsPage from './pages/PaymentConditionsPage'
 
 // Components
 import Layout from './components/Layout'
@@ -162,6 +163,7 @@ function App() {
                       {/* Contract Routes */}
                       <Route path="/contracte" element={<ContractsList />} />
                       <Route path="/contracte/nou" element={<ContractForm />} />
+                      <Route path="/contracte/conditii-plata" element={<PaymentConditionsPage />} />
                       <Route path="/contracte/:id" element={<ContractDetail />} />
                       <Route path="/contracte/:id/editeaza" element={<ContractForm />} />
                       

@@ -49,6 +49,7 @@ const SHORTCODE_GROUPS = [
     label: 'Condiții Plată',
     color: 'amber',
     codes: [
+      { code: '{{PAYMENT_CONDITIONS}}',   label: '⭐ Condiții plată (text complet auto)' },
       { code: '{{PAYMENT_TERM_DAYS}}',    label: 'Zile termen plată' },
       { code: '{{PAYMENT_TERM_TEXT}}',    label: 'Termen plată în litere' },
       { code: '{{ADVANCE_PERCENT}}',      label: 'Procent avans (%)' },
@@ -97,7 +98,43 @@ function highlightShortcodes(html) {
       '<mark style="background:#fef08a;color:#92400e;padding:0 3px;border-radius:3px;font-family:monospace;font-size:0.85em">{{$1}}</mark>')
 }
 
-export function applyTemplate(templateHtml, contract) {
+function buildPaymentConditions(c, paymentConditionContent) {
+  // Use custom template content if provided
+  const content = paymentConditionContent || null
+
+  const ptDays = String(c.payment_term_days || '')
+  const ptText = c.payment_term_text || ''
+  const adv = String(c.advance_percent || '0')
+  const del = String(c.delivery_percent || '0')
+  const invDays = String(c.invoice_term_days || '')
+  const invText = c.invoice_term_text || ''
+  const inv = String(c.invoice_term_percent || '')
+
+  if (content) {
+    return content
+      .replace(/\{\{PAYMENT_TERM_DAYS\}\}/g, ptDays)
+      .replace(/\{\{PAYMENT_TERM_TEXT\}\}/g, ptText)
+      .replace(/\{\{ADVANCE_PERCENT\}\}/g, adv)
+      .replace(/\{\{DELIVERY_PERCENT\}\}/g, del)
+      .replace(/\{\{INVOICE_TERM_DAYS\}\}/g, invDays)
+      .replace(/\{\{INVOICE_TERM_TEXT\}\}/g, invText)
+      .replace(/\{\{INVOICE_TERM_PERCENT\}\}/g, inv)
+  }
+
+  // Fallback: auto-generate from data
+  const advN = Number(c.advance_percent || 0)
+  const delN = Number(c.delivery_percent || 0)
+  if (advN > 0 && delN > 0) {
+    return `Plata se va efectua astfel: (i) ${advN}% avans la semnarea comenzii și (ii) ${delN}% la livrarea produselor.`
+  }
+  if (advN > 0) {
+    const restPct = Number(c.invoice_term_percent || (100 - advN))
+    return `Plata se va efectua astfel: (i) ${advN}% avans la semnarea comenzii și (ii) ${restPct}% în termen de ${invDays}${invText ? ` (${invText})` : ''} zile de la emiterea facturii.`
+  }
+  return `Plata se va efectua integral în termen de ${ptDays}${ptText ? ` (${ptText})` : ''} zile calendaristice de la data emiterii facturii.`
+}
+
+export function applyTemplate(templateHtml, contract, paymentConditionContent) {
   if (!templateHtml || !contract) return templateHtml
   const map = {
     '{{CONTRACT_NUMBER}}':            contract.contract_number || '',
@@ -117,6 +154,7 @@ export function applyTemplate(templateHtml, contract) {
     '{{BUYER_REPRESENTATIVE}}':       contract.buyer_representative || '',
     '{{BUYER_REPRESENTATIVE_ROLE}}':  contract.buyer_representative_role || '',
     '{{BUYER_EMAIL}}':                contract.buyer_email || '',
+    '{{PAYMENT_CONDITIONS}}':          buildPaymentConditions(contract, paymentConditionContent),
     '{{PAYMENT_TERM_DAYS}}':          String(contract.payment_term_days || ''),
     '{{PAYMENT_TERM_TEXT}}':          contract.payment_term_text || '',
     '{{ADVANCE_PERCENT}}':            String(contract.advance_percent || '0'),
@@ -147,10 +185,18 @@ export function applyTemplate(templateHtml, contract) {
   return result
 }
 
+export function applyAnnex(annexHtml, contract) {
+  if (!annexHtml || !contract) return null
+  const prods = Array.isArray(contract.products) ? contract.products.filter(p => p && p.name) : []
+  if (!prods.length) return null // Don't render annex if no products
+  return applyTemplate(annexHtml, contract)
+}
+
 export default function ContractTemplateEditor() {
   const { profile } = useAuth()
   const queryClient = useQueryClient()
   const editorRef = useRef(null)
+  const annexEditorRef = useRef(null)
   const fileInputRef = useRef(null)
   const savedSelectionRef = useRef(null)
 
@@ -162,6 +208,7 @@ export default function ContractTemplateEditor() {
   const [error, setError] = useState(null)
   const [openGroups, setOpenGroups] = useState({ 'Contract': true, 'Vânzător': true, 'Cumpărător': true, 'Condiții Plată': true, 'Semnături': true, 'General': true })
   const [deleteConfirm, setDeleteConfirm] = useState(null)
+  const [editorTab, setEditorTab] = useState('contract') // 'contract' | 'annex'
   const canEdit = profile?.role === 'admin' || profile?.role === 'technician'
 
   // Fetch toate șabloanele
@@ -205,6 +252,9 @@ export default function ContractTemplateEditor() {
       editorRef.current.innerHTML = selectedTemplate.content || ''
       setTemplateName(selectedTemplate.name)
     }
+    if (selectedTemplate && annexEditorRef.current) {
+      annexEditorRef.current.innerHTML = selectedTemplate.annex_content || ''
+    }
   }, [selectedTemplate])
 
   const saveSelection = () => {
@@ -228,7 +278,7 @@ export default function ContractTemplateEditor() {
   }
 
   const insertShortcode = useCallback((code) => {
-    const editor = editorRef.current
+    const editor = editorTab === 'annex' ? annexEditorRef.current : editorRef.current
     if (!editor) return
     editor.focus()
     restoreSelection()
@@ -236,8 +286,7 @@ export default function ContractTemplateEditor() {
     if (sel && sel.rangeCount > 0) {
       const range = sel.getRangeAt(0)
       if (!editor.contains(range.commonAncestorContainer)) {
-        const textNode = document.createTextNode(code)
-        editor.appendChild(textNode)
+        editor.appendChild(document.createTextNode(code))
         return
       }
       range.deleteContents()
@@ -251,7 +300,7 @@ export default function ContractTemplateEditor() {
     } else {
       editor.appendChild(document.createTextNode(code))
     }
-  }, [])
+  }, [editorTab])
 
   const handleFileUpload = async (e) => {
     const file = e.target.files[0]
@@ -283,6 +332,7 @@ export default function ContractTemplateEditor() {
   const saveMutation = useMutation({
     mutationFn: async ({ asNew }) => {
       const content = editorRef.current?.innerHTML || ''
+      const annexContent = annexEditorRef.current?.innerHTML || ''
       if (!content.trim()) throw new Error('Șablonul este gol')
       const { data: { user } } = await supabase.auth.getUser()
 
@@ -290,7 +340,7 @@ export default function ContractTemplateEditor() {
         // Crează șablon nou
         const { data, error } = await supabase
           .from('contract_templates')
-          .insert({ name: templateName, content, is_active: false, created_by: user?.id })
+          .insert({ name: templateName, content, annex_content: annexContent, is_active: false, created_by: user?.id })
           .select('id').single()
         if (error) throw error
         setSelectedTemplateId(data.id)
@@ -298,7 +348,7 @@ export default function ContractTemplateEditor() {
         // Update șablon existent
         const { error } = await supabase
           .from('contract_templates')
-          .update({ name: templateName, content, updated_at: new Date().toISOString() })
+          .update({ name: templateName, content, annex_content: annexContent, updated_at: new Date().toISOString() })
           .eq('id', selectedTemplateId)
         if (error) throw error
       }
@@ -343,6 +393,7 @@ export default function ContractTemplateEditor() {
     setSelectedTemplateId(null)
     setTemplateName('Șablon nou')
     if (editorRef.current) editorRef.current.innerHTML = ''
+    if (annexEditorRef.current) annexEditorRef.current.innerHTML = ''
   }
 
   const toggleGroup = (label) => setOpenGroups(prev => ({ ...prev, [label]: !prev[label] }))
@@ -510,43 +561,86 @@ export default function ContractTemplateEditor() {
             </button>
           )}
 
-          {/* Editor / Preview */}
-          <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-            {!previewMode ? (
-              <>
-                <div className="p-2 border-b border-gray-100 bg-gray-50 flex items-center gap-2 text-xs text-gray-500">
-                  <FileText className="w-3.5 h-3.5" />
-                  {selectedTemplateId
-                    ? `Editezi: ${templateName}`
-                    : 'Șablon nou — dă click în text, apoi pe un shortcode din dreapta'}
+          {/* Editor tabs */}
+          <div className="flex gap-1 p-1 bg-gray-100 rounded-lg w-fit mb-3">
+            <button
+              onClick={() => setEditorTab('contract')}
+              className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+                editorTab === 'contract' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              Contract
+            </button>
+            <button
+              onClick={() => setEditorTab('annex')}
+              className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+                editorTab === 'annex' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              Anexă Produse
+            </button>
+          </div>
+
+          {/* Editor / Preview — Contract (mereu în DOM, ascuns cu display) */}
+          <div style={{ display: editorTab === 'contract' ? '' : 'none' }}>
+            <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+              {!previewMode ? (
+                <>
+                  <div className="p-2 border-b border-gray-100 bg-gray-50 flex items-center gap-2 text-xs text-gray-500">
+                    <FileText className="w-3.5 h-3.5" />
+                    {selectedTemplateId
+                      ? `Editezi: ${templateName}`
+                      : 'Șablon nou — dă click în text, apoi pe un shortcode din dreapta'}
+                  </div>
+                  <div
+                    ref={editorRef}
+                    contentEditable={canEdit}
+                    suppressContentEditableWarning
+                    onMouseUp={saveSelection}
+                    onKeyUp={saveSelection}
+                    onBlur={saveSelection}
+                    className="min-h-[500px] p-6 focus:outline-none contract-editor"
+                    style={{ fontFamily: 'Times New Roman, serif', fontSize: '13px', lineHeight: '1.7' }}
+                    data-placeholder="Încarcă un .docx sau scrie direct contractul..."
+                  />
+                </>
+              ) : (
+                <div className="p-6">
+                  <p className="text-xs text-amber-600 font-medium mb-4 flex items-center gap-1.5">
+                    <Eye className="w-3.5 h-3.5" />
+                    Previzualizare — shortcodes evidențiate
+                  </p>
+                  <div
+                    className="prose prose-sm max-w-none"
+                    style={{ fontFamily: 'Times New Roman, serif', fontSize: '13px', lineHeight: '1.6' }}
+                    dangerouslySetInnerHTML={{
+                      __html: highlightShortcodes(editorRef.current?.innerHTML || '<p><em>Editorul este gol.</em></p>')
+                    }}
+                  />
                 </div>
-                <div
-                  ref={editorRef}
-                  contentEditable={canEdit}
-                  suppressContentEditableWarning
-                  onMouseUp={saveSelection}
-                  onKeyUp={saveSelection}
-                  onBlur={saveSelection}
-                  className="min-h-[500px] p-6 focus:outline-none contract-editor"
-                  style={{ fontFamily: 'Times New Roman, serif', fontSize: '13px', lineHeight: '1.7' }}
-                  data-placeholder="Încarcă un .docx sau scrie direct contractul..."
-                />
-              </>
-            ) : (
-              <div className="p-6">
-                <p className="text-xs text-amber-600 font-medium mb-4 flex items-center gap-1.5">
-                  <Eye className="w-3.5 h-3.5" />
-                  Previzualizare — shortcodes evidențiate
-                </p>
-                <div
-                  className="prose prose-sm max-w-none"
-                  style={{ fontFamily: 'Times New Roman, serif', fontSize: '13px', lineHeight: '1.6' }}
-                  dangerouslySetInnerHTML={{
-                    __html: highlightShortcodes(editorRef.current?.innerHTML || '<p><em>Editorul este gol.</em></p>')
-                  }}
-                />
+              )}
+            </div>
+          </div>
+
+          {/* Editor — Anexă Produse (mereu în DOM, ascuns cu display) */}
+          <div style={{ display: editorTab === 'annex' ? '' : 'none' }}>
+            <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+              <div className="px-4 py-2.5 bg-amber-50 border-b border-amber-200 flex items-center gap-2">
+                <span className="text-xs font-semibold text-amber-700">Anexă Produse</span>
+                <span className="text-xs text-amber-600">— adăugată automat când contractul are produse</span>
               </div>
-            )}
+              <div
+                ref={annexEditorRef}
+                contentEditable={canEdit && !previewMode}
+                suppressContentEditableWarning
+                onMouseUp={saveSelection}
+                onKeyUp={saveSelection}
+                onBlur={saveSelection}
+                className="min-h-[300px] p-6 focus:outline-none"
+                style={{ fontFamily: 'Times New Roman, serif', fontSize: '13px', lineHeight: '1.7' }}
+                data-placeholder="Scrie conținutul anexei... Folosește {{PRODUCTS_TABLE}} pentru tabelul de produse"
+              />
+            </div>
           </div>
 
           {/* Info shortcodes semnătură */}

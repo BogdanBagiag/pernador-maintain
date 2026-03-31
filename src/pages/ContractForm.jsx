@@ -9,7 +9,7 @@ import { useAuth } from '../contexts/AuthContext'
 import {
   ArrowLeft, Save, Building2, CreditCard, FileText,
   User, Search, Loader2, CheckCircle, AlertCircle, BookmarkCheck,
-  Package, Plus, Trash2
+  Package, Plus, Trash2, Settings
 } from 'lucide-react'
 
 const schema = z.object({
@@ -38,6 +38,7 @@ const schema = z.object({
   contract_date: z.string().min(1, 'Data este obligatorie'),
   notes: z.string().optional(),
   template_id: z.string().optional(),
+  payment_condition_template_id: z.string().optional(),
 })
 
 function SectionTitle({ icon: Icon, title, subtitle, action }) {
@@ -141,6 +142,17 @@ export default function ContractForm() {
     },
   })
 
+  const { data: paymentTemplates = [] } = useQuery({
+    queryKey: ['payment-condition-templates'],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('payment_condition_templates')
+        .select('*')
+        .order('order_index', { ascending: true })
+      return data || []
+    },
+  })
+
   // Încarcă contractul existent la editare
   const { data: existing, isLoading } = useQuery({
     queryKey: ['contract', id],
@@ -179,9 +191,19 @@ export default function ContractForm() {
       if (existing.products && Array.isArray(existing.products)) {
         setProducts(existing.products)
       }
-      setPaymentType(detectPaymentType(existing))
+      // Set payment template from saved id or detect from data
+      if (existing.payment_condition_template_id) {
+        setSelectedPaymentTemplateId(existing.payment_condition_template_id)
+      } else if (paymentTemplates.length > 0) {
+        const detected = detectPaymentType(existing)
+        const match = paymentTemplates.find(t => t.payment_type === detected)
+        if (match) {
+          setSelectedPaymentTemplateId(match.id)
+          setValue('payment_condition_template_id', match.id)
+        }
+      }
     }
-  }, [existing, reset])
+  }, [existing, reset, paymentTemplates])
 
   // Salvare date firmă
   const handleSaveCompany = async () => {
@@ -285,29 +307,40 @@ export default function ContractForm() {
     if (adv > 0) return 'advance_term'
     return 'term'
   }
-  const [paymentType, setPaymentType] = useState('term')
 
-  const DAYS_WORDS = {
-    7: 'șapte', 10: 'zece', 14: 'paisprezece', 15: 'cincisprezece',
-    21: 'douăzeci și una', 30: 'treizeci', 45: 'patruzeci și cinci',
-    60: 'șaizeci', 90: 'nouăzeci',
-  }
-  const toWords = (n) => DAYS_WORDS[Number(n)] || ''
+  const [selectedPaymentTemplateId, setSelectedPaymentTemplateId] = useState(null)
 
-  const applyPaymentType = (type) => {
-    setPaymentType(type)
-    if (type === 'term') {
+  // Derive paymentType from selected template
+  const selectedPaymentTemplate = paymentTemplates.find(t => t.id === selectedPaymentTemplateId)
+  const paymentType = selectedPaymentTemplate?.payment_type || 'term'
+
+  // Auto-select default template when templates load (only on create)
+  useEffect(() => {
+    if (!isEditing && paymentTemplates.length > 0 && !selectedPaymentTemplateId) {
+      const def = paymentTemplates.find(t => t.is_default) || paymentTemplates[0]
+      if (def) {
+        setSelectedPaymentTemplateId(def.id)
+        setValue('payment_condition_template_id', def.id)
+      }
+    }
+  }, [paymentTemplates, isEditing, selectedPaymentTemplateId, setValue])
+
+  const selectPaymentTemplate = (template) => {
+    setSelectedPaymentTemplateId(template.id)
+    setValue('payment_condition_template_id', template.id)
+    // Reset numeric fields based on type
+    if (template.payment_type === 'term') {
       setValue('advance_percent', 0)
       setValue('delivery_percent', 0)
       setValue('invoice_term_percent', 100)
-    } else if (type === 'advance_delivery') {
+    } else if (template.payment_type === 'advance_delivery') {
       const adv = Number(watch('advance_percent')) || 30
       setValue('advance_percent', adv)
       setValue('delivery_percent', 100 - adv)
       setValue('invoice_term_percent', 0)
       setValue('invoice_term_days', 0)
       setValue('invoice_term_text', '')
-    } else if (type === 'advance_term') {
+    } else if (template.payment_type === 'advance_term') {
       const adv = Number(watch('advance_percent')) || 30
       setValue('advance_percent', adv)
       setValue('delivery_percent', 0)
@@ -317,6 +350,13 @@ export default function ContractForm() {
     }
   }
 
+  const DAYS_WORDS = {
+    7: 'șapte', 10: 'zece', 14: 'paisprezece', 15: 'cincisprezece',
+    21: 'douăzeci și una', 30: 'treizeci', 45: 'patruzeci și cinci',
+    60: 'șaizeci', 90: 'nouăzeci',
+  }
+  const toWords = (n) => DAYS_WORDS[Number(n)] || ''
+
   const adv = Number(watch('advance_percent') || 0)
   const del = Number(watch('delivery_percent') || 0)
   const inv = Number(watch('invoice_term_percent') || 0)
@@ -325,16 +365,18 @@ export default function ContractForm() {
   const totalPercent = adv + del + inv
 
   const paymentPreview = () => {
-    if (paymentType === 'term') {
-      return `Plata se va efectua integral în termen de ${ptDays} (${watch('payment_term_text') || toWords(ptDays) || '…'}) zile de la emiterea facturii.`
-    }
-    if (paymentType === 'advance_delivery') {
-      return `Plata se va efectua astfel: (i) ${adv}% avans la semnarea comenzii și (ii) ${del}% la livrarea produselor.`
-    }
-    if (paymentType === 'advance_term') {
-      return `Plata se va efectua astfel: (i) ${adv}% avans la semnarea comenzii și (iii) ${inv}% în termen de ${invDays} (${watch('invoice_term_text') || toWords(invDays) || '…'}) zile de la emiterea facturii.`
-    }
-    return ''
+    if (!selectedPaymentTemplate) return ''
+    let text = selectedPaymentTemplate.content || ''
+    const ptText = watch('payment_term_text') || toWords(ptDays) || ''
+    const invText = watch('invoice_term_text') || toWords(invDays) || ''
+    return text
+      .replace(/\{\{PAYMENT_TERM_DAYS\}\}/g, String(ptDays))
+      .replace(/\{\{PAYMENT_TERM_TEXT\}\}/g, ptText)
+      .replace(/\{\{ADVANCE_PERCENT\}\}/g, String(adv))
+      .replace(/\{\{DELIVERY_PERCENT\}\}/g, String(del))
+      .replace(/\{\{INVOICE_TERM_DAYS\}\}/g, String(invDays))
+      .replace(/\{\{INVOICE_TERM_TEXT\}\}/g, invText)
+      .replace(/\{\{INVOICE_TERM_PERCENT\}\}/g, String(inv))
   }
 
   if (isEditing && isLoading) {
@@ -540,173 +582,184 @@ export default function ContractForm() {
 
         {/* ── CONDIȚII PLATĂ ── */}
         <div className="bg-white rounded-xl border border-gray-200 p-6">
-          <SectionTitle icon={CreditCard} title="Condiții de Plată" subtitle="Selectează varianta de plată" />
+          <SectionTitle
+            icon={CreditCard}
+            title="Condiții de Plată"
+            subtitle="Selectează șablonul de plată"
+            action={
+              <a
+                href="/contracte/conditii-plata"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-600 bg-gray-50 border border-gray-300 rounded-lg hover:bg-primary-50 hover:border-primary-300 hover:text-primary-700 transition-colors"
+              >
+                <Settings className="w-3.5 h-3.5" />
+                Gestionează șabloane
+              </a>
+            }
+          />
 
-          {/* Selector variante */}
-          <div className="grid grid-cols-1 gap-3 mb-6">
-
-            {/* Varianta 1: Plată integrală la termen */}
-            <label className={`relative flex items-start gap-4 p-4 rounded-xl border-2 cursor-pointer transition-colors ${
-              paymentType === 'term'
-                ? 'border-primary-500 bg-primary-50'
-                : 'border-gray-200 bg-white hover:border-gray-300'
-            }`}>
-              <input
-                type="radio"
-                name="payment_type"
-                className="mt-1 accent-primary-600"
-                checked={paymentType === 'term'}
-                onChange={() => applyPaymentType('term')}
-              />
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-gray-900">Plată integrală la termen</p>
-                <p className="text-xs text-gray-500 mt-0.5">Clientul achită 100% în termen de N zile de la facturare</p>
-                {paymentType === 'term' && (
-                  <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <Field label="Număr zile" error={errors.payment_term_days?.message}>
-                      <input
-                        type="number"
-                        {...register('payment_term_days', {
-                          onChange: (e) => {
-                            const w = toWords(e.target.value)
-                            if (w) setValue('payment_term_text', w)
-                          }
-                        })}
-                        min="1" placeholder="30"
-                        className={inputClass}
-                      />
-                    </Field>
-                    <Field label="În litere">
-                      <input {...register('payment_term_text')} placeholder="treizeci" className={inputClass} />
-                    </Field>
-                  </div>
-                )}
-              </div>
-            </label>
-
-            {/* Varianta 2: Avans + rest la livrare */}
-            <label className={`relative flex items-start gap-4 p-4 rounded-xl border-2 cursor-pointer transition-colors ${
-              paymentType === 'advance_delivery'
-                ? 'border-primary-500 bg-primary-50'
-                : 'border-gray-200 bg-white hover:border-gray-300'
-            }`}>
-              <input
-                type="radio"
-                name="payment_type"
-                className="mt-1 accent-primary-600"
-                checked={paymentType === 'advance_delivery'}
-                onChange={() => applyPaymentType('advance_delivery')}
-              />
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-gray-900">Avans + rest la livrare</p>
-                <p className="text-xs text-gray-500 mt-0.5">Un procent avans la semnare, restul la livrarea produselor</p>
-                {paymentType === 'advance_delivery' && (
-                  <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <Field label="Avans (%)">
-                      <input
-                        type="number"
-                        {...register('advance_percent', {
-                          onChange: (e) => {
-                            const a = Math.min(100, Math.max(0, Number(e.target.value) || 0))
-                            setValue('delivery_percent', 100 - a)
-                            setValue('invoice_term_percent', 0)
-                          }
-                        })}
-                        min="0" max="100" step="1" placeholder="30"
-                        className={inputClass}
-                      />
-                    </Field>
-                    <Field label="Rest la livrare (%)">
-                      <input
-                        type="number"
-                        {...register('delivery_percent')}
-                        readOnly
-                        className={`${inputClass} bg-gray-50 text-gray-500`}
-                      />
-                    </Field>
-                  </div>
-                )}
-              </div>
-            </label>
-
-            {/* Varianta 3: Avans + rest la termen */}
-            <label className={`relative flex items-start gap-4 p-4 rounded-xl border-2 cursor-pointer transition-colors ${
-              paymentType === 'advance_term'
-                ? 'border-primary-500 bg-primary-50'
-                : 'border-gray-200 bg-white hover:border-gray-300'
-            }`}>
-              <input
-                type="radio"
-                name="payment_type"
-                className="mt-1 accent-primary-600"
-                checked={paymentType === 'advance_term'}
-                onChange={() => applyPaymentType('advance_term')}
-              />
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-gray-900">Avans + rest la termen</p>
-                <p className="text-xs text-gray-500 mt-0.5">Un procent avans la semnare, restul în termen de N zile de la facturare</p>
-                {paymentType === 'advance_term' && (
-                  <div className="mt-3 space-y-3">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      <Field label="Avans (%)">
-                        <input
-                          type="number"
-                          {...register('advance_percent', {
-                            onChange: (e) => {
-                              const a = Math.min(100, Math.max(0, Number(e.target.value) || 0))
-                              setValue('invoice_term_percent', 100 - a)
-                              setValue('delivery_percent', 0)
-                            }
-                          })}
-                          min="0" max="100" step="1" placeholder="30"
-                          className={inputClass}
-                        />
-                      </Field>
-                      <Field label="Rest la termen (%)">
-                        <input
-                          type="number"
-                          {...register('invoice_term_percent')}
-                          readOnly
-                          className={`${inputClass} bg-gray-50 text-gray-500`}
-                        />
-                      </Field>
-                    </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      <Field label="Număr zile">
-                        <input
-                          type="number"
-                          {...register('invoice_term_days', {
-                            onChange: (e) => {
-                              const w = toWords(e.target.value)
-                              if (w) setValue('invoice_term_text', w)
-                            }
-                          })}
-                          min="1" placeholder="30"
-                          className={inputClass}
-                        />
-                      </Field>
-                      <Field label="În litere">
-                        <input {...register('invoice_term_text')} placeholder="treizeci" className={inputClass} />
-                      </Field>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </label>
-          </div>
-
-          {/* Preview text contract */}
-          <div className="p-3 bg-gray-50 border border-gray-200 rounded-lg">
-            <p className="text-xs text-gray-400 font-medium mb-1 uppercase tracking-wide">Text în contract</p>
-            <p className="text-sm text-gray-700 italic">{paymentPreview()}</p>
-          </div>
-
-          {/* Validare total */}
-          {totalPercent !== 100 && totalPercent > 0 && (
-            <div className="mt-3 flex items-center gap-2 text-xs font-medium text-amber-600">
-              <div className="w-2 h-2 rounded-full bg-amber-500" />
-              Total procente: {totalPercent}% (trebuie să fie 100%)
+          {paymentTemplates.length === 0 ? (
+            <div className="text-center py-8 border-2 border-dashed border-gray-200 rounded-xl">
+              <CreditCard className="w-8 h-8 text-gray-300 mx-auto mb-2" />
+              <p className="text-sm text-gray-500 mb-3">Nu există șabloane de condiții de plată.</p>
+              <a href="/contracte/conditii-plata" target="_blank" className="text-xs text-primary-600 hover:underline">
+                Creează primul șablon →
+              </a>
             </div>
+          ) : (
+            <>
+              <div className="grid grid-cols-1 gap-3 mb-6">
+                {paymentTemplates.map(template => {
+                  const isSelected = selectedPaymentTemplateId === template.id
+                  const typeColors = {
+                    term: 'bg-blue-50 text-blue-700 border-blue-200',
+                    advance_delivery: 'bg-amber-50 text-amber-700 border-amber-200',
+                    advance_term: 'bg-green-50 text-green-700 border-green-200',
+                  }
+                  const typeLabels = {
+                    term: 'La termen',
+                    advance_delivery: 'Avans + livrare',
+                    advance_term: 'Avans + termen',
+                  }
+                  return (
+                    <label
+                      key={template.id}
+                      className={`relative flex items-start gap-4 p-4 rounded-xl border-2 cursor-pointer transition-colors ${
+                        isSelected ? 'border-primary-500 bg-primary-50' : 'border-gray-200 bg-white hover:border-gray-300'
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        name="payment_type"
+                        className="mt-1 accent-primary-600"
+                        checked={isSelected}
+                        onChange={() => selectPaymentTemplate(template)}
+                      />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <p className="text-sm font-semibold text-gray-900">{template.name}</p>
+                          <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium border ${typeColors[template.payment_type] || typeColors.term}`}>
+                            {typeLabels[template.payment_type] || template.payment_type}
+                          </span>
+                          {template.is_default && (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-600 border border-gray-200">
+                              implicit
+                            </span>
+                          )}
+                        </div>
+                        {template.description && (
+                          <p className="text-xs text-gray-500 mt-0.5">{template.description}</p>
+                        )}
+                        {isSelected && (
+                          <div className="mt-3">
+                            {/* Inputs for TERM */}
+                            {template.payment_type === 'term' && (
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                <Field label="Număr zile" error={errors.payment_term_days?.message}>
+                                  <input
+                                    type="number"
+                                    {...register('payment_term_days', {
+                                      onChange: (e) => {
+                                        const w = toWords(e.target.value)
+                                        if (w) setValue('payment_term_text', w)
+                                      }
+                                    })}
+                                    min="1" placeholder="30"
+                                    className={inputClass}
+                                  />
+                                </Field>
+                                <Field label="În litere">
+                                  <input {...register('payment_term_text')} placeholder="treizeci" className={inputClass} />
+                                </Field>
+                              </div>
+                            )}
+                            {/* Inputs for ADVANCE_DELIVERY */}
+                            {template.payment_type === 'advance_delivery' && (
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                <Field label="Avans (%)">
+                                  <input
+                                    type="number"
+                                    {...register('advance_percent', {
+                                      onChange: (e) => {
+                                        const a = Math.min(100, Math.max(0, Number(e.target.value) || 0))
+                                        setValue('delivery_percent', 100 - a)
+                                        setValue('invoice_term_percent', 0)
+                                      }
+                                    })}
+                                    min="0" max="100" step="1" placeholder="30"
+                                    className={inputClass}
+                                  />
+                                </Field>
+                                <Field label="Rest la livrare (%)">
+                                  <input type="number" {...register('delivery_percent')} readOnly className={`${inputClass} bg-gray-50 text-gray-500`} />
+                                </Field>
+                              </div>
+                            )}
+                            {/* Inputs for ADVANCE_TERM */}
+                            {template.payment_type === 'advance_term' && (
+                              <div className="space-y-3">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                  <Field label="Avans (%)">
+                                    <input
+                                      type="number"
+                                      {...register('advance_percent', {
+                                        onChange: (e) => {
+                                          const a = Math.min(100, Math.max(0, Number(e.target.value) || 0))
+                                          setValue('invoice_term_percent', 100 - a)
+                                          setValue('delivery_percent', 0)
+                                        }
+                                      })}
+                                      min="0" max="100" step="1" placeholder="30"
+                                      className={inputClass}
+                                    />
+                                  </Field>
+                                  <Field label="Rest la termen (%)">
+                                    <input type="number" {...register('invoice_term_percent')} readOnly className={`${inputClass} bg-gray-50 text-gray-500`} />
+                                  </Field>
+                                </div>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                  <Field label="Număr zile">
+                                    <input
+                                      type="number"
+                                      {...register('invoice_term_days', {
+                                        onChange: (e) => {
+                                          const w = toWords(e.target.value)
+                                          if (w) setValue('invoice_term_text', w)
+                                        }
+                                      })}
+                                      min="1" placeholder="30"
+                                      className={inputClass}
+                                    />
+                                  </Field>
+                                  <Field label="În litere">
+                                    <input {...register('invoice_term_text')} placeholder="treizeci" className={inputClass} />
+                                  </Field>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </label>
+                  )
+                })}
+              </div>
+
+              {/* Preview text contract */}
+              <div className="p-3 bg-gray-50 border border-gray-200 rounded-lg">
+                <p className="text-xs text-gray-400 font-medium mb-1 uppercase tracking-wide">Text în contract</p>
+                <p className="text-sm text-gray-700 italic">{paymentPreview()}</p>
+              </div>
+
+              {/* Validare total */}
+              {totalPercent !== 100 && totalPercent > 0 && (
+                <div className="mt-3 flex items-center gap-2 text-xs font-medium text-amber-600">
+                  <div className="w-2 h-2 rounded-full bg-amber-500" />
+                  Total procente: {totalPercent}% (trebuie să fie 100%)
+                </div>
+              )}
+            </>
           )}
         </div>
 

@@ -10,7 +10,7 @@ import {
 } from 'lucide-react'
 import { format } from 'date-fns'
 import { ro } from 'date-fns/locale'
-import { applyTemplate } from './ContractTemplateEditor'
+import { applyTemplate, applyAnnex } from './ContractTemplateEditor'
 
 const STATUS_CONFIG = {
   draft:     { label: 'Ciornă',  color: 'bg-gray-100 text-gray-700',   border: 'border-gray-300' },
@@ -60,13 +60,27 @@ export default function ContractDetail() {
     queryFn: async () => {
       const { data } = await supabase
         .from('contract_templates')
-        .select('content')
+        .select('content, annex_content')
         .eq('is_active', true)
         .order('updated_at', { ascending: false })
         .limit(1)
         .maybeSingle()
       return data
     },
+  })
+
+  const { data: paymentConditionTemplate } = useQuery({
+    queryKey: ['payment-condition-template', contract?.payment_condition_template_id],
+    queryFn: async () => {
+      if (!contract?.payment_condition_template_id) return null
+      const { data } = await supabase
+        .from('payment_condition_templates')
+        .select('content')
+        .eq('id', contract.payment_condition_template_id)
+        .maybeSingle()
+      return data
+    },
+    enabled: !!contract?.payment_condition_template_id,
   })
 
   const cancelMutation = useMutation({
@@ -363,7 +377,7 @@ export default function ContractDetail() {
               <div
                 className="p-4 bg-white border border-gray-200 rounded-lg text-sm leading-relaxed"
                 style={{ fontFamily: 'Times New Roman, serif', fontSize: '13px' }}
-                dangerouslySetInnerHTML={{ __html: applyTemplate(contractTemplate.content, contract) }}
+                dangerouslySetInnerHTML={{ __html: applyTemplate(contractTemplate.content, contract, paymentConditionTemplate?.content) }}
               />
             ) : (
               <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-700">
@@ -372,6 +386,21 @@ export default function ContractDetail() {
                 pentru a configura unul.
               </div>
             )}
+            {/* Anexă produse */}
+            {contractTemplate?.content && (() => {
+              const annexHtml = applyAnnex(contractTemplate.annex_content, contract)
+              if (!annexHtml) return null
+              return (
+                <div className="mt-4 pt-4 border-t-2 border-dashed border-gray-300">
+                  <p className="text-xs text-gray-400 font-medium mb-2 uppercase tracking-wide">Anexă Produse</p>
+                  <div
+                    className="p-4 bg-white border border-gray-200 rounded-lg text-sm leading-relaxed"
+                    style={{ fontFamily: 'Times New Roman, serif', fontSize: '13px' }}
+                    dangerouslySetInnerHTML={{ __html: annexHtml }}
+                  />
+                </div>
+              )
+            })()}
           </div>
         )}
       </div>

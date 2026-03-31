@@ -5,11 +5,12 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import {
   Plus, FileText, Search, Filter, Eye, Edit2, Trash2,
-  Send, CheckCircle, Clock, XCircle, AlertCircle, ChevronDown, Settings2, Ban, Archive, RotateCcw
+  Send, CheckCircle, Clock, XCircle, AlertCircle, ChevronDown, Settings2, Ban, Archive, RotateCcw, CreditCard
 } from 'lucide-react'
 import { format } from 'date-fns'
 import { ro } from 'date-fns/locale'
 import ContractTemplateEditor from './ContractTemplateEditor'
+import PaymentConditionsPage from './PaymentConditionsPage'
 
 const STATUS_CONFIG = {
   draft:     { label: 'Ciornă',   color: 'bg-gray-100 text-gray-700',   icon: FileText },
@@ -25,7 +26,8 @@ export default function ContractsList() {
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
   const [deleteConfirm, setDeleteConfirm] = useState(null)
-  const [activeTab, setActiveTab] = useState('list') // 'list' | 'template'
+  const [activeTab, setActiveTab] = useState('list') // 'list' | 'template' | 'payment_conditions'
+  const [addPaymentCondition, setAddPaymentCondition] = useState(false)
   const [showDeleted, setShowDeleted] = useState(false)
   const [cancelConfirm, setCancelConfirm] = useState(null)
   const isAdmin = profile?.role === 'admin'
@@ -159,6 +161,15 @@ export default function ContractsList() {
             Contract nou
           </Link>
         )}
+        {canEdit && activeTab === 'payment_conditions' && (
+          <button
+            onClick={() => setAddPaymentCondition(v => !v)}
+            className="inline-flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors text-sm font-medium"
+          >
+            <Plus className="w-4 h-4" />
+            Adaugă condiție
+          </button>
+        )}
       </div>
 
       {/* Tabs */}
@@ -183,10 +194,30 @@ export default function ContractsList() {
             Șablon contract
           </button>
         )}
+        {canEdit && (
+          <button
+            onClick={() => setActiveTab('payment_conditions')}
+            className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
+              activeTab === 'payment_conditions' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            <CreditCard className="w-4 h-4" />
+            Condiții de plată
+          </button>
+        )}
       </div>
 
       {/* Template Editor */}
       {activeTab === 'template' && <ContractTemplateEditor />}
+
+      {/* Payment Conditions Manager */}
+      {activeTab === 'payment_conditions' && (
+        <PaymentConditionsPage
+          embedded
+          triggerAdd={addPaymentCondition}
+          onAddHandled={() => setAddPaymentCondition(false)}
+        />
+      )}
 
       {/* Deleted contracts tab */}
       {showDeleted && activeTab === 'list' && (

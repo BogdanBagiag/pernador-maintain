@@ -54,14 +54,50 @@ serve(async (req: Request) => {
       })
     }
 
-    // Fetch template activ
-    const { data: template } = await supabase
-      .from('contract_templates')
-      .select('content')
-      .eq('is_active', true)
-      .order('updated_at', { ascending: false })
-      .limit(1)
-      .maybeSingle()
+    // Fetch template activ (annex_content graceful — column may not exist yet)
+    let template = null
+    try {
+      const { data: t1 } = await supabase
+        .from('contract_templates')
+        .select('content, annex_content')
+        .eq('is_active', true)
+        .order('updated_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+      template = t1
+    } catch (_) {
+      // annex_content column may not exist yet, fallback to content only
+    }
+    if (!template) {
+      const { data: t2 } = await supabase
+        .from('contract_templates')
+        .select('content')
+        .eq('is_active', true)
+        .order('updated_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+      template = t2
+    }
+
+    // Fetch payment condition template content (graceful — columns may not exist yet)
+    let paymentConditionContent = null
+    try {
+      const { data: contractExtra } = await supabase
+        .from('contracts')
+        .select('payment_condition_template_id')
+        .eq('sign_token', token)
+        .maybeSingle()
+      if (contractExtra?.payment_condition_template_id) {
+        const { data: pct } = await supabase
+          .from('payment_condition_templates')
+          .select('content')
+          .eq('id', contractExtra.payment_condition_template_id)
+          .maybeSingle()
+        paymentConditionContent = pct?.content || null
+      }
+    } catch (_) {
+      // column doesn't exist yet — skip
+    }
 
     // Fetch semnatura vanzatorului (created_by)
     let sellerSignature = null
@@ -77,6 +113,8 @@ serve(async (req: Request) => {
     return new Response(JSON.stringify({
       ...contract,
       template_content: template?.content || null,
+      annex_content: template?.annex_content || null,
+      payment_condition_content: paymentConditionContent,
       seller_signature: sellerSignature,
     }), {
       status: 200,

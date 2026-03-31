@@ -7,7 +7,8 @@
       "Bash(npx supabase:*)",
       "Bash(curl -s -X POST \"https://fjwtshswivothknotlzs.supabase.co/functions/v1/create-user\" -H \"Content-Type: application/json\" -H \"Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZqd3RzaHN3aXZvdGhrbm90bHpzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njc0MjI2NTMsImV4cCI6MjA4Mjk5ODY1M30.RAqXQ2J7TEe1pblXYPvkwvWoOHdpS5Kp5VWpQ2IrnPs\" -d '{\"\"email\"\":\"\"test@test.com\"\",\"\"password\"\":\"\"Test1234!\"\",\"\"full_name\"\":\"\"Test User\"\",\"\"role\"\":\"\"technician\"\"}')",
       "Bash(curl -s -X POST \"https://fjwtshswivothknotlzs.supabase.co/functions/v1/create-user\" -H \"Content-Type: application/json\" -H \"Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZqd3RzaHN3aXZvdGhrbm90bHpzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njc0MjI2NTMsImV4cCI6MjA4Mjk5ODY1M30.RAqXQ2J7TEe1pblXYPvkwvWoOHdpS5Kp5VWpQ2IrnPs\" -H \"apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZqd3RzaHN3aXZvdGhrbm90bHpzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njc0MjI2NTMsImV4cCI6MjA4Mjk5ODY1M30.RAqXQ2J7TEe1pblXYPvkwvWoOHdpS5Kp5VWpQ2IrnPs\" -d '{\"\"email\"\":\"\"test@test.com\"\",\"\"password\"\":\"\"Test1234!\"\",\"\"full_name\"\":\"\"Test User\"\",\"\"role\"\":\"\"technician\"\"}')",
-      "Bash(npx vite:*)"
+      "Bash(npx vite:*)",
+      "Bash(python3 -c \":*)"
     ]
   }
 }
