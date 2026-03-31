@@ -17,7 +17,7 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
-    const { userToken, action, targetUserId, newRole, permissions } = await req.json()
+    const { userToken, action, targetUserId, newRole, permissions, newPassword } = await req.json()
 
     // Verificam identity adminului din JWT
     if (!userToken) {
@@ -84,6 +84,22 @@ serve(async (req) => {
         }
         updateData = { role: newRole }
         break
+      case 'reset_password': {
+        if (!newPassword || newPassword.length < 6) {
+          return new Response(JSON.stringify({ error: 'Parola trebuie sa aiba cel putin 6 caractere' }), {
+            status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          })
+        }
+        const { error: pwError } = await supabaseAdmin.auth.admin.updateUserById(targetUserId, { password: newPassword })
+        if (pwError) {
+          return new Response(JSON.stringify({ error: pwError.message }), {
+            status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          })
+        }
+        return new Response(JSON.stringify({ success: true }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        })
+      }
       case 'save_permissions': {
         if (!permissions || !Array.isArray(permissions)) {
           return new Response(JSON.stringify({ error: 'permissions array este obligatoriu' }), {

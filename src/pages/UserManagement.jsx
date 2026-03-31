@@ -536,11 +536,32 @@ function ResetPasswordModal({ user, onClose }) {
     setLoading(true)
 
     try {
-      // Admin password reset is not available without Service Role Key
-      // Show instructions instead
-      throw new Error('Password reset must be done through Supabase Dashboard')
-    } catch (error) {
-      setError('Admin password reset requires Service Role Key configuration.\n\nPlease use Supabase Dashboard:\n1. Go to Authentication â†’ Users\n2. Find user: ' + (user.full_name || user.email) + '\n3. Click "Reset Password"\n4. User will receive reset email')
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session?.access_token) throw new Error(‘Nu ești autentificat’)
+
+      const res = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/manage-user`,
+        {
+          method: ‘POST’,
+          headers: {
+            ‘Content-Type’: ‘application/json’,
+            ‘Authorization’: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+          },
+          body: JSON.stringify({
+            userToken: session.access_token,
+            action: ‘reset_password’,
+            targetUserId: user.id,
+            newPassword,
+          }),
+        }
+      )
+      const result = await res.json()
+      if (!res.ok) throw new Error(result?.error || `Eroare ${res.status}`)
+
+      setGeneratedPassword(newPassword)
+      setSuccess(true)
+    } catch (err) {
+      setError(err.message)
     } finally {
       setLoading(false)
     }
