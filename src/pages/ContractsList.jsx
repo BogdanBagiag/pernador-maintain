@@ -219,76 +219,6 @@ export default function ContractsList() {
         />
       )}
 
-      {/* Deleted contracts tab */}
-      {showDeleted && activeTab === 'list' && (
-        <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-          {deletedContracts.length === 0 ? (
-            <div className="text-center py-12">
-              <Archive className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-              <p className="text-gray-500 font-medium">Niciun contract șters</p>
-            </div>
-          ) : (
-            <table className="w-full">
-              <thead>
-                <tr className="bg-gray-50 border-b border-gray-200">
-                  <th className="text-left text-xs font-semibold text-gray-500 uppercase tracking-wider px-4 py-3">Nr. Contract</th>
-                  <th className="text-left text-xs font-semibold text-gray-500 uppercase tracking-wider px-4 py-3">Cumpărător</th>
-                  <th className="text-left text-xs font-semibold text-gray-500 uppercase tracking-wider px-4 py-3">Status anterior</th>
-                  <th className="text-left text-xs font-semibold text-gray-500 uppercase tracking-wider px-4 py-3">Șters la</th>
-                  <th className="text-right text-xs font-semibold text-gray-500 uppercase tracking-wider px-4 py-3">Acțiuni</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {deletedContracts.map(contract => {
-                  const cfg = STATUS_CONFIG[contract.status]
-                  return (
-                    <tr key={contract.id} className="hover:bg-gray-50 opacity-75">
-                      <td className="px-4 py-3">
-                        <span className="font-mono text-sm font-medium text-gray-500 line-through">{contract.contract_number}</span>
-                      </td>
-                      <td className="px-4 py-3">
-                        <p className="text-sm text-gray-600">{contract.buyer_name}</p>
-                      </td>
-                      <td className="px-4 py-3">
-                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${cfg?.color || 'bg-gray-100 text-gray-600'}`}>
-                          {cfg?.label || contract.status}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-sm text-gray-400">
-                        {contract.deleted_at
-                          ? format(new Date(contract.deleted_at), 'dd MMM yyyy', { locale: ro })
-                          : '—'}
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center justify-end gap-1">
-                          <Link
-                            to={`/contracte/${contract.id}`}
-                            className="p-1.5 text-gray-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"
-                            title="Vizualizează"
-                          >
-                            <Eye className="w-4 h-4" />
-                          </Link>
-                          {isAdmin && (
-                            <button
-                              onClick={() => restoreMutation.mutate(contract.id)}
-                              disabled={restoreMutation.isPending}
-                              className="p-1.5 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors"
-                              title="Restaurează"
-                            >
-                              <RotateCcw className="w-4 h-4" />
-                            </button>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
-          )}
-        </div>
-      )}
-
       {/* List content — shown only on list tab */}
       {activeTab === 'list' && <>
 
@@ -357,6 +287,125 @@ export default function ContractsList() {
         <div className="flex justify-center py-12">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600" />
         </div>
+      ) : showDeleted ? (
+        /* ── Contracte șterse ── */
+        deletedContracts.length === 0 ? (
+          <div className="text-center py-12 bg-white rounded-xl border border-gray-200">
+            <Archive className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+            <p className="text-gray-500 font-medium">Niciun contract șters</p>
+          </div>
+        ) : (
+          <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+            <div className="px-4 py-3 bg-amber-50 border-b border-amber-200 flex items-center gap-2">
+              <Archive className="w-4 h-4 text-amber-600" />
+              <span className="text-sm font-medium text-amber-800">Contracte arhivate — {deletedContracts.length} înregistrări</span>
+            </div>
+            <div className="hidden md:block overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="bg-gray-50 border-b border-gray-200">
+                    <th className="text-left text-xs font-semibold text-gray-500 uppercase tracking-wider px-4 py-3">Nr. Contract</th>
+                    <th className="text-left text-xs font-semibold text-gray-500 uppercase tracking-wider px-4 py-3">Cumpărător</th>
+                    <th className="text-left text-xs font-semibold text-gray-500 uppercase tracking-wider px-4 py-3">Status anterior</th>
+                    <th className="text-left text-xs font-semibold text-gray-500 uppercase tracking-wider px-4 py-3">Șters la</th>
+                    <th className="text-right text-xs font-semibold text-gray-500 uppercase tracking-wider px-4 py-3">Acțiuni</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {deletedContracts.map(contract => {
+                    const cfg = STATUS_CONFIG[contract.status]
+                    return (
+                      <tr key={contract.id} className="hover:bg-gray-50 transition-colors">
+                        <td className="px-4 py-3">
+                          <span className="font-mono text-sm font-medium text-gray-400 line-through">{contract.contract_number}</span>
+                        </td>
+                        <td className="px-4 py-3">
+                          <p className="text-sm font-medium text-gray-700">{contract.buyer_name}</p>
+                          {contract.buyer_email && <p className="text-xs text-gray-400">{contract.buyer_email}</p>}
+                        </td>
+                        <td className="px-4 py-3">
+                          <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium ${cfg?.color || 'bg-gray-100 text-gray-600'}`}>
+                            {cfg?.label || contract.status}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-sm text-gray-500">
+                          {contract.deleted_at
+                            ? format(new Date(contract.deleted_at), 'dd MMM yyyy', { locale: ro })
+                            : '—'}
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center justify-end gap-2">
+                            <Link
+                              to={`/contracte/${contract.id}`}
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+                              title="Vizualizează"
+                            >
+                              <Eye className="w-3.5 h-3.5" />
+                              Vizualizează
+                            </Link>
+                            {isAdmin && (
+                              <button
+                                onClick={() => restoreMutation.mutate(contract.id)}
+                                disabled={restoreMutation.isPending}
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-green-700 bg-green-100 hover:bg-green-200 rounded-lg transition-colors disabled:opacity-50"
+                                title="Restaurează"
+                              >
+                                <RotateCcw className="w-3.5 h-3.5" />
+                                Restaurează
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+            {/* Mobile cards - deleted */}
+            <div className="md:hidden divide-y divide-gray-100">
+              {deletedContracts.map(contract => {
+                const cfg = STATUS_CONFIG[contract.status]
+                return (
+                  <div key={contract.id} className="p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex-1 min-w-0">
+                        <span className="font-mono text-sm font-medium text-gray-400 line-through">{contract.contract_number}</span>
+                        <p className="text-sm font-medium text-gray-700 mt-0.5">{contract.buyer_name}</p>
+                        <div className="flex items-center gap-2 mt-1">
+                          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${cfg?.color || 'bg-gray-100 text-gray-600'}`}>
+                            {cfg?.label || contract.status}
+                          </span>
+                          {contract.deleted_at && (
+                            <span className="text-xs text-gray-400">
+                              {format(new Date(contract.deleted_at), 'dd MMM yyyy', { locale: ro })}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex flex-col gap-1 shrink-0">
+                        <Link to={`/contracte/${contract.id}`} className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg">
+                          <Eye className="w-3.5 h-3.5" />
+                          Vezi
+                        </Link>
+                        {isAdmin && (
+                          <button
+                            onClick={() => restoreMutation.mutate(contract.id)}
+                            disabled={restoreMutation.isPending}
+                            className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-green-700 bg-green-100 hover:bg-green-200 rounded-lg disabled:opacity-50"
+                          >
+                            <RotateCcw className="w-3.5 h-3.5" />
+                            Restaurează
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        )
       ) : filtered.length === 0 ? (
         <div className="text-center py-12 bg-white rounded-xl border border-gray-200">
           <FileText className="w-12 h-12 text-gray-300 mx-auto mb-3" />
