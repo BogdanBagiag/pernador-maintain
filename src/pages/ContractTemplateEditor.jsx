@@ -649,7 +649,21 @@ export default function ContractTemplateEditor() {
               <PenLine className="w-3.5 h-3.5" />
               Zone de semnătură
             </p>
-            <p>Folosește <code className="bg-rose-100 px-1 rounded">{'{{SIGNATURE_SELLER}}'}</code> și <code className="bg-rose-100 px-1 rounded">{'{{SIGNATURE_BUYER}}'}</code> pentru a marca exact unde apare fiecare semnătură în PDF.</p>
+            <p className="mb-3">Folosește <code className="bg-rose-100 px-1 rounded">{'{{SIGNATURE_SELLER}}'}</code> și <code className="bg-rose-100 px-1 rounded">{'{{SIGNATURE_BUYER}}'}</code> pentru a marca exact unde apare fiecare semnătură în PDF.</p>
+            <button
+              disabled={!canEdit || previewMode}
+              onClick={() => {
+                const editor = editorTab === 'annex' ? annexEditorRef.current : editorRef.current
+                if (!editor) return
+                editor.focus()
+                const html = `<table style="width:100%;margin-top:24px;margin-bottom:8px;border-collapse:collapse"><tr><td style="width:50%;vertical-align:top;padding-right:16px;text-align:left"><p style="font-weight:bold;text-align:center">VÂNZĂTOR</p><p style="text-align:center">{{SELLER_NAME}}</p><p style="margin-top:8px">{{SELLER_REPRESENTATIVE_ROLE}},</p><p>{{SELLER_REPRESENTATIVE}}</p><p style="margin-top:16px">{{SIGNATURE_SELLER}}</p></td><td style="width:50%;vertical-align:top;padding-left:16px;text-align:left"><p style="font-weight:bold;text-align:center">CUMPĂRĂTOR</p><p style="text-align:center">{{BUYER_NAME}}</p><p style="margin-top:8px">{{BUYER_REPRESENTATIVE_ROLE}},</p><p>{{BUYER_REPRESENTATIVE}}</p><p style="margin-top:16px">{{SIGNATURE_BUYER}}</p></td></tr></table>`
+                document.execCommand('insertHTML', false, html)
+              }}
+              className="w-full flex items-center justify-center gap-1.5 px-3 py-2 bg-rose-100 hover:bg-rose-200 text-rose-800 font-medium rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              <PenLine className="w-3.5 h-3.5" />
+              Inserează bloc semnături (2 coloane)
+            </button>
           </div>
         </div>
 
