@@ -2,6 +2,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
 import { LanguageProvider } from './contexts/LanguageContext'
+import { PermissionsProvider } from './contexts/PermissionsContext'
 
 // Pages
 import LandingPage from './pages/LandingPage'
@@ -81,6 +82,7 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
+        <PermissionsProvider>
         <LanguageProvider>
           <Router>
           <Routes>
@@ -164,6 +166,7 @@ function App() {
           </Routes>
         </Router>
       </LanguageProvider>
+        </PermissionsProvider>
       </AuthProvider>
     </QueryClientProvider>
   )
