@@ -1,7 +1,6 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { useLanguage } from '../contexts/LanguageContext'
-import { usePermissions } from '../contexts/PermissionsContext'
 import {
   LayoutDashboard,
   Wrench,
@@ -17,8 +16,7 @@ import {
   CheckSquare,
   FileText,
   Users,
-  ScrollText,
-  Car,
+  TrendingUp,
 } from 'lucide-react'
 import { useState } from 'react'
 
@@ -31,8 +29,6 @@ const navigation = [
   { name: 'nav.schedules', href: '/schedules', icon: Calendar },
   { name: 'nav.checklists', href: '/checklist-templates', icon: CheckSquare },
   { name: 'nav.procedures', href: '/procedure-templates', icon: FileText },
-  { name: 'nav.contracts', href: '/contracte', icon: ScrollText },
-  { name: 'nav.vehicles', href: '/vehicles', icon: Car },
   { name: 'nav.reports', href: '/reports', icon: BarChart3 },
   { name: 'nav.users', href: '/users', icon: Users, adminOnly: true },
   { name: 'nav.settings', href: '/settings', icon: Settings },
@@ -43,7 +39,6 @@ export default function Layout({ children }) {
   const navigate = useNavigate()
   const { user, profile, signOut } = useAuth()
   const { t } = useLanguage()
-  const { visibleModules } = usePermissions()
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
   // Debug logging
@@ -59,16 +54,6 @@ export default function Layout({ children }) {
     } catch (error) {
       console.error('Error signing out:', error.message)
     }
-  }
-
-  // Helper pentru label nav (cu fallback pentru cheile fără traducere)
-  const navLabel = (name) => {
-    const translated = t(name)
-    if (translated === name) {
-      // Fallback manual pentru Contracte dacă LanguageContext nu are cheia
-      if (name === 'nav.contracts') return 'Contracte'
-    }
-    return translated
   }
 
   return (
@@ -105,14 +90,7 @@ export default function Layout({ children }) {
           {/* Navigation */}
           <nav className="flex-1 px-4 py-6 space-y-1 overflow-y-auto">
             {navigation
-              .filter(item => {
-                // Dashboard and Settings are always visible
-                if (item.href === '/dashboard' || item.href === '/settings') return true
-                // Users page: admin only
-                if (item.adminOnly) return profile?.role === 'admin'
-                // All other items: check visibleModules (admins get all via PermissionsContext)
-                return visibleModules.some(m => m.href === item.href)
-              })
+              .filter(item => !item.adminOnly || profile?.role === 'admin')
               .map((item) => {
               const isActive = location.pathname.startsWith(item.href)
               return (
@@ -127,10 +105,30 @@ export default function Layout({ children }) {
                   onClick={() => setSidebarOpen(false)}
                 >
                   <item.icon className="w-5 h-5 mr-3" />
-                  {navLabel(item.name)}
+                  {t(item.name)}
                 </Link>
               )
             })}
+
+            {/* Separator + SEO */}
+            <div className="pt-2 pb-1">
+              <div className="border-t border-gray-100 mb-2" />
+              <p className="px-4 text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">
+                Marketing
+              </p>
+            </div>
+            <Link
+              to="/seo"
+              className={`flex items-center px-4 py-3 text-sm font-medium rounded-lg transition-colors ${
+                location.pathname.startsWith('/seo')
+                  ? 'bg-primary-50 text-primary-700'
+                  : 'text-gray-700 hover:bg-gray-100'
+              }`}
+              onClick={() => setSidebarOpen(false)}
+            >
+              <TrendingUp className="w-5 h-5 mr-3" />
+              Modul SEO
+            </Link>
           </nav>
 
           {/* User info and logout */}
