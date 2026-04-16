@@ -247,31 +247,41 @@ function GKPImportModal({ pageId, onClose, onImported }) {
   }
 
   const parseCSV = (text) => {
-    // Detectăm separatorul (, sau ;)
-    const sep = text.includes(';') ? ';' : ','
-    const lines = text.split('\n').map(l => l.trim()).filter(Boolean)
+    // Elimină BOM dacă există
+    const clean = text.replace(/^\uFEFF/, '')
 
-    // Găsim linia header (conține "Keyword" sau "Cuvant cheie")
-    let headerIdx = lines.findIndex(l =>
-      /keyword|cuvant cheie|arama terimi/i.test(l)
-    )
-    if (headerIdx === -1) headerIdx = 0
+    // Detectăm separatorul: tab > ; > ,
+    const sep = clean.includes('\t') ? '\t' : (clean.includes(';') ? ';' : ',')
+
+    const lines = clean.split('\n').map(l => l.trimEnd()).filter(Boolean)
+
+    // Găsim linia header — prima linie care conține "Keyword" ca prim câmp
+    let headerIdx = lines.findIndex(l => {
+      const first = l.split(sep)[0].replace(/^"|"$/g, '').trim()
+      return /^keyword$/i.test(first)
+    })
+    if (headerIdx === -1) {
+      // fallback: orice linie care conține "keyword" undeva
+      headerIdx = lines.findIndex(l => /keyword/i.test(l))
+    }
+    if (headerIdx === -1) {
+      setParseError('Nu am găsit header-ul "Keyword" în fișier. Asigură-te că exporți din Google Keyword Planner.')
+      return
+    }
 
     const headers = lines[headerIdx].split(sep).map(h =>
       h.replace(/^"|"$/g, '').trim().toLowerCase()
     )
 
-    // Coloana keyword
-    const kwCol = headers.findIndex(h =>
-      /^keyword|^cuvant|^keyword \(by|^search term/i.test(h)
-    )
+    // Coloana keyword (primul câmp)
+    const kwCol = headers.findIndex(h => /^keyword$/i.test(h.trim()))
     // Coloana volum
     const volCol = headers.findIndex(h =>
       /avg.*month|searches|volume|cautari|medie lunara/i.test(h)
     )
     // Coloana competition
     const compCol = headers.findIndex(h =>
-      /^competition$/i.test(h)
+      /^competition$/i.test(h.trim())
     )
 
     if (kwCol === -1) {
@@ -283,34 +293,34 @@ function GKPImportModal({ pageId, onClose, onImported }) {
     for (let i = headerIdx + 1; i < lines.length; i++) {
       const cols = lines[i].split(sep).map(c => c.replace(/^"|"$/g, '').trim())
       const kw = cols[kwCol]
+      // Sărim rândurile fără keyword (rânduri agregat All/Romania etc.)
       if (!kw || kw.length < 2) continue
 
-      // Volum: poate fi "1,000-10,000" sau "1000" — luăm primul număr
-      let vol = 0
+      // Volum: GKP exportă "720.0" sau "1,000" — convertim la int
+      let vol = null
       if (volCol !== -1 && cols[volCol]) {
-        const match = cols[volCol].replace(/,/g, '').match(/\d+/)
-        if (match) vol = parseInt(match[0])
+        const num = parseFloat(cols[volCol].replace(/,/g, ''))
+        if (!isNaN(num) && num > 0) vol = Math.round(num)
       }
 
       const comp = compCol !== -1 ? cols[compCol] : ''
       parsed.push({
-        _id:          i,
-        keyword:      kw,
-        monthly_volume: vol || null,
-        difficulty:   compToDiff(comp),
-        keyword_type: 'secondary',
-        competition:  comp,
+        _id:            i,
+        keyword:        kw,
+        monthly_volume: vol,
+        difficulty:     compToDiff(comp),
+        keyword_type:   'secondary',
+        competition:    comp,
       })
     }
 
     if (parsed.length === 0) {
-      setParseError('Nu am găsit keywords în fișier. Verifică formatul exportului.')
+      setParseError('Nu am găsit keywords în fișier. Verifică că fișierul conține date (nu doar header).')
       return
     }
 
     setParseError(null)
     setRows(parsed)
-    // Selectăm toate implicit
     const sel = {}
     parsed.forEach(r => { sel[r._id] = true })
     setSelected(sel)
@@ -321,8 +331,21 @@ function GKPImportModal({ pageId, onClose, onImported }) {
     const file = e.target.files[0]
     if (!file) return
     const reader = new FileReader()
-    reader.onload = (ev) => parseCSV(ev.target.result)
-    reader.readAsText(file, 'UTF-8')
+    reader.onload = (ev) => {
+      const buffer = ev.target.result
+      const bytes = new Uint8Array(buffer)
+      // Detectăm encoding din BOM
+      let text
+      if (bytes[0] === 0xFF && bytes[1] === 0xFE) {
+        text = new TextDecoder('utf-16le').decode(buffer)
+      } else if (bytes[0] === 0xFE && bytes[1] === 0xFF) {
+        text = new TextDecoder('utf-16be').decode(buffer)
+      } else {
+        text = new TextDecoder('utf-8').decode(buffer)
+      }
+      parseCSV(text)
+    }
+    reader.readAsArrayBuffer(file)
   }
 
   const handlePaste = (e) => {
