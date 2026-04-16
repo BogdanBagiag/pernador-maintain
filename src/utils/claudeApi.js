@@ -1,41 +1,31 @@
 // src/utils/claudeApi.js
 // Utilitar pentru apeluri Anthropic API — Modul SEO
+// Apelurile trec prin Edge Function claude-proxy (evită CORS + ascunde API key)
 
-const CLAUDE_MODEL = 'claude-sonnet-4-20250514'
-const API_URL = 'https://api.anthropic.com/v1/messages'
+const PROXY_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/claude-proxy`
+const ANON_KEY  = import.meta.env.VITE_SUPABASE_ANON_KEY
 
 // ─────────────────────────────────────────
 // Funcție de bază
 // ─────────────────────────────────────────
-export async function callClaude({ systemPrompt, userMessage, maxTokens = 1500 }) {
-  const apiKey = import.meta.env.VITE_ANTHROPIC_API_KEY
-  if (!apiKey) {
-    throw new Error('VITE_ANTHROPIC_API_KEY lipsă din .env. Adaugă-l pentru a folosi asistența AI.')
-  }
-
-  const response = await fetch(API_URL, {
+export async function callClaude({ systemPrompt, userMessage, maxTokens = 1500, messages }) {
+  const response = await fetch(PROXY_URL, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'x-api-key': apiKey,
-      'anthropic-version': '2023-06-01',
-      'anthropic-dangerous-direct-browser-access': 'true',
+      'Authorization': `Bearer ${ANON_KEY}`,
     },
-    body: JSON.stringify({
-      model: CLAUDE_MODEL,
-      max_tokens: maxTokens,
-      system: systemPrompt,
-      messages: [{ role: 'user', content: userMessage }],
-    }),
+    body: JSON.stringify({ systemPrompt, userMessage, maxTokens, messages }),
   })
 
   if (!response.ok) {
     const err = await response.json().catch(() => ({}))
-    throw new Error(err.error?.message || `API error ${response.status}`)
+    throw new Error(err.error || `Proxy error ${response.status}`)
   }
 
   const data = await response.json()
-  return data.content.find(b => b.type === 'text')?.text || ''
+  if (data.error) throw new Error(data.error)
+  return data.text || ''
 }
 
 // ─────────────────────────────────────────
@@ -194,32 +184,10 @@ Context pagină curentă:
 
 Răspunzi concis, practic, specific pentru această pagină. Când dai exemple, folosește contextul real al paginii. Răspunzi în română.`
 
-  const messages = [
+  const msgs = [
     ...chatHistory.map(msg => ({ role: msg.role, content: msg.content })),
     { role: 'user', content: userQuestion }
   ]
 
-  const response = await fetch(API_URL, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': import.meta.env.VITE_ANTHROPIC_API_KEY,
-      'anthropic-version': '2023-06-01',
-      'anthropic-dangerous-direct-browser-access': 'true',
-    },
-    body: JSON.stringify({
-      model: CLAUDE_MODEL,
-      max_tokens: 1000,
-      system,
-      messages,
-    }),
-  })
-
-  if (!response.ok) {
-    const err = await response.json().catch(() => ({}))
-    throw new Error(err.error?.message || `API error ${response.status}`)
-  }
-
-  const data = await response.json()
-  return data.content.find(b => b.type === 'text')?.text || ''
+  return callClaude({ systemPrompt: system, maxTokens: 1000, messages: msgs })
 }
