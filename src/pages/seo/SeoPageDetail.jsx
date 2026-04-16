@@ -740,9 +740,12 @@ function TabKeywords({ pageId, keywords, onRefresh }) {
 }
 
 // ─── Tab: Checklist ───────────────────────────────────────
-function TabChecklist({ pageId, savedProgress, onRefresh }) {
+function TabChecklist({ pageId, savedProgress, onRefresh, page, keywords, onSavePage }) {
   const [toggling, setToggling] = useState(null)
   const [showReset, setShowReset] = useState(false)
+  const [expandedKey, setExpandedKey] = useState(null)
+  const [kwInput, setKwInput] = useState(page.primary_keyword || '')
+  const [savingKw, setSavingKw] = useState(false)
 
   const progressMap = {}
   savedProgress?.forEach(p => {
@@ -776,6 +779,341 @@ function TabChecklist({ pageId, savedProgress, onRefresh }) {
     await supabase.from('seo_checklist_progress').delete().eq('page_id', pageId)
     onRefresh()
     setShowReset(false)
+  }
+
+  // Compute auto-validation per widget type
+  const computeAutoValid = (widget) => {
+    if (!widget) return false
+    switch (widget) {
+      case 'primary_kw':
+        return !!(page.primary_keyword && page.primary_keyword.trim().length > 0)
+      case 'primary_volume': {
+        if (!page.primary_keyword) return false
+        const entry = keywords.find(k => k.keyword === page.primary_keyword)
+        return !!(entry && entry.monthly_volume > 0)
+      }
+      case 'secondary_kws':
+        return keywords.filter(k => k.keyword_type === 'secondary').length >= 3
+      case 'longtail_kws':
+        return keywords.filter(k => k.keyword_type === 'long_tail').length >= 2
+      case 'meta_title':
+        return !!(page.meta_title && page.meta_title.length > 0 && page.meta_title.length <= 60)
+      case 'meta_desc':
+        return !!(page.meta_description && page.meta_description.length > 0 && page.meta_description.length <= 155)
+      case 'url_slug':
+        return !!(page.url_slug && /^[a-z0-9-]+$/.test(page.url_slug))
+      case 'search_intent':
+        return false
+      default:
+        return false
+    }
+  }
+
+  // Widget: primary_kw
+  const WidgetPrimaryKw = () => {
+    const isSet = !!(page.primary_keyword && page.primary_keyword.trim())
+    const handleSave = async () => {
+      setSavingKw(true)
+      await onSavePage({ primary_keyword: kwInput.trim() })
+      setSavingKw(false)
+    }
+    return (
+      <div className="space-y-3">
+        {isSet ? (
+          <div className="flex items-center gap-2">
+            <span className="inline-flex items-center gap-1.5 bg-green-100 text-green-800 text-sm font-medium px-3 py-1.5 rounded-lg">
+              <CheckCircle className="w-4 h-4" />
+              {page.primary_keyword}
+            </span>
+            <button onClick={() => setKwInput(page.primary_keyword)}
+              className="text-xs text-gray-500 hover:text-gray-700 underline">
+              Editează
+            </button>
+          </div>
+        ) : null}
+        <div className="flex gap-2">
+          <input
+            type="text"
+            value={kwInput}
+            onChange={e => setKwInput(e.target.value)}
+            placeholder="Ex: husă impermeabilă pat, cearșaf impermeabil..."
+            className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+          />
+          <button
+            onClick={handleSave}
+            disabled={savingKw || !kwInput.trim()}
+            className="px-4 py-2 bg-primary-600 text-white text-sm font-medium rounded-lg hover:bg-primary-700 disabled:opacity-50"
+          >
+            {savingKw ? 'Se salvează...' : 'Salvează'}
+          </button>
+        </div>
+        <p className="text-xs text-gray-400">Ex: husă impermeabilă pat, cearșaf impermeabil, protecție saltea...</p>
+      </div>
+    )
+  }
+
+  // Widget: primary_volume
+  const WidgetPrimaryVolume = () => {
+    if (!page.primary_keyword) {
+      return (
+        <p className="text-sm text-gray-500 italic">
+          Setează mai întâi cuvântul cheie principal (Pasul 1)
+        </p>
+      )
+    }
+    const entry = keywords.find(k => k.keyword === page.primary_keyword)
+    if (entry && entry.monthly_volume > 0) {
+      return (
+        <div className="space-y-2">
+          <div className="flex items-center gap-2">
+            <span className="text-green-700 font-semibold text-lg">{entry.monthly_volume.toLocaleString()}</span>
+            <span className="text-sm text-gray-500">căutări/lună pentru <strong>{page.primary_keyword}</strong></span>
+          </div>
+          <p className="text-xs text-green-600 flex items-center gap-1">
+            <CheckCircle className="w-3.5 h-3.5" /> Volum validat
+          </p>
+        </div>
+      )
+    }
+    if (entry && !entry.monthly_volume) {
+      return (
+        <div className="space-y-2">
+          <div className="flex items-center gap-2 text-yellow-700 bg-yellow-50 border border-yellow-200 rounded-lg px-3 py-2">
+            <AlertCircle className="w-4 h-4 shrink-0" />
+            <p className="text-sm">Keyword-ul există dar nu are volum setat. Editează-l în tab-ul Keywords.</p>
+          </div>
+          <a href="https://ads.google.com/home/tools/keyword-planner/" target="_blank" rel="noopener noreferrer"
+            className="text-xs text-primary-600 hover:underline flex items-center gap-1">
+            Deschide Google Keyword Planner →
+          </a>
+        </div>
+      )
+    }
+    return (
+      <div className="space-y-2">
+        <div className="flex items-center gap-2 text-blue-700 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2">
+          <Info className="w-4 h-4 shrink-0" />
+          <p className="text-sm">
+            <strong>{page.primary_keyword}</strong> nu e în lista de keywords. Adaugă-l în tab-ul Keywords cu volum.
+          </p>
+        </div>
+        <a href="https://ads.google.com/home/tools/keyword-planner/" target="_blank" rel="noopener noreferrer"
+          className="text-xs text-primary-600 hover:underline flex items-center gap-1">
+          Deschide Google Keyword Planner →
+        </a>
+        <p className="text-xs text-gray-400">Mergi la tab-ul Keywords → pentru a adăuga volumul</p>
+      </div>
+    )
+  }
+
+  // Widget: search_intent
+  const WidgetSearchIntent = () => {
+    const googleUrl = page.primary_keyword
+      ? `https://www.google.com/search?q=${encodeURIComponent(page.primary_keyword)}`
+      : 'https://www.google.com'
+    return (
+      <div className="space-y-3">
+        {page.primary_keyword && (
+          <a href={googleUrl} target="_blank" rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 border border-blue-200 text-blue-700 text-sm rounded-lg hover:bg-blue-100">
+            <Globe className="w-4 h-4" />
+            Caută „{page.primary_keyword}" pe Google →
+          </a>
+        )}
+        <div className="space-y-2">
+          <p className="text-xs font-semibold text-gray-600 uppercase tracking-wide">Tipuri de intenție:</p>
+          <div className="grid grid-cols-1 gap-2">
+            <div className="flex items-start gap-2 bg-gray-50 rounded-lg px-3 py-2">
+              <span className="text-base">🔍</span>
+              <div>
+                <p className="text-sm font-medium text-gray-800">Informational</p>
+                <p className="text-xs text-gray-500">Utilizatorul caută informații</p>
+              </div>
+            </div>
+            <div className="flex items-start gap-2 bg-gray-50 rounded-lg px-3 py-2">
+              <span className="text-base">🛒</span>
+              <div>
+                <p className="text-sm font-medium text-gray-800">Comercial</p>
+                <p className="text-xs text-gray-500">Utilizatorul compară produse/servicii</p>
+              </div>
+            </div>
+            <div className="flex items-start gap-2 bg-gray-50 rounded-lg px-3 py-2">
+              <span className="text-base">💳</span>
+              <div>
+                <p className="text-sm font-medium text-gray-800">Tranzacțional</p>
+                <p className="text-xs text-gray-500">Utilizatorul vrea să cumpere</p>
+              </div>
+            </div>
+          </div>
+        </div>
+        <p className="text-xs text-gray-400">Analizează rezultatele și bifează manual după ce ai determinat intenția.</p>
+      </div>
+    )
+  }
+
+  // Widget: secondary_kws
+  const WidgetSecondaryKws = ({ minCount }) => {
+    const secondaryKws = keywords.filter(k => k.keyword_type === 'secondary')
+    const count = secondaryKws.length
+    const pct = Math.min((count / minCount) * 100, 100)
+    const met = count >= minCount
+    return (
+      <div className="space-y-3">
+        <div>
+          <div className="flex justify-between text-xs text-gray-600 mb-1">
+            <span>{count} din {minCount} secundare</span>
+            <span className={met ? 'text-green-600 font-medium' : 'text-gray-500'}>{count}/{minCount}</span>
+          </div>
+          <div className="w-full bg-gray-100 rounded-full h-2">
+            <div className={`h-2 rounded-full transition-all ${met ? 'bg-green-500' : 'bg-blue-400'}`}
+              style={{ width: `${pct}%` }} />
+          </div>
+        </div>
+        {secondaryKws.length > 0 ? (
+          <div className="flex flex-wrap gap-1.5">
+            {secondaryKws.map(k => (
+              <span key={k.id} className="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full">
+                {k.keyword}
+              </span>
+            ))}
+          </div>
+        ) : (
+          <p className="text-xs text-gray-400 italic">Niciun keyword secundar adăugat încă.</p>
+        )}
+        {met ? (
+          <p className="text-xs text-green-600 flex items-center gap-1">
+            <CheckCircle className="w-3.5 h-3.5" /> Condiție îndeplinită ({count} keywords secundare)
+          </p>
+        ) : (
+          <p className="text-xs text-gray-500">Mergi la tab-ul Keywords → pentru a adăuga keywords secundare</p>
+        )}
+      </div>
+    )
+  }
+
+  // Widget: longtail_kws
+  const WidgetLongtailKws = ({ minCount }) => {
+    const longtailKws = keywords.filter(k => k.keyword_type === 'long_tail')
+    const count = longtailKws.length
+    const pct = Math.min((count / minCount) * 100, 100)
+    const met = count >= minCount
+    return (
+      <div className="space-y-3">
+        <div>
+          <div className="flex justify-between text-xs text-gray-600 mb-1">
+            <span>{count} din {minCount} long-tail</span>
+            <span className={met ? 'text-green-600 font-medium' : 'text-gray-500'}>{count}/{minCount}</span>
+          </div>
+          <div className="w-full bg-gray-100 rounded-full h-2">
+            <div className={`h-2 rounded-full transition-all ${met ? 'bg-green-500' : 'bg-blue-400'}`}
+              style={{ width: `${pct}%` }} />
+          </div>
+        </div>
+        {longtailKws.length > 0 ? (
+          <div className="flex flex-wrap gap-1.5">
+            {longtailKws.map(k => (
+              <span key={k.id} className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">
+                {k.keyword}
+              </span>
+            ))}
+          </div>
+        ) : (
+          <p className="text-xs text-gray-400 italic">Niciun keyword long-tail adăugat încă.</p>
+        )}
+        {met ? (
+          <p className="text-xs text-green-600 flex items-center gap-1">
+            <CheckCircle className="w-3.5 h-3.5" /> Condiție îndeplinită ({count} expresii long-tail)
+          </p>
+        ) : (
+          <p className="text-xs text-gray-500">Mergi la tab-ul Keywords → pentru a adăuga expresii long-tail</p>
+        )}
+      </div>
+    )
+  }
+
+  // Widget: meta_title
+  const WidgetMetaTitle = () => {
+    const val = page.meta_title || ''
+    const len = val.length
+    const color = len === 0 ? 'text-gray-400' : len > 60 ? 'text-red-600' : 'text-green-600'
+    return (
+      <div className="space-y-2">
+        {val ? (
+          <div className={`bg-gray-50 border rounded-lg px-3 py-2 text-sm font-medium ${len > 60 ? 'border-red-200 text-red-700' : 'border-green-200 text-green-800'}`}>
+            {val}
+          </div>
+        ) : (
+          <p className="text-xs text-gray-400 italic">Title tag nesetat</p>
+        )}
+        <p className={`text-xs font-medium ${color}`}>{len}/60 caractere
+          {len > 60 && ' — prea lung!'}
+          {len > 0 && len <= 60 && ' — OK'}
+        </p>
+        <p className="text-xs text-gray-400">Editează în tab-ul Meta SEO →</p>
+      </div>
+    )
+  }
+
+  // Widget: meta_desc
+  const WidgetMetaDesc = () => {
+    const val = page.meta_description || ''
+    const len = val.length
+    const color = len === 0 ? 'text-gray-400' : len > 155 ? 'text-red-600' : 'text-green-600'
+    return (
+      <div className="space-y-2">
+        {val ? (
+          <div className={`bg-gray-50 border rounded-lg px-3 py-2 text-sm ${len > 155 ? 'border-red-200 text-red-700' : 'border-green-200 text-green-800'}`}>
+            {val}
+          </div>
+        ) : (
+          <p className="text-xs text-gray-400 italic">Meta description nesetată</p>
+        )}
+        <p className={`text-xs font-medium ${color}`}>{len}/155 caractere
+          {len > 155 && ' — prea lungă!'}
+          {len > 0 && len <= 155 && ' — OK'}
+        </p>
+        <p className="text-xs text-gray-400">Editează în tab-ul Meta SEO →</p>
+      </div>
+    )
+  }
+
+  // Widget: url_slug
+  const WidgetUrlSlug = () => {
+    const val = page.url_slug || ''
+    const valid = val.length > 0 && /^[a-z0-9-]+$/.test(val)
+    return (
+      <div className="space-y-2">
+        {val ? (
+          <div className={`bg-gray-50 border rounded-lg px-3 py-2 text-sm font-mono ${valid ? 'border-green-200 text-green-800' : 'border-red-200 text-red-700'}`}>
+            /{val}
+          </div>
+        ) : (
+          <p className="text-xs text-gray-400 italic">URL slug nesetat</p>
+        )}
+        {val && (
+          <p className={`text-xs font-medium ${valid ? 'text-green-600' : 'text-red-600'}`}>
+            {valid
+              ? '✓ Slug valid (doar litere mici, cifre, liniuțe)'
+              : '✗ Slug invalid — folosește doar litere mici, cifre și liniuțe (fără diacritice sau spații)'}
+          </p>
+        )}
+        <p className="text-xs text-gray-400">Editează în tab-ul Date generale →</p>
+      </div>
+    )
+  }
+
+  const renderWidget = (widgetType, item) => {
+    switch (widgetType) {
+      case 'primary_kw':    return <WidgetPrimaryKw />
+      case 'primary_volume': return <WidgetPrimaryVolume />
+      case 'search_intent': return <WidgetSearchIntent />
+      case 'secondary_kws': return <WidgetSecondaryKws minCount={item.minCount || 3} />
+      case 'longtail_kws':  return <WidgetLongtailKws minCount={item.minCount || 2} />
+      case 'meta_title':    return <WidgetMetaTitle />
+      case 'meta_desc':     return <WidgetMetaDesc />
+      case 'url_slug':      return <WidgetUrlSlug />
+      default:              return null
+    }
   }
 
   return (
@@ -821,31 +1159,85 @@ function TabChecklist({ pageId, savedProgress, onRefresh }) {
                 </span>
               </div>
 
-              <div className="divide-y divide-gray-100 bg-white">
+              <div className="bg-white">
                 {phase.items.map((item, idx) => {
                   const key = `${phase.id}:${idx}`
                   const done = !!progressMap[key]
                   const isToggling = toggling === key
+                  const autoValid = computeAutoValid(item.widget)
+                  const isExpanded = expandedKey === key
 
                   return (
-                    <div key={idx} className={`flex items-start gap-3 px-4 py-3 transition-colors ${done ? 'bg-green-50' : 'hover:bg-gray-50'}`}>
-                      <button
-                        onClick={() => toggle(phase.id, idx, done)}
-                        disabled={!!toggling}
-                        className={`mt-0.5 shrink-0 rounded-full transition-all ${
-                          done ? 'text-green-600' : 'text-gray-300 hover:text-gray-500'
-                        } ${isToggling ? 'opacity-50' : ''}`}
+                    <div key={idx} className="border-b last:border-0">
+                      {/* Clickable header row */}
+                      <div
+                        className={`flex items-center gap-3 px-4 py-3 cursor-pointer transition-colors ${done ? 'bg-green-50' : 'hover:bg-gray-50'}`}
+                        onClick={() => item.widget && setExpandedKey(isExpanded ? null : key)}
                       >
-                        {done ? <CheckCircle className="w-5 h-5" /> : <Circle className="w-5 h-5" />}
-                      </button>
-                      <div className="flex-1">
-                        <p className={`text-sm ${done ? 'line-through text-gray-400' : 'text-gray-800'}`}>
-                          {item.text}
-                        </p>
-                        {item.detail && (
-                          <p className="text-xs text-gray-400 mt-0.5">{item.detail}</p>
+                        {/* Manual check button */}
+                        <button
+                          onClick={e => { e.stopPropagation(); toggle(phase.id, idx, done) }}
+                          disabled={!!toggling}
+                          className={`shrink-0 rounded-full transition-all ${
+                            done ? 'text-green-600' :
+                            autoValid ? 'text-gray-400' :
+                            'text-gray-300 hover:text-gray-500'
+                          } ${isToggling ? 'opacity-50' : ''}`}
+                        >
+                          {done
+                            ? <CheckCircle className="w-5 h-5" />
+                            : autoValid
+                              ? <CheckCircle className="w-5 h-5" />
+                              : <Circle className="w-5 h-5" />
+                          }
+                        </button>
+
+                        {/* Item text */}
+                        <div className="flex-1 min-w-0">
+                          <p className={`text-sm ${done ? 'line-through text-gray-400' : 'text-gray-800'}`}>
+                            {item.text}
+                          </p>
+                          {autoValid && !done && (
+                            <span className="text-xs text-green-600">✓ Condiție îndeplinită — bifează pentru a continua</span>
+                          )}
+                        </div>
+
+                        {/* Expand chevron */}
+                        {item.widget && (
+                          <ChevronRight className={`w-4 h-4 text-gray-400 shrink-0 transition-transform ${isExpanded ? 'rotate-90' : ''}`} />
                         )}
                       </div>
+
+                      {/* Expanded widget area */}
+                      {isExpanded && item.widget && (
+                        <div className="px-4 pb-4 pt-3 bg-gray-50 border-t border-gray-100">
+                          {item.detail && (
+                            <p className="text-xs text-gray-400 mb-3">{item.detail}</p>
+                          )}
+                          {renderWidget(item.widget, item)}
+
+                          {/* Action buttons */}
+                          <div className="mt-3 flex gap-2">
+                            {autoValid && !done && (
+                              <button
+                                onClick={() => toggle(phase.id, idx, done)}
+                                className="flex items-center gap-1.5 px-3 py-1.5 bg-green-600 text-white text-xs font-medium rounded-lg hover:bg-green-700"
+                              >
+                                <CheckCircle className="w-3.5 h-3.5" />
+                                Bifează ca finalizat
+                              </button>
+                            )}
+                            {!autoValid && (
+                              <button
+                                onClick={() => toggle(phase.id, idx, done)}
+                                className="flex items-center gap-1.5 px-3 py-1.5 bg-primary-600 text-white text-xs font-medium rounded-lg hover:bg-primary-700"
+                              >
+                                {done ? 'Marchează ca nefinalizat' : 'Bifează manual'}
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   )
                 })}
@@ -1047,6 +1439,9 @@ export default function SeoPageDetail() {
             pageId={pageId}
             savedProgress={page.seo_checklist_progress || []}
             onRefresh={refreshPage}
+            page={page}
+            keywords={page.seo_keywords || []}
+            onSavePage={handleSave}
           />
         )}
         {activeTab === 'ai' && site && (

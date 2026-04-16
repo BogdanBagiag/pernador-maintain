@@ -9,23 +9,30 @@ export const SEO_CHECKLIST = [
     items: [
       {
         text: 'Identifică cuvântul cheie principal',
-        detail: 'Alege un cuvânt cheie cu volum decent și relevanță maximă pentru această pagină. Preferabil 2-3 cuvinte, nu prea generic.'
+        detail: 'Alege un cuvânt cheie cu volum decent și relevanță maximă pentru această pagină. Preferabil 2-3 cuvinte, nu prea generic.',
+        widget: 'primary_kw'
       },
       {
         text: 'Validează volumul de căutări',
-        detail: 'Folosește Google Keyword Planner, Ubersuggest sau Semrush. Volum minim recomandat: 100+/lună pentru produse nișate, 500+/lună pentru categorii.'
+        detail: 'Folosește Google Keyword Planner, Ubersuggest sau Semrush. Volum minim recomandat: 100+/lună pentru produse nișate, 500+/lună pentru categorii.',
+        widget: 'primary_volume'
       },
       {
         text: 'Analizează intenția de căutare',
-        detail: 'Verifică primele 5 rezultate Google. Sunt pagini de produs, categorie sau blog? Pagina ta trebuie să fie același tip.'
+        detail: 'Verifică primele 5 rezultate Google. Sunt pagini de produs, categorie sau blog? Pagina ta trebuie să fie același tip.',
+        widget: 'search_intent'
       },
       {
         text: 'Identifică 3-5 cuvinte cheie secundare',
-        detail: 'Sinonime, variante și termeni înrudiți. Ex: pentru „husă pat" → „husă matlasată", „protecție saltea", „husă impermeabilă".'
+        detail: 'Sinonime, variante și termeni înrudiți. Ex: pentru „husă pat" → „husă matlasată", „protecție saltea", „husă impermeabilă".',
+        widget: 'secondary_kws',
+        minCount: 3
       },
       {
         text: 'Identifică 2-3 expresii long-tail',
-        detail: 'Expresii de 4-6 cuvinte cu intenție de cumpărare clară. Ex: „husă impermeabilă pat 160x200" sau „husă pat pentru incontinență adulți".'
+        detail: 'Expresii de 4-6 cuvinte cu intenție de cumpărare clară. Ex: „husă impermeabilă pat 160x200" sau „husă pat pentru incontinență adulți".',
+        widget: 'longtail_kws',
+        minCount: 2
       },
       {
         text: 'Verifică competiția pe SERP',
@@ -44,11 +51,13 @@ export const SEO_CHECKLIST = [
     items: [
       {
         text: 'Title tag optimizat (max 60 caractere)',
-        detail: 'Include cuvântul cheie principal, preferabil la început. Adaugă element diferențiator: preț, beneficiu, brand. Ex: „Huse Pat Impermeabile | Calitate Premium | Pernador.ro".'
+        detail: 'Include cuvântul cheie principal, preferabil la început. Adaugă element diferențiator: preț, beneficiu, brand. Ex: „Huse Pat Impermeabile | Calitate Premium | Pernador.ro".',
+        widget: 'meta_title'
       },
       {
         text: 'Meta description convingătoare (max 155 caractere)',
-        detail: 'Include cuvântul cheie, un beneficiu clar și call-to-action. Ex: „Descoperă husele impermeabile pentru pat ✓ Lavabile la 60°C ✓ Livrare rapidă ✓ Garanție 2 ani. Comandă acum!"'
+        detail: 'Include cuvântul cheie, un beneficiu clar și call-to-action. Ex: „Descoperă husele impermeabile pentru pat ✓ Lavabile la 60°C ✓ Livrare rapidă ✓ Garanție 2 ani. Comandă acum!"',
+        widget: 'meta_desc'
       },
       {
         text: 'H1 unic și optimizat',
@@ -56,7 +65,8 @@ export const SEO_CHECKLIST = [
       },
       {
         text: 'URL slug curat și scurt',
-        detail: 'Folosește liniuțe între cuvinte. Include cuvântul cheie. Fără diacritice, spații sau caractere speciale. Ex: /huse-pat-impermeabile nu /huse_pat_impermeabile sau /p?id=123.'
+        detail: 'Folosește liniuțe între cuvinte. Include cuvântul cheie. Fără diacritice, spații sau caractere speciale. Ex: /huse-pat-impermeabile nu /huse_pat_impermeabile sau /p?id=123.',
+        widget: 'url_slug'
       },
       {
         text: 'Structură heading-uri logică (H2, H3)',
