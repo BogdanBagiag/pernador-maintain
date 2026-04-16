@@ -12,7 +12,7 @@ import {
   TrendingUp, Target, Zap, Eye,
 } from 'lucide-react'
 import LoadingSpinner from '../../components/LoadingSpinner'
-import { callClaude, generateSeoRecipe, suggestKeywords } from '../../utils/claudeApi'
+import { callClaude, generateSeoRecipe, suggestKeywords, analyzeCompetition } from '../../utils/claudeApi'
 
 // ─── Constante ────────────────────────────────────────────
 const PAGE_TYPES = [
@@ -444,44 +444,266 @@ function Step3({ data, update }) {
 }
 
 // ─── PASUL 4: Intenție de căutare & SERP ──────────────────
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL
+const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY
+
+async function fetchPageMeta(url) {
+  const res = await fetch(`${SUPABASE_URL}/functions/v1/fetch-page-meta`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+    },
+    body: JSON.stringify({ url }),
+  })
+  if (!res.ok) throw new Error(`HTTP ${res.status}`)
+  return res.json()
+}
+
 function Step4({ data, update }) {
   const googleUrl = `https://www.google.com/search?q=${encodeURIComponent(data.primaryKeyword)}&gl=ro&hl=ro`
-  const serpFields = data.serpResults.length > 0 ? data.serpResults : [
-    { pos: 1, url: '', type: '' },
-    { pos: 2, url: '', type: '' },
-    { pos: 3, url: '', type: '' },
-  ]
 
-  const updateSerp = (pos, field, val) => {
-    const updated = serpFields.map(r => r.pos === pos ? { ...r, [field]: val } : r)
+  // serpResults: [{ pos, url, title, metaDesc, h1, h2s, loading, error }]
+  const initRows = () => Array.from({ length: 5 }, (_, i) => ({
+    pos: i + 1, url: '', title: '', metaDesc: '', h1: '', h2s: [], loading: false, error: null,
+  }))
+
+  const rows = data.serpResults?.length === 5 ? data.serpResults : initRows()
+
+  const [analysis, setAnalysis]   = useState(data.serpAnalysis || null)
+  const [aiLoading, setAiLoading] = useState(false)
+  const [aiError, setAiError]     = useState(null)
+
+  const updateRow = (pos, fields) => {
+    const updated = rows.map(r => r.pos === pos ? { ...r, ...fields } : r)
     update({ serpResults: updated })
   }
 
-  const RESULT_TYPES = ['produs', 'categorie', 'blog', 'homepage', 'marketplace', 'altul']
+  const fetchOne = async (pos) => {
+    const row = rows.find(r => r.pos === pos)
+    if (!row?.url?.startsWith('http')) return
+    updateRow(pos, { loading: true, error: null })
+    try {
+      const result = await fetchPageMeta(row.url)
+      if (result.error) throw new Error(result.error)
+      updateRow(pos, { ...result, loading: false })
+    } catch (e) {
+      updateRow(pos, { loading: false, error: e.message })
+    }
+  }
+
+  const fetchAll = async () => {
+    const withUrls = rows.filter(r => r.url?.startsWith('http'))
+    await Promise.all(withUrls.map(r => fetchOne(r.pos)))
+  }
+
+  const runAiAnalysis = async () => {
+    const populated = rows.filter(r => r.title || r.metaDesc || r.h1)
+    if (!populated.length) return
+    setAiLoading(true); setAiError(null)
+    try {
+      const result = await analyzeCompetition({
+        primaryKeyword: data.primaryKeyword,
+        pageType: data.pageType,
+        competitors: populated,
+      })
+      setAnalysis(result)
+      update({ serpAnalysis: result })
+    } catch (e) {
+      setAiError(e.message)
+    } finally {
+      setAiLoading(false)
+    }
+  }
+
+  const hasData = rows.some(r => r.title || r.metaDesc)
 
   return (
     <div>
-      <h2 className="text-2xl font-bold text-gray-900 mb-1">Intenție de căutare & Analiza SERP</h2>
+      <h2 className="text-2xl font-bold text-gray-900 mb-1">Analiză SERP & Intenție de căutare</h2>
       <p className="text-gray-500 mb-6">
-        Verifică ce apare pe Google pentru keyword-ul tău. Dacă top 10 sunt toate produse și tu ai o pagină de categorie, vei lupta împotriva curentului.
+        Adaugă URL-urile primelor 5 rezultate din Google. Vom extrage automat title, meta description și H1-urile competitorilor.
       </p>
 
       {/* Google search link */}
-      <div className="bg-gray-900 rounded-xl p-4 mb-6 flex items-center justify-between">
+      <div className="bg-gray-900 rounded-xl p-4 mb-5 flex items-center justify-between gap-4">
         <div>
-          <p className="text-xs text-gray-400 mb-1">Caută pe Google</p>
+          <p className="text-xs text-gray-400 mb-1">Pasul 1 — Caută pe Google și copiază URL-urile</p>
           <p className="text-white font-mono text-sm">{data.primaryKeyword}</p>
         </div>
         <a href={googleUrl} target="_blank" rel="noopener noreferrer"
-          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700">
+          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 shrink-0">
           <ExternalLink className="w-4 h-4" />
-          Deschide Google →
+          Deschide Google
         </a>
       </div>
 
-      {/* Tip intenție */}
-      <div className="mb-6">
-        <p className="text-sm font-medium text-gray-700 mb-3">Ce tip de rezultate apar predominant pe Google?</p>
+      {/* URL inputs */}
+      <div className="space-y-2 mb-4">
+        <div className="flex items-center justify-between mb-1">
+          <p className="text-sm font-medium text-gray-700">Pasul 2 — Introdu URL-urile top 5 rezultate</p>
+          <button onClick={fetchAll}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-primary-600 text-white text-xs font-medium rounded-lg hover:bg-primary-700">
+            <Search className="w-3.5 h-3.5" />
+            Analizează toate
+          </button>
+        </div>
+        {rows.map(r => (
+          <div key={r.pos} className="flex items-center gap-2">
+            <span className="w-7 h-7 flex items-center justify-center bg-gray-100 rounded-full text-xs font-bold text-gray-600 shrink-0">
+              {r.pos}
+            </span>
+            <input
+              type="url"
+              value={r.url}
+              onChange={e => updateRow(r.pos, { url: e.target.value, title: '', metaDesc: '', h1: '', h2s: [], error: null })}
+              onBlur={() => r.url?.startsWith('http') && !r.title && fetchOne(r.pos)}
+              placeholder={`https://exemplu.ro/produs-${r.pos}`}
+              className={`flex-1 border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 font-mono ${
+                r.error ? 'border-red-300 bg-red-50' : r.title ? 'border-green-300 bg-green-50' : 'border-gray-300'
+              }`}
+            />
+            <button onClick={() => fetchOne(r.pos)} disabled={!r.url?.startsWith('http') || r.loading}
+              className="shrink-0 p-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-40">
+              {r.loading ? <RefreshCw className="w-4 h-4 animate-spin text-gray-500" /> : <Search className="w-4 h-4 text-gray-500" />}
+            </button>
+          </div>
+        ))}
+      </div>
+
+      {/* Tabel comparativ */}
+      {hasData && (
+        <div className="mb-5">
+          <p className="text-sm font-medium text-gray-700 mb-2">Pasul 3 — Date extrase din concurență</p>
+          <div className="overflow-x-auto border border-gray-200 rounded-xl">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="bg-gray-50 border-b border-gray-200">
+                  <th className="px-3 py-2 text-left font-medium text-gray-600 w-6">#</th>
+                  <th className="px-3 py-2 text-left font-medium text-gray-600 w-48">Title <span className="font-normal text-gray-400">(≤60)</span></th>
+                  <th className="px-3 py-2 text-left font-medium text-gray-600">Meta Description <span className="font-normal text-gray-400">(≤155)</span></th>
+                  <th className="px-3 py-2 text-left font-medium text-gray-600 w-40">H1</th>
+                  <th className="px-3 py-2 text-left font-medium text-gray-600 w-48">H2-uri</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {rows.filter(r => r.title || r.metaDesc || r.error).map(r => (
+                  <tr key={r.pos} className="hover:bg-gray-50 align-top">
+                    <td className="px-3 py-2 font-bold text-gray-400">{r.pos}</td>
+                    <td className="px-3 py-2">
+                      {r.error ? (
+                        <span className="text-red-500 italic">{r.error}</span>
+                      ) : (
+                        <>
+                          <p className="text-gray-800 leading-snug">{r.title || '—'}</p>
+                          {r.title && (
+                            <span className={`text-xs font-medium ${r.title.length > 60 ? 'text-red-500' : 'text-green-600'}`}>
+                              {r.title.length} car.
+                            </span>
+                          )}
+                        </>
+                      )}
+                    </td>
+                    <td className="px-3 py-2">
+                      <p className="text-gray-600 leading-snug line-clamp-3">{r.metaDesc || '—'}</p>
+                      {r.metaDesc && (
+                        <span className={`text-xs font-medium ${r.metaDesc.length > 155 ? 'text-red-500' : 'text-green-600'}`}>
+                          {r.metaDesc.length} car.
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-3 py-2 text-gray-700">{r.h1 || '—'}</td>
+                    <td className="px-3 py-2">
+                      {r.h2s?.length > 0 ? (
+                        <ul className="space-y-0.5">
+                          {r.h2s.map((h, i) => <li key={i} className="text-gray-600 leading-snug">• {h}</li>)}
+                        </ul>
+                      ) : '—'}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* Analiză AI */}
+      {hasData && (
+        <div className="mb-5">
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-sm font-medium text-gray-700">Pasul 4 — Analiză Claude AI</p>
+            <AiBadge loading={aiLoading} error={aiError} />
+          </div>
+          {!analysis ? (
+            <button onClick={runAiAnalysis} disabled={aiLoading || !import.meta.env.VITE_ANTHROPIC_API_KEY}
+              className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white text-sm font-medium rounded-lg hover:bg-purple-700 disabled:opacity-40">
+              <Sparkles className="w-4 h-4" />
+              {aiLoading ? 'Analizez...' : 'Analizează concurența cu Claude'}
+            </button>
+          ) : (
+            <div className="bg-purple-50 border border-purple-200 rounded-xl p-4 space-y-3">
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                <div>
+                  <p className="text-xs text-purple-500 font-medium uppercase tracking-wider mb-1">Pattern title concurență</p>
+                  <p className="text-gray-800">{analysis.pattern_title}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-purple-500 font-medium uppercase tracking-wider mb-1">Pattern meta description</p>
+                  <p className="text-gray-800">{analysis.pattern_meta}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-purple-500 font-medium uppercase tracking-wider mb-1">Lungime medie title</p>
+                  <p className="text-gray-800 font-bold">{analysis.avg_title_len} caractere</p>
+                </div>
+                <div>
+                  <p className="text-xs text-purple-500 font-medium uppercase tracking-wider mb-1">Lungime medie meta</p>
+                  <p className="text-gray-800 font-bold">{analysis.avg_meta_len} caractere</p>
+                </div>
+              </div>
+              {analysis.oportunitati?.length > 0 && (
+                <div>
+                  <p className="text-xs text-purple-500 font-medium uppercase tracking-wider mb-1">Oportunități de diferențiere</p>
+                  <ul className="space-y-1">
+                    {analysis.oportunitati.map((o, i) => (
+                      <li key={i} className="flex items-start gap-1.5 text-sm text-gray-700">
+                        <span className="text-green-500 mt-0.5">✓</span> {o}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {analysis.recomandare_title && (
+                <div className="bg-white border border-purple-200 rounded-lg p-3">
+                  <p className="text-xs text-purple-500 font-medium uppercase tracking-wider mb-1">Recomandare Claude — Title</p>
+                  <p className="text-sm font-semibold text-gray-900">{analysis.recomandare_title}</p>
+                </div>
+              )}
+              {analysis.recomandare_meta && (
+                <div className="bg-white border border-purple-200 rounded-lg p-3">
+                  <p className="text-xs text-purple-500 font-medium uppercase tracking-wider mb-1">Recomandare Claude — Meta</p>
+                  <p className="text-sm text-gray-800">{analysis.recomandare_meta}</p>
+                </div>
+              )}
+              {analysis.concluzie && (
+                <div className="bg-purple-100 rounded-lg p-3">
+                  <p className="text-sm font-medium text-purple-900">{analysis.concluzie}</p>
+                </div>
+              )}
+              <button onClick={runAiAnalysis} className="flex items-center gap-1.5 text-xs text-purple-600 hover:text-purple-700">
+                <RefreshCw className="w-3 h-3" /> Regenerează analiza
+              </button>
+            </div>
+          )}
+          {aiError && <p className="text-xs text-red-500 mt-2">{aiError}</p>}
+        </div>
+      )}
+
+      {/* Intenție căutare */}
+      <div>
+        <p className="text-sm font-medium text-gray-700 mb-2">
+          Ce intenție de căutare ai observat în rezultate? <span className="text-red-500">*</span>
+        </p>
         <div className="grid grid-cols-2 gap-2">
           {INTENT_TYPES.map(it => {
             const selected = data.searchIntent === it.value
@@ -501,49 +723,17 @@ function Step4({ data, update }) {
         </div>
       </div>
 
-      {/* Analiza top 3 */}
-      {data.searchIntent && (
-        <div>
-          <p className="text-sm font-medium text-gray-700 mb-3">
-            Notează primele 3 rezultate din Google <span className="text-gray-400 font-normal">(opțional dar util)</span>
-          </p>
-          <div className="space-y-2">
-            {serpFields.map(r => (
-              <div key={r.pos} className="flex items-center gap-2">
-                <span className="w-6 h-6 flex items-center justify-center bg-gray-100 rounded-full text-xs font-bold text-gray-600 shrink-0">
-                  {r.pos}
-                </span>
-                <input type="text" value={r.url} onChange={e => updateSerp(r.pos, 'url', e.target.value)}
-                  placeholder={`URL sau titlu rezultat #${r.pos}`}
-                  className="flex-1 border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500" />
-                <select value={r.type} onChange={e => updateSerp(r.pos, 'type', e.target.value)}
-                  className="border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500">
-                  <option value="">Tip...</option>
-                  {RESULT_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
-                </select>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Warning dacă tipul nu se potrivește */}
+      {/* Warning mismatch */}
       {data.searchIntent && data.pageType && (
-        (() => {
-          const mismatch =
-            (data.searchIntent === 'transactional' && data.pageType === 'blog') ||
-            (data.searchIntent === 'informational' && data.pageType === 'produs')
-          if (!mismatch) return null
-          return (
-            <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-xl flex items-start gap-2">
-              <AlertCircle className="w-4 h-4 text-yellow-600 shrink-0 mt-0.5" />
-              <p className="text-sm text-yellow-800">
-                <strong>Atenție:</strong> Intenția de căutare ({data.searchIntent}) nu se potrivește cu tipul paginii tale ({data.pageType}).
-                Ai putea să nu te clasezi bine. Consideră să schimbi tipul paginii sau keyword-ul principal.
-              </p>
-            </div>
-          )
-        })()
+        (data.searchIntent === 'transactional' && data.pageType === 'blog') ||
+        (data.searchIntent === 'informational' && data.pageType === 'produs')
+      ) && (
+        <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-xl flex items-start gap-2">
+          <AlertCircle className="w-4 h-4 text-yellow-600 shrink-0 mt-0.5" />
+          <p className="text-sm text-yellow-800">
+            <strong>Atenție:</strong> Intenția de căutare ({data.searchIntent}) nu se potrivește cu tipul paginii ({data.pageType}). Risc de clasare slabă.
+          </p>
+        </div>
       )}
     </div>
   )

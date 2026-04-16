@@ -140,7 +140,45 @@ Returnează JSON:
 }
 
 // ─────────────────────────────────────────
-// 4. Chat liber cu context pagină
+// 4. Analiză competiție SERP
+// ─────────────────────────────────────────
+export async function analyzeCompetition({ primaryKeyword, pageType, competitors }) {
+  const system = `Ești expert SEO pentru e-commerce românesc. Analizezi concurența din SERP și oferi recomandări concrete. Returnezi EXCLUSIV JSON valid.`
+
+  const compText = competitors
+    .filter(c => c.title || c.metaDesc || c.h1)
+    .map((c, i) => `
+Concurent #${i + 1}: ${c.url}
+  Title: ${c.title || 'lipsă'} (${(c.title||'').length} car.)
+  Meta: ${c.metaDesc || 'lipsă'} (${(c.metaDesc||'').length} car.)
+  H1: ${c.h1 || 'lipsă'}
+  H2-uri: ${(c.h2s||[]).join(' | ') || 'lipsă'}
+`).join('\n')
+
+  const user = `Analizează concurența pentru keyword-ul "${primaryKeyword}" (pagină tip: ${pageType}).
+
+${compText}
+
+Returnează JSON cu exact aceste câmpuri:
+{
+  "pattern_title": "string — ce pattern folosesc în title (ex: keyword + brand, beneficiu + keyword)",
+  "pattern_meta": "string — ce pattern folosesc în meta description",
+  "avg_title_len": number,
+  "avg_meta_len": number,
+  "keywords_in_title": ["keywords comune găsite în title-urile concurenților"],
+  "oportunitati": ["3-4 oportunități de diferențiere față de concurență"],
+  "recomandare_title": "string — title recomandat bazat pe analiza concurenței, max 60 car.",
+  "recomandare_meta": "string — meta description recomandată bazată pe analiza concurenței, max 155 car.",
+  "recomandare_h1": "string — H1 recomandat diferit de title",
+  "concluzie": "string — concluzie practică despre ce trebuie să faci diferit față de concurență"
+}`
+
+  const text = await callClaude({ systemPrompt: system, userMessage: user, maxTokens: 2000 })
+  return JSON.parse(text.replace(/```json\n?|```\n?/g, '').trim().match(/\{[\s\S]*\}/)[0])
+}
+
+// ─────────────────────────────────────────
+// 5. Chat liber cu context pagină
 // ─────────────────────────────────────────
 export async function chatWithContext({ pageContext, userQuestion, chatHistory = [] }) {
   const system = `Ești expert SEO pentru e-commerce românesc, consultantul personal al acestui utilizator.
