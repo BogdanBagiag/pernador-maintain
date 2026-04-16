@@ -21,7 +21,7 @@ serve(async (req) => {
     }
 
     const body: Record<string, unknown> = {
-      model: 'claude-3-5-sonnet-20241022',
+      model: 'claude-haiku-4-5-20251001',
       max_tokens: maxTokens,
       system: systemPrompt,
       messages: messages || [{ role: 'user', content: userMessage }],
@@ -40,7 +40,8 @@ serve(async (req) => {
     const data = await response.json()
 
     if (!response.ok) {
-      return new Response(JSON.stringify({ error: data.error?.message || `API error ${response.status}` }), {
+      const errMsg = data?.error?.message || JSON.stringify(data?.error) || `API error ${response.status}`
+      return new Response(JSON.stringify({ error: errMsg }), {
         status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
