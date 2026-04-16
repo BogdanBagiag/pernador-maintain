@@ -1,6 +1,7 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { useLanguage } from '../contexts/LanguageContext'
+import { usePermissions } from '../contexts/PermissionsContext'
 import {
   LayoutDashboard,
   Wrench,
@@ -16,36 +17,54 @@ import {
   CheckSquare,
   FileText,
   Users,
+  ScrollText,
+  Car,
+  Package,
   TrendingUp,
 } from 'lucide-react'
 import { useState } from 'react'
 
 const navigation = [
-  { name: 'nav.dashboard', href: '/dashboard', icon: LayoutDashboard },
-  { name: 'nav.scanQR', href: '/scan', icon: QrCode },
-  { name: 'nav.equipment', href: '/equipment', icon: Wrench },
-  { name: 'nav.locations', href: '/locations', icon: MapPin },
-  { name: 'nav.workOrders', href: '/work-orders', icon: ClipboardList },
-  { name: 'nav.schedules', href: '/schedules', icon: Calendar },
-  { name: 'nav.checklists', href: '/checklist-templates', icon: CheckSquare },
-  { name: 'nav.procedures', href: '/procedure-templates', icon: FileText },
-  { name: 'nav.reports', href: '/reports', icon: BarChart3 },
-  { name: 'nav.users', href: '/users', icon: Users, adminOnly: true },
-  { name: 'nav.settings', href: '/settings', icon: Settings },
+  { name: 'nav.dashboard',      href: '/dashboard',           icon: LayoutDashboard },
+  { name: 'nav.scanQR',         href: '/scan',                icon: QrCode,      moduleKey: 'qr_scan' },
+  { name: 'nav.equipment',      href: '/equipment',           icon: Wrench,      moduleKey: 'equipment' },
+  { name: 'nav.locations',      href: '/locations',           icon: MapPin,      moduleKey: 'locations' },
+  { name: 'nav.workOrders',     href: '/work-orders',         icon: ClipboardList, moduleKey: 'work_orders' },
+  { name: 'nav.schedules',      href: '/schedules',           icon: Calendar,    moduleKey: 'schedules' },
+  { name: 'nav.checklists',     href: '/checklist-templates', icon: CheckSquare, moduleKey: 'checklists' },
+  { name: 'nav.procedures',     href: '/procedure-templates', icon: FileText,    moduleKey: 'procedures' },
+  { name: 'nav.contracts',      href: '/contracte',           icon: ScrollText,  moduleKey: 'contracts' },
+  { name: 'nav.vehicles',       href: '/vehicles',            icon: Car,         moduleKey: 'vehicles' },
+  { name: 'nav.partsInventory', href: '/parts-inventory',     icon: Package,     moduleKey: 'parts_inventory' },
+  { name: 'nav.reports',        href: '/reports',             icon: BarChart3,   moduleKey: 'reports' },
+  { name: 'nav.users',          href: '/users',               icon: Users,       adminOnly: true },
+  { name: 'nav.settings',       href: '/settings',            icon: Settings },
 ]
+
+const NAV_LABELS = {
+  'nav.dashboard':      'Dashboard',
+  'nav.scanQR':         'Scanare QR',
+  'nav.equipment':      'Echipamente',
+  'nav.locations':      'Locații',
+  'nav.workOrders':     'Reparații',
+  'nav.schedules':      'Mentenanță',
+  'nav.checklists':     'Liste verificare',
+  'nav.procedures':     'Proceduri',
+  'nav.contracts':      'Contracte',
+  'nav.vehicles':       'Autovehicule',
+  'nav.partsInventory': 'Inventar piese',
+  'nav.reports':        'Rapoarte',
+  'nav.users':          'Utilizatori',
+  'nav.settings':       'Setări',
+}
 
 export default function Layout({ children }) {
   const location = useLocation()
   const navigate = useNavigate()
   const { user, profile, signOut } = useAuth()
   const { t } = useLanguage()
+  const { visibleModules, isAdmin } = usePermissions()
   const [sidebarOpen, setSidebarOpen] = useState(false)
-
-  // Debug logging
-  console.log('Layout - User:', user?.email)
-  console.log('Layout - Profile:', profile)
-  console.log('Layout - Profile Role:', profile?.role)
-  console.log('Layout - Is Admin?:', profile?.role === 'admin')
 
   const handleSignOut = async () => {
     try {
@@ -54,6 +73,21 @@ export default function Layout({ children }) {
     } catch (error) {
       console.error('Error signing out:', error.message)
     }
+  }
+
+  const navLabel = (name) => {
+    const translated = t(name)
+    // Dacă t() nu are cheia, returnează fallback-ul hardcodat
+    return (translated === name) ? (NAV_LABELS[name] || name) : translated
+  }
+
+  const isVisible = (item) => {
+    // Dashboard și Settings sunt mereu vizibile
+    if (!item.moduleKey && !item.adminOnly) return true
+    // Users: doar admin
+    if (item.adminOnly) return isAdmin
+    // Restul: verifică visibleModules
+    return visibleModules.some(m => m.href === item.href)
   }
 
   return (
@@ -89,9 +123,7 @@ export default function Layout({ children }) {
 
           {/* Navigation */}
           <nav className="flex-1 px-4 py-6 space-y-1 overflow-y-auto">
-            {navigation
-              .filter(item => !item.adminOnly || profile?.role === 'admin')
-              .map((item) => {
+            {navigation.filter(isVisible).map((item) => {
               const isActive = location.pathname.startsWith(item.href)
               return (
                 <Link
@@ -105,12 +137,12 @@ export default function Layout({ children }) {
                   onClick={() => setSidebarOpen(false)}
                 >
                   <item.icon className="w-5 h-5 mr-3" />
-                  {t(item.name)}
+                  {navLabel(item.name)}
                 </Link>
               )
             })}
 
-            {/* Separator + SEO */}
+            {/* SEO separator */}
             <div className="pt-2 pb-1">
               <div className="border-t border-gray-100 mb-2" />
               <p className="px-4 text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">

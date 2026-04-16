@@ -11,8 +11,9 @@ export const MODULES = [
   { key: 'procedures',  label: 'Proceduri',              href: '/procedure-templates',  hasDelete: true  },
   { key: 'contracts',   label: 'Contracte',              href: '/contracte',            hasDelete: true  },
   { key: 'reports',     label: 'Rapoarte',               href: '/reports',              hasDelete: false },
-  { key: 'vehicles',    label: 'Vehicule',               href: '/vehicles',             hasDelete: true  },
-  { key: 'qr_scan',     label: 'Scanare QR',             href: '/scan',                 hasDelete: false },
+  { key: 'vehicles',         label: 'Vehicule',               href: '/vehicles',         hasDelete: true  },
+  { key: 'parts_inventory',  label: 'Inventar piese',         href: '/parts-inventory',  hasDelete: true  },
+  { key: 'qr_scan',          label: 'Scanare QR',             href: '/scan',             hasDelete: false },
 ]
 
 const PermissionsContext = createContext({})

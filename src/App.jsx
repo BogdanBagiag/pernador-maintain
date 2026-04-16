@@ -28,6 +28,7 @@ import PublicLocationWrapper from './pages/PublicLocationWrapper'
 import PublicScanWrapper from './pages/PublicScanWrapper'
 import ScanPage from './pages/ScanPage'
 import ReportIssue from './pages/ReportIssue'
+import PartsInventory from './pages/PartsInventory'
 
 // SEO Module
 import SeoSites from './pages/seo/SeoSites'
@@ -155,6 +156,7 @@ function App() {
                       <Route path="/schedules" element={<MaintenanceSchedules />} />
                       <Route path="/checklist-templates" element={<ChecklistTemplates />} />
                       <Route path="/procedure-templates" element={<ProcedureTemplates />} />
+                      <Route path="/parts-inventory" element={<PartsInventory />} />
                       <Route path="/reports" element={<Reports />} />
                       <Route path="/users" element={<UserManagement />} />
                       <Route path="/settings" element={<Settings />} />
