@@ -35,6 +35,7 @@ import SeoSites from './pages/seo/SeoSites'
 import SeoPages from './pages/seo/SeoPages'
 import SeoPageDetail from './pages/seo/SeoPageDetail'
 import SiteReport from './pages/seo/SiteReport'
+import SeoWizard from './pages/seo/SeoWizard'
 
 // Components
 import Layout from './components/Layout'
@@ -148,6 +149,7 @@ function App() {
                       
                       {/* SEO Module Routes */}
                       <Route path="/seo" element={<SeoSites />} />
+                      <Route path="/seo/:siteId/wizard" element={<SeoWizard />} />
                       <Route path="/seo/:siteId/report" element={<SiteReport />} />
                       <Route path="/seo/:siteId/pages/:pageId" element={<SeoPageDetail />} />
                       <Route path="/seo/:siteId" element={<SeoPages />} />

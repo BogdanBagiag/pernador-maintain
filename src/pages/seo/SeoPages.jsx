@@ -20,6 +20,7 @@ import {
   X,
   ExternalLink,
   ChevronRight,
+  Sparkles,
 } from 'lucide-react'
 import LoadingSpinner from '../../components/LoadingSpinner'
 import { TOTAL_CHECKLIST_ITEMS } from '../../constants/seoChecklist'
@@ -388,6 +389,11 @@ export default function SeoPages() {
           <option value="all">Toate statusurile</option>
           {STATUS_OPTIONS.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
         </select>
+        <button onClick={() => navigate(`/seo/${siteId}/wizard`)}
+          className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white text-sm font-medium rounded-lg hover:bg-purple-700 whitespace-nowrap">
+          <Sparkles className="w-4 h-4" />
+          Wizard SEO
+        </button>
         <button onClick={() => setModal('add')}
           className="flex items-center gap-2 px-4 py-2 bg-primary-600 text-white text-sm font-medium rounded-lg hover:bg-primary-700 whitespace-nowrap">
           <Plus className="w-4 h-4" />
