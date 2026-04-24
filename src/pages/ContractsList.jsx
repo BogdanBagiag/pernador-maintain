@@ -167,7 +167,7 @@ export default function ContractsList() {
         </div>
         {pEdit && activeTab === 'list' && (
           <Link
-            to="/contracte/nou"
+            to="/contracte/new"
             className="inline-flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors text-sm font-medium"
           >
             <Plus className="w-4 h-4" />
@@ -425,7 +425,7 @@ export default function ContractsList() {
           <p className="text-gray-500 font-medium">Niciun contract găsit</p>
           {pEdit && (
             <Link
-              to="/contracte/nou"
+              to="/contracte/new"
               className="mt-3 inline-flex items-center gap-2 text-sm text-primary-600 hover:text-primary-700"
             >
               <Plus className="w-4 h-4" />
