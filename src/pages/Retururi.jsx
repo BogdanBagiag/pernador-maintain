@@ -10,6 +10,7 @@ import {
   ChevronLeft, ChevronRight, Calendar, ShieldOff,
   RotateCcw, BarChart2, TableProperties,
   TrendingDown, CheckCircle, Clock, Package, Banknote, Copy, Check, Pencil,
+  ExternalLink, Link,
 } from 'lucide-react'
 
 const PAGE_SIZE = 50
@@ -54,6 +55,9 @@ export default function Retururi() {
   const [activeTab,   setActiveTab]   = useState('table') // 'table' | 'rapoarte'
   const [showAddModal,    setShowAddModal]    = useState(false)
   const [showSursaConfig, setShowSursaConfig] = useState(false)
+  const [showWooEdit,     setShowWooEdit]     = useState(false)
+  const [wooUrl,          setWooUrl]          = useState(() => localStorage.getItem('woo_retururi_url') || '')
+  const [wooUrlDraft,     setWooUrlDraft]     = useState('')
   const [deletingId,  setDeletingId]  = useState(null)
   const [platesteRow, setPlatesteRow] = useState(null)
   const [editingRow,  setEditingRow]  = useState(null) // rândul care urmează să fie marcat plătit
@@ -314,7 +318,39 @@ export default function Retururi() {
         </div>
 
         {activeTab === 'table' && (
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap">
+            {/* Buton WooCommerce */}
+            <div className="flex items-center gap-1">
+              {wooUrl ? (
+                <a
+                  href={wooUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-2 px-3 py-2 border border-purple-300 text-purple-700 bg-purple-50 rounded-lg hover:bg-purple-100 text-sm font-medium transition-colors"
+                >
+                  <ExternalLink className="w-4 h-4" />
+                  <span className="hidden sm:inline">Retururi WooCommerce</span>
+                  <span className="sm:hidden">WooCommerce</span>
+                </a>
+              ) : (
+                <button
+                  onClick={() => { setWooUrlDraft(''); setShowWooEdit(true) }}
+                  className="flex items-center gap-2 px-3 py-2 border border-dashed border-gray-300 text-gray-400 rounded-lg hover:bg-gray-50 text-sm font-medium transition-colors"
+                  title="Configurează linkul WooCommerce"
+                >
+                  <Link className="w-4 h-4" />
+                  <span className="hidden sm:inline">Link WooCommerce</span>
+                </button>
+              )}
+              <button
+                onClick={() => { setWooUrlDraft(wooUrl); setShowWooEdit(true) }}
+                className="p-2 text-gray-400 hover:text-purple-600 hover:bg-purple-50 rounded-lg transition-colors"
+                title="Editează linkul WooCommerce"
+              >
+                <Pencil className="w-3.5 h-3.5" />
+              </button>
+            </div>
+
             {pEdit && (
               <button
                 onClick={() => setShowSursaConfig(true)}
@@ -605,6 +641,80 @@ export default function Retururi() {
             </div>
           </div>
 
+        </div>
+      )}
+
+      {/* ── Modal link WooCommerce ── */}
+      {showWooEdit && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-md">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-purple-50 rounded-lg">
+                  <Link className="w-5 h-5 text-purple-600" />
+                </div>
+                <h2 className="text-lg font-semibold text-gray-900">Link Retururi WooCommerce</h2>
+              </div>
+              <button onClick={() => setShowWooEdit(false)} className="p-2 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="px-6 py-5 space-y-3">
+              <p className="text-sm text-gray-500">Introdu URL-ul paginii de retururi din WooCommerce. Linkul este salvat local în browser.</p>
+              <input
+                type="url"
+                value={wooUrlDraft}
+                onChange={e => setWooUrlDraft(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === 'Enter') {
+                    const trimmed = wooUrlDraft.trim()
+                    setWooUrl(trimmed)
+                    if (trimmed) localStorage.setItem('woo_retururi_url', trimmed)
+                    else localStorage.removeItem('woo_retururi_url')
+                    setShowWooEdit(false)
+                  }
+                }}
+                placeholder="https://magazin.ro/wp-admin/edit.php?post_type=shop_order&..."
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-purple-400"
+                autoFocus
+              />
+              {wooUrl && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setWooUrl('')
+                    localStorage.removeItem('woo_retururi_url')
+                    setWooUrlDraft('')
+                    setShowWooEdit(false)
+                  }}
+                  className="text-xs text-red-400 hover:text-red-600 underline"
+                >
+                  Șterge linkul
+                </button>
+              )}
+            </div>
+            <div className="flex justify-end gap-3 px-6 py-4 border-t border-gray-200">
+              <button type="button" onClick={() => setShowWooEdit(false)}
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
+              >
+                Anulează
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const trimmed = wooUrlDraft.trim()
+                  setWooUrl(trimmed)
+                  if (trimmed) localStorage.setItem('woo_retururi_url', trimmed)
+                  else localStorage.removeItem('woo_retururi_url')
+                  setShowWooEdit(false)
+                }}
+                className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-purple-600 rounded-lg hover:bg-purple-700"
+              >
+                <Save className="w-4 h-4" />
+                Salvează
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
