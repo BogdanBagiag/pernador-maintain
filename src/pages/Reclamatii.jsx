@@ -10,6 +10,7 @@ import {
   ChevronLeft, ChevronRight, Calendar, CheckCircle2, Clock,
   Megaphone, CheckCheck, BarChart2, TableProperties,
 } from 'lucide-react'
+import QuickLinksPanel from '../components/QuickLinksPanel'
 
 const PAGE_SIZE = 50
 
@@ -269,6 +270,9 @@ export default function Reclamatii() {
           </div>
         )}
       </div>
+
+      {/* ── Linkuri rapide ── */}
+      <QuickLinksPanel page="reclamatii" />
 
       {/* ── Tab-uri + Acțiuni ── */}
       <div className="flex flex-wrap items-center justify-between gap-3">
