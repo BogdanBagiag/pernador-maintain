@@ -341,8 +341,8 @@ export default function RegistruIncasari() {
               <tr className="bg-gray-50 border-b border-gray-200">
                 <th className="px-3 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wide w-12">Nr.</th>
                 <th className="px-3 py-3 text-left   text-xs font-semibold text-gray-500 uppercase tracking-wide w-28">Data</th>
-                <th className="px-3 py-3 text-left   text-xs font-semibold text-gray-500 uppercase tracking-wide">Documentul</th>
                 <th className="px-3 py-3 text-left   text-xs font-semibold text-gray-500 uppercase tracking-wide">Felul Operațiunii</th>
+                <th className="px-3 py-3 text-left   text-xs font-semibold text-gray-500 uppercase tracking-wide">Documentul</th>
                 <th className="px-3 py-3 text-right  text-xs font-semibold text-emerald-600 uppercase tracking-wide w-28">Încasări</th>
                 <th className="px-3 py-3 text-right  text-xs font-semibold text-indigo-600 uppercase tracking-wide w-28">Card</th>
                 <th className="px-3 py-3 text-right  text-xs font-semibold text-red-500 uppercase tracking-wide w-28">Plăți</th>
@@ -363,12 +363,6 @@ export default function RegistruIncasari() {
                     />
                   </td>
                   <td className="px-2 py-2">
-                    <input type="text" value={form.document} placeholder="ex: Chitanță 001"
-                      onChange={(e) => setForm((f) => ({ ...f, document: e.target.value }))}
-                      className="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm outline-none focus:ring-2 focus:ring-primary-400"
-                    />
-                  </td>
-                  <td className="px-2 py-2">
                     <select value={form.fel_operatiune}
                       onChange={(e) => setForm((f) => ({ ...f, fel_operatiune: e.target.value }))}
                       className="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm outline-none focus:ring-2 focus:ring-primary-400 bg-white"
@@ -380,6 +374,12 @@ export default function RegistruIncasari() {
                         </option>
                       ))}
                     </select>
+                  </td>
+                  <td className="px-2 py-2">
+                    <input type="text" value={form.document} placeholder="ex: Chitanță 001"
+                      onChange={(e) => setForm((f) => ({ ...f, document: e.target.value }))}
+                      className="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm outline-none focus:ring-2 focus:ring-primary-400"
+                    />
                   </td>
                   <td className="px-2 py-2">
                     <input type="number" min="0" step="0.01" value={form.incasari} placeholder="0.00"
@@ -447,12 +447,12 @@ export default function RegistruIncasari() {
                     <td className="px-3 py-3 text-gray-700 whitespace-nowrap">
                       {format(new Date(row.data + 'T00:00:00'), 'dd.MM.yyyy')}
                     </td>
-                    <td className="px-3 py-3 text-gray-700">{row.document || '—'}</td>
                     <td className="px-3 py-3">
                       {row.fel_operatiune
                         ? <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-700">{row.fel_operatiune}</span>
                         : <span className="text-gray-300">—</span>}
                     </td>
+                    <td className="px-3 py-3 text-gray-700">{row.document || '—'}</td>
                     <td className="px-3 py-3 text-right font-mono">
                       {inc > 0 ? <span className="text-emerald-600 font-semibold">{inc.toLocaleString('ro-RO', { minimumFractionDigits: 2 })}</span> : <span className="text-gray-200">—</span>}
                     </td>
