@@ -50,7 +50,7 @@ const cineBadge = (c) => {
 }
 
 export default function Reclamatii() {
-  const { user } = useAuth()
+  const { user, profile } = useAuth()
   const queryClient = useQueryClient()
   const { canView, canEdit, canDelete } = usePermissions()
 
@@ -334,6 +334,7 @@ export default function Reclamatii() {
                 <th className="px-3 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Detalii</th>
                 <th className="px-3 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">Ce a greșit</th>
                 <th className="px-3 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Cine</th>
+                <th className="px-3 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">Responsabil</th>
                 <th className="px-3 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Cum am rezolvat</th>
                 <th className="w-16" />
               </tr>
@@ -341,7 +342,7 @@ export default function Reclamatii() {
             <tbody>
               {pagedRows.length === 0 ? (
                 <tr>
-                  <td colSpan={12} className="px-4 py-12 text-center text-gray-400">
+                  <td colSpan={13} className="px-4 py-12 text-center text-gray-400">
                     <Megaphone className="w-10 h-10 mx-auto mb-3 text-gray-200" />
                     <p>Nicio reclamație pentru perioada selectată.</p>
                   </td>
@@ -398,6 +399,8 @@ export default function Reclamatii() {
                       ? <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium whitespace-nowrap ${cineBadge(row.cine_gresit)}`}>{row.cine_gresit}</span>
                       : <span className="text-gray-300">—</span>}
                   </td>
+
+                  <td className="px-3 py-3 text-gray-700 text-xs whitespace-nowrap">{row.responsabil || '—'}</td>
 
                   <td className="px-3 py-3 text-gray-500 text-xs max-w-[200px]">
                     <span className="line-clamp-2">{row.cum_rezolvat || '—'}</span>
@@ -603,6 +606,7 @@ export default function Reclamatii() {
           ceGresitOpts={ceGresitOpts}
           cumRezolvatOpts={cumRezolvatOpts}
           user={user}
+          profile={profile}
           onClose={() => setShowAddEdit(false)}
           onSaved={() => {
             queryClient.invalidateQueries({ queryKey: ['reclamatii'] })
@@ -818,7 +822,7 @@ function RezolvaModal({ row, cumRezolvatOpts, onClose, onSaved }) {
 // ══════════════════════════════════════════════════════════════
 // AddEditModal
 // ══════════════════════════════════════════════════════════════
-function AddEditModal({ row, surse, ceGresitOpts, cumRezolvatOpts, user, onClose, onSaved, onSavedAndResolve }) {
+function AddEditModal({ row, surse, ceGresitOpts, cumRezolvatOpts, user, profile, onClose, onSaved, onSavedAndResolve }) {
   const isEdit = !!row
   const [saving, setSaving] = useState(false)
   const [form, setForm] = useState({
@@ -829,6 +833,7 @@ function AddEditModal({ row, surse, ceGresitOpts, cumRezolvatOpts, user, onClose
     detalii:         row?.detalii         || '',
     ce_gresit:       row?.ce_gresit       || '',
     cine_gresit:     row?.cine_gresit     || '',
+    responsabil:     row?.responsabil     || profile?.full_name || '',
     // câmpuri editabile doar în edit mode (setate via Rezolvă la adăugare)
     awb:             row?.awb             || '',
     cum_rezolvat:    row?.cum_rezolvat    || '',
@@ -854,6 +859,7 @@ function AddEditModal({ row, surse, ceGresitOpts, cumRezolvatOpts, user, onClose
     detalii:         form.detalii.trim()       || null,
     ce_gresit:       form.ce_gresit            || null,
     cine_gresit:     form.cine_gresit          || null,
+    responsabil:     form.responsabil.trim()   || null,
     // incluse doar la editare
     ...(isEdit ? {
       awb:           form.awb.trim()           || null,
@@ -941,9 +947,15 @@ function AddEditModal({ row, surse, ceGresitOpts, cumRezolvatOpts, user, onClose
               </div>
             </div>
 
-            <div>
-              <label className={LC}>Nume Client</label>
-              <input type="text" value={form.nume_client} onChange={set('nume_client')} placeholder="Numele clientului" className={IC} />
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className={LC}>Nume Client</label>
+                <input type="text" value={form.nume_client} onChange={set('nume_client')} placeholder="Numele clientului" className={IC} />
+              </div>
+              <div>
+                <label className={LC}>Responsabil</label>
+                <input type="text" value={form.responsabil} onChange={set('responsabil')} placeholder="Numele responsabilului" className={IC} />
+              </div>
             </div>
 
             <div>
