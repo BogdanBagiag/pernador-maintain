@@ -3,9 +3,11 @@ import { Link, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
+import { usePermissions } from '../contexts/PermissionsContext'
 import {
   Plus, FileText, Search, Filter, Eye, Edit2, Trash2,
-  Send, CheckCircle, Clock, XCircle, AlertCircle, ChevronDown, Settings2, Ban, Archive, RotateCcw, CreditCard
+  Send, CheckCircle, Clock, XCircle, AlertCircle, ChevronDown, Settings2, Ban, Archive, RotateCcw, CreditCard,
+  ShieldOff,
 } from 'lucide-react'
 import { format } from 'date-fns'
 import { ro } from 'date-fns/locale'
@@ -22,6 +24,10 @@ const STATUS_CONFIG = {
 export default function ContractsList() {
   const navigate = useNavigate()
   const { profile } = useAuth()
+  const { canView, canEdit: canEditModule, canDelete: canDeleteModule } = usePermissions()
+  const pView   = canView('contracts')
+  const pEdit   = canEditModule('contracts')
+  const pDelete = canDeleteModule('contracts')
   const queryClient = useQueryClient()
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
@@ -31,7 +37,6 @@ export default function ContractsList() {
   const [showDeleted, setShowDeleted] = useState(false)
   const [cancelConfirm, setCancelConfirm] = useState(null)
   const isAdmin = profile?.role === 'admin'
-  const canEdit = profile?.role === 'admin' || profile?.role === 'technician'
 
   const { data: contracts = [], isLoading } = useQuery({
     queryKey: ['contracts'],
@@ -142,6 +147,14 @@ export default function ContractsList() {
     return matchSearch && matchStatus
   })
 
+  if (!pView) return (
+    <div className="flex flex-col items-center justify-center h-64 gap-4 text-center">
+      <ShieldOff className="w-14 h-14 text-gray-300" />
+      <p className="text-lg font-semibold text-gray-500">Acces restricționat</p>
+      <p className="text-sm text-gray-400">Nu ai permisiunea de a vizualiza Contractele.</p>
+    </div>
+  )
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -152,7 +165,7 @@ export default function ContractsList() {
             Gestionare contracte de vânzare-cumpărare
           </p>
         </div>
-        {canEdit && activeTab === 'list' && (
+        {pEdit && activeTab === 'list' && (
           <Link
             to="/contracte/nou"
             className="inline-flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors text-sm font-medium"
@@ -161,7 +174,7 @@ export default function ContractsList() {
             Contract nou
           </Link>
         )}
-        {canEdit && activeTab === 'payment_conditions' && (
+        {pEdit && activeTab === 'payment_conditions' && (
           <button
             onClick={() => setAddPaymentCondition(v => !v)}
             className="inline-flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors text-sm font-medium"
@@ -183,7 +196,7 @@ export default function ContractsList() {
           <FileText className="w-4 h-4" />
           Lista contracte
         </button>
-        {canEdit && (
+        {pEdit && (
           <button
             onClick={() => setActiveTab('template')}
             className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
@@ -194,7 +207,7 @@ export default function ContractsList() {
             Șablon contract
           </button>
         )}
-        {canEdit && (
+        {pEdit && (
           <button
             onClick={() => setActiveTab('payment_conditions')}
             className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
@@ -410,7 +423,7 @@ export default function ContractsList() {
         <div className="text-center py-12 bg-white rounded-xl border border-gray-200">
           <FileText className="w-12 h-12 text-gray-300 mx-auto mb-3" />
           <p className="text-gray-500 font-medium">Niciun contract găsit</p>
-          {canEdit && (
+          {pEdit && (
             <Link
               to="/contracte/nou"
               className="mt-3 inline-flex items-center gap-2 text-sm text-primary-600 hover:text-primary-700"
@@ -469,7 +482,7 @@ export default function ContractsList() {
                           >
                             <Eye className="w-4 h-4" />
                           </Link>
-                          {canEdit && contract.status !== 'signed' && (
+                          {pEdit && contract.status !== 'signed' && (
                             <Link
                               to={`/contracte/${contract.id}/editeaza`}
                               className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
@@ -478,7 +491,7 @@ export default function ContractsList() {
                               <Edit2 className="w-4 h-4" />
                             </Link>
                           )}
-                          {canEdit && contract.status !== 'cancelled' && (
+                          {pEdit && contract.status !== 'cancelled' && (
                             <button
                               onClick={() => setCancelConfirm(contract)}
                               className="p-1.5 text-gray-400 hover:text-orange-600 hover:bg-orange-50 rounded-lg transition-colors"
@@ -497,7 +510,7 @@ export default function ContractsList() {
                               <RotateCcw className="w-4 h-4" />
                             </button>
                           )}
-                          {isAdmin && (
+                          {pDelete && (
                             <button
                               onClick={() => setDeleteConfirm(contract)}
                               className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
@@ -541,7 +554,7 @@ export default function ContractsList() {
                       <Link to={`/contracte/${contract.id}`} className="p-2 text-gray-400 hover:text-primary-600 rounded-lg">
                         <Eye className="w-4 h-4" />
                       </Link>
-                      {canEdit && contract.status !== 'signed' && (
+                      {pEdit && contract.status !== 'signed' && (
                         <Link to={`/contracte/${contract.id}/editeaza`} className="p-2 text-gray-400 hover:text-blue-600 rounded-lg">
                           <Edit2 className="w-4 h-4" />
                         </Link>

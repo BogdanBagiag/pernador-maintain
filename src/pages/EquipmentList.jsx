@@ -2,12 +2,17 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
-import { Plus, Search, Download, ArrowUpDown, ArrowUp, ArrowDown, AlertTriangle, Printer } from 'lucide-react'
+import { usePermissions } from '../contexts/PermissionsContext'
+import { Plus, Search, Download, ArrowUpDown, ArrowUp, ArrowDown, AlertTriangle, Printer, ShieldOff } from 'lucide-react'
 import LoadingSpinner from '../components/LoadingSpinner'
 import EquipmentImportModal from '../components/EquipmentImportModal'
 import QRCodeBulkPrint from '../components/QRCodeBulkPrint'
 
 export default function EquipmentList() {
+  const { canView, canEdit } = usePermissions()
+  const pView = canView('equipment')
+  const pEdit = canEdit('equipment')
+
   const [searchQuery, setSearchQuery] = useState('')
   const [sortField, setSortField] = useState('inventory_number')
   const [sortDirection, setSortDirection] = useState('asc')
@@ -195,6 +200,14 @@ export default function EquipmentList() {
     }
   }
 
+  if (!pView) return (
+    <div className="flex flex-col items-center justify-center h-64 gap-4 text-center">
+      <ShieldOff className="w-14 h-14 text-gray-300" />
+      <p className="text-lg font-semibold text-gray-500">Acces restricționat</p>
+      <p className="text-sm text-gray-400">Nu ai permisiunea de a vizualiza Echipamentele.</p>
+    </div>
+  )
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -229,7 +242,7 @@ export default function EquipmentList() {
           </p>
         </div>
         <div className="flex flex-wrap gap-3 mt-4 sm:mt-0">
-          {selectedEquipment.length > 0 && (
+          {pEdit && selectedEquipment.length > 0 && (
             <button
               onClick={handlePrintQRCodes}
               className="btn-secondary inline-flex items-center"
@@ -238,17 +251,21 @@ export default function EquipmentList() {
               Printează QR ({selectedEquipment.length})
             </button>
           )}
-          <button
-            onClick={() => setShowImportModal(true)}
-            className="btn-secondary inline-flex items-center"
-          >
-            <Download className="w-5 h-5 mr-2" />
-            Import Excel
-          </button>
-          <Link to="/equipment/new" className="btn-primary inline-flex items-center">
-            <Plus className="w-5 h-5 mr-2" />
-            Add Equipment
-          </Link>
+          {pEdit && (
+            <button
+              onClick={() => setShowImportModal(true)}
+              className="btn-secondary inline-flex items-center"
+            >
+              <Download className="w-5 h-5 mr-2" />
+              Import Excel
+            </button>
+          )}
+          {pEdit && (
+            <Link to="/equipment/new" className="btn-primary inline-flex items-center">
+              <Plus className="w-5 h-5 mr-2" />
+              Add Equipment
+            </Link>
+          )}
         </div>
       </div>
 

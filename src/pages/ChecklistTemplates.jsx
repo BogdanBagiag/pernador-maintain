@@ -3,29 +3,31 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import { useLanguage } from '../contexts/LanguageContext'
-import { 
-  Plus, 
-  Edit, 
-  Trash2, 
-  Check, 
+import { usePermissions } from '../contexts/PermissionsContext'
+import {
+  Plus,
+  Edit,
+  Trash2,
+  Check,
   X,
   GripVertical,
   ChevronUp,
   ChevronDown,
-  Save
+  Save,
+  ShieldOff,
 } from 'lucide-react'
 import LoadingSpinner from '../components/LoadingSpinner'
 
 export default function ChecklistTemplates() {
-  const { user, profile } = useAuth()
+  const { user } = useAuth()
   const { t } = useLanguage()
+  const { canView, canEdit, canDelete } = usePermissions()
+  const pView   = canView('checklists')
+  const pEdit   = canEdit('checklists')
+  const pDelete = canDelete('checklists')
   const queryClient = useQueryClient()
   const [showModal, setShowModal] = useState(false)
   const [editingTemplate, setEditingTemplate] = useState(null)
-
-  // Check permissions
-  const canCreateEdit = profile?.role === 'admin' || profile?.role === 'manager'
-  const canDelete = profile?.role === 'admin'
 
   // Fetch templates
   const { data: templates, isLoading } = useQuery({
@@ -60,6 +62,14 @@ export default function ChecklistTemplates() {
     }
   }
 
+  if (!pView) return (
+    <div className="flex flex-col items-center justify-center h-64 gap-4 text-center">
+      <ShieldOff className="w-14 h-14 text-gray-300" />
+      <p className="text-lg font-semibold text-gray-500">Acces restricționat</p>
+      <p className="text-sm text-gray-400">Nu ai permisiunea de a vizualiza Listele de Verificare.</p>
+    </div>
+  )
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -76,7 +86,7 @@ export default function ChecklistTemplates() {
           <h1 className="text-3xl font-bold text-gray-900">{t('checklists.title')}</h1>
           <p className="text-gray-600 mt-1">{t('checklists.subtitle')}</p>
         </div>
-        {canCreateEdit && (
+        {pEdit && (
           <button
             onClick={() => {
               setEditingTemplate(null)
@@ -98,7 +108,7 @@ export default function ChecklistTemplates() {
           <p className="text-gray-600 mb-4">
             Create your first checklist template to use in maintenance schedules
           </p>
-          {canCreateEdit && (
+          {pEdit && (
             <button
               onClick={() => setShowModal(true)}
               className="btn-primary inline-flex items-center"
@@ -122,7 +132,7 @@ export default function ChecklistTemplates() {
                   )}
                 </div>
                 <div className="flex items-center space-x-2 ml-4">
-                  {canCreateEdit && (
+                  {pEdit && (
                     <button
                       onClick={() => {
                         setEditingTemplate(template)
@@ -134,7 +144,7 @@ export default function ChecklistTemplates() {
                       <Edit className="w-4 h-4" />
                     </button>
                   )}
-                  {canDelete && (
+                  {pDelete && (
                     <button
                       onClick={() => handleDelete(template)}
                       disabled={deleteMutation.isLoading}

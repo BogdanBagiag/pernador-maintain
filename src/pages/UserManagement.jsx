@@ -537,19 +537,19 @@ function ResetPasswordModal({ user, onClose }) {
 
     try {
       const { data: { session } } = await supabase.auth.getSession()
-      if (!session?.access_token) throw new Error(‘Nu esti autentificat’)
+      if (!session?.access_token) throw new Error('Nu esti autentificat')
 
       const res = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/manage-user`,
         {
-          method: ‘POST’,
+          method: 'POST',
           headers: {
-            ‘Content-Type’: ‘application/json’,
-            ‘Authorization’: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
           },
           body: JSON.stringify({
             userToken: session.access_token,
-            action: ‘reset_password’,
+            action: 'reset_password',
             targetUserId: user.id,
             newPassword,
           }),
@@ -630,8 +630,8 @@ function ResetPasswordModal({ user, onClose }) {
                 <p className="font-medium mb-1">{error}</p>
                 {error.includes('Service Role') && (
                   <p className="text-xs mt-2">
-                    Alternative: Go to Supabase Dashboard â†’ Authentication â†’ Users â†’ 
-                    Click user â†’ Reset Password
+                    Alternative: Go to Supabase Dashboard â†' Authentication â†' Users â†' 
+                    Click user â†' Reset Password
                   </p>
                 )}
               </div>

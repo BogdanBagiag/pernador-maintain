@@ -1,9 +1,20 @@
 import { useState } from 'react'
-import { Camera, QrCode, Info } from 'lucide-react'
+import { Camera, QrCode, Info, ShieldOff } from 'lucide-react'
 import QRScanner from '../components/QRScanner'
+import { usePermissions } from '../contexts/PermissionsContext'
 
 export default function ScanPage() {
+  const { canView } = usePermissions()
+  const pView = canView('qr_scan')
   const [showScanner, setShowScanner] = useState(false)
+
+  if (!pView) return (
+    <div className="flex flex-col items-center justify-center h-64 gap-4 text-center">
+      <ShieldOff className="w-14 h-14 text-gray-300" />
+      <p className="text-lg font-semibold text-gray-500">Acces restricționat</p>
+      <p className="text-sm text-gray-400">Nu ai permisiunea de a accesa Scanarea QR.</p>
+    </div>
+  )
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-8">

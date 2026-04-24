@@ -4,18 +4,18 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import { useLanguage } from '../contexts/LanguageContext'
-import { Plus, Search, MapPin, Edit, Trash2, Building } from 'lucide-react'
+import { usePermissions } from '../contexts/PermissionsContext'
+import { Plus, Search, MapPin, Edit, Trash2, Building, ShieldOff } from 'lucide-react'
 import LoadingSpinner from '../components/LoadingSpinner'
 
 export default function LocationsList() {
   const { t } = useLanguage()
   const [searchTerm, setSearchTerm] = useState('')
   const queryClient = useQueryClient()
-  const { profile } = useAuth()
-
-  // Check permissions
-  const canCreateEdit = profile?.role === 'admin' || profile?.role === 'manager'
-  const canDelete = profile?.role === 'admin'
+  const { canView, canEdit, canDelete } = usePermissions()
+  const pView   = canView('locations')
+  const pEdit   = canEdit('locations')
+  const pDelete = canDelete('locations')
 
   // Fetch locations
   const { data: locations, isLoading } = useQuery({
@@ -63,6 +63,14 @@ export default function LocationsList() {
     location.address?.toLowerCase().includes(searchTerm.toLowerCase())
   )
 
+  if (!pView) return (
+    <div className="flex flex-col items-center justify-center h-64 gap-4 text-center">
+      <ShieldOff className="w-14 h-14 text-gray-300" />
+      <p className="text-lg font-semibold text-gray-500">Acces restricționat</p>
+      <p className="text-sm text-gray-400">Nu ai permisiunea de a vizualiza Locațiile.</p>
+    </div>
+  )
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -81,7 +89,7 @@ export default function LocationsList() {
             {t('locations.subtitle')}
           </p>
         </div>
-        {canCreateEdit && (
+        {pEdit && (
           <Link
             to="/locations/new"
             className="btn-primary mt-4 sm:mt-0 inline-flex items-center"
@@ -175,7 +183,7 @@ export default function LocationsList() {
               )}
 
               <div className="flex items-center justify-end space-x-2 pt-4 border-t border-gray-200">
-                {canCreateEdit && (
+                {pEdit && (
                   <Link
                     to={`/locations/${location.id}/edit`}
                     className="text-primary-600 hover:text-primary-700 p-2 relative z-10"
@@ -184,7 +192,7 @@ export default function LocationsList() {
                     <Edit className="w-4 h-4" />
                   </Link>
                 )}
-                {canDelete && (
+                {pDelete && (
                   <button
                     onClick={(e) => {
                       e.preventDefault()

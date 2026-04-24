@@ -28,14 +28,20 @@ import PublicLocationWrapper from './pages/PublicLocationWrapper'
 import PublicScanWrapper from './pages/PublicScanWrapper'
 import ScanPage from './pages/ScanPage'
 import ReportIssue from './pages/ReportIssue'
+import KanbanPage  from './pages/KanbanPage'
+import KanbanBoard from './pages/KanbanBoard'
+import VehicleList from './pages/VehicleList'
+import VehicleForm from './pages/VehicleForm'
+import VehicleDetail from './pages/VehicleDetail'
 import PartsInventory from './pages/PartsInventory'
-
-// SEO Module
-import SeoSites from './pages/seo/SeoSites'
-import SeoPages from './pages/seo/SeoPages'
-import SeoPageDetail from './pages/seo/SeoPageDetail'
-import SiteReport from './pages/seo/SiteReport'
-import SeoWizard from './pages/seo/SeoWizard'
+import ContractsList from './pages/ContractsList'
+import ContractForm from './pages/ContractForm'
+import ContractDetail from './pages/ContractDetail'
+import ContractSign from './pages/ContractSign'
+import ContractTemplateEditor from './pages/ContractTemplateEditor'
+import RegistruIncasari from './pages/RegistruIncasari'
+import Retururi from './pages/Retururi'
+import Reclamatii from './pages/Reclamatii'
 
 // Components
 import Layout from './components/Layout'
@@ -147,21 +153,35 @@ function App() {
                       <Route path="/locations/new" element={<LocationForm />} />
                       <Route path="/locations/:id/edit" element={<LocationForm />} />
                       
-                      {/* SEO Module Routes */}
-                      <Route path="/seo" element={<SeoSites />} />
-                      <Route path="/seo/:siteId/wizard" element={<SeoWizard />} />
-                      <Route path="/seo/:siteId/report" element={<SiteReport />} />
-                      <Route path="/seo/:siteId/pages/:pageId" element={<SeoPageDetail />} />
-                      <Route path="/seo/:siteId" element={<SeoPages />} />
-                      
+                      {/* Contract Routes */}
+                      <Route path="/contracte" element={<ContractsList />} />
+                      <Route path="/contracte/new" element={<ContractForm />} />
+                      <Route path="/contracte/:id" element={<ContractDetail />} />
+                      <Route path="/contracte/:id/edit" element={<ContractForm />} />
+                      <Route path="/contracte/:id/sign" element={<ContractSign />} />
+                      <Route path="/contracte/template/:id" element={<ContractTemplateEditor />} />
+
+                      {/* Vehicle Routes */}
+                      <Route path="/vehicles" element={<VehicleList />} />
+                      <Route path="/vehicles/new" element={<VehicleForm />} />
+                      <Route path="/vehicles/:id" element={<VehicleDetail />} />
+                      <Route path="/vehicles/:id/edit" element={<VehicleForm />} />
+
                       {/* Other Routes */}
                       <Route path="/schedules" element={<MaintenanceSchedules />} />
                       <Route path="/checklist-templates" element={<ChecklistTemplates />} />
                       <Route path="/procedure-templates" element={<ProcedureTemplates />} />
                       <Route path="/parts-inventory" element={<PartsInventory />} />
                       <Route path="/reports" element={<Reports />} />
+                      <Route path="/registru-incasari" element={<RegistruIncasari />} />
+                      <Route path="/retururi" element={<Retururi />} />
+                      <Route path="/reclamatii" element={<Reclamatii />} />
                       <Route path="/users" element={<UserManagement />} />
                       <Route path="/settings" element={<Settings />} />
+
+                      {/* Kanban / To Do Routes */}
+                      <Route path="/todo" element={<KanbanPage />} />
+                      <Route path="/todo/:boardId" element={<KanbanBoard />} />
                     </Routes>
                   </Layout>
                 </ProtectedRoute>

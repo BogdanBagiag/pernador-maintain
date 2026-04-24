@@ -14,6 +14,10 @@ export const MODULES = [
   { key: 'vehicles',         label: 'Vehicule',               href: '/vehicles',         hasDelete: true  },
   { key: 'parts_inventory',  label: 'Inventar piese',         href: '/parts-inventory',  hasDelete: true  },
   { key: 'qr_scan',          label: 'Scanare QR',             href: '/scan',             hasDelete: false },
+  { key: 'todo',              label: 'To Do / Kanban',         href: '/todo',             hasDelete: true  },
+  { key: 'registru_incasari', label: 'Registru Încasări',      href: '/registru-incasari', hasDelete: true  },
+  { key: 'retururi',          label: 'Retururi',               href: '/retururi',          hasDelete: true  },
+  { key: 'reclamatii',        label: 'Reclamații',             href: '/reclamatii',        hasDelete: true  },
 ]
 
 const PermissionsContext = createContext({})

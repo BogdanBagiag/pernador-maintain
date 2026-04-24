@@ -3,8 +3,9 @@ import { Link, useSearchParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
-import { 
-  Plus, 
+import { usePermissions } from '../contexts/PermissionsContext'
+import {
+  Plus,
   Calendar,
   Wrench,
   CheckCircle,
@@ -15,7 +16,8 @@ import {
   Pause,
   Clock,
   User,
-  Filter
+  Filter,
+  ShieldOff,
 } from 'lucide-react'
 import LoadingSpinner from '../components/LoadingSpinner'
 import EnhancedScheduleForm from '../components/EnhancedScheduleForm'
@@ -23,6 +25,10 @@ import ScheduleCompletionWizard from '../components/ScheduleCompletionWizard'
 
 export default function MaintenanceSchedules() {
   const { user } = useAuth()
+  const { canView, canEdit, canDelete } = usePermissions()
+  const pView   = canView('schedules')
+  const pEdit   = canEdit('schedules')
+  const pDelete = canDelete('schedules')
   const queryClient = useQueryClient()
   const [searchParams] = useSearchParams()
   const [showModal, setShowModal] = useState(false)
@@ -239,6 +245,14 @@ export default function MaintenanceSchedules() {
     }).length || 0
   }
 
+  if (!pView) return (
+    <div className="flex flex-col items-center justify-center h-64 gap-4 text-center">
+      <ShieldOff className="w-14 h-14 text-gray-300" />
+      <p className="text-lg font-semibold text-gray-500">Acces restricționat</p>
+      <p className="text-sm text-gray-400">Nu ai permisiunea de a vizualiza Mentenanța Preventivă.</p>
+    </div>
+  )
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -255,16 +269,18 @@ export default function MaintenanceSchedules() {
           <h1 className="text-3xl font-bold text-gray-900">Programe Mentenanță</h1>
           <p className="text-gray-600 mt-1">Gestionează programele de mentenanță preventivă</p>
         </div>
-        <button
-          onClick={() => {
-            setEditingSchedule(null)
-            setShowModal(true)
-          }}
-          className="btn-primary mt-4 sm:mt-0 inline-flex items-center"
-        >
-          <Plus className="w-5 h-5 mr-2" />
-          Program Nou
-        </button>
+        {pEdit && (
+          <button
+            onClick={() => {
+              setEditingSchedule(null)
+              setShowModal(true)
+            }}
+            className="btn-primary mt-4 sm:mt-0 inline-flex items-center"
+          >
+            <Plus className="w-5 h-5 mr-2" />
+            Program Nou
+          </button>
+        )}
       </div>
 
       {/* Enhanced Filter Tabs */}
@@ -576,7 +592,7 @@ export default function MaintenanceSchedules() {
 
                     {/* Action Buttons */}
                     <div className="flex items-center space-x-1 md:space-x-2">
-                      {schedule.is_active && (
+                      {pEdit && schedule.is_active && (
                         <button
                           onClick={() => {
                             setSelectedScheduleForCompletion(schedule)
@@ -589,38 +605,44 @@ export default function MaintenanceSchedules() {
                         </button>
                       )}
 
-                      <button
-                        onClick={() => toggleActiveMutation.mutate({ id: schedule.id, isActive: schedule.is_active })}
-                        disabled={toggleActiveMutation.isLoading}
-                        className="p-1.5 md:p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
-                        title={schedule.is_active ? 'Pause' : 'Resume'}
-                      >
-                        {schedule.is_active ? <Pause className="w-4 h-4 md:w-5 md:h-5" /> : <Play className="w-4 h-4 md:w-5 md:h-5" />}
-                      </button>
+                      {pEdit && (
+                        <button
+                          onClick={() => toggleActiveMutation.mutate({ id: schedule.id, isActive: schedule.is_active })}
+                          disabled={toggleActiveMutation.isLoading}
+                          className="p-1.5 md:p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                          title={schedule.is_active ? 'Pause' : 'Resume'}
+                        >
+                          {schedule.is_active ? <Pause className="w-4 h-4 md:w-5 md:h-5" /> : <Play className="w-4 h-4 md:w-5 md:h-5" />}
+                        </button>
+                      )}
 
-                      <button
-                        onClick={() => {
-                          setEditingSchedule(schedule)
-                          setShowModal(true)
-                        }}
-                        className="p-1.5 md:p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                        title="Edit"
-                      >
-                        <Edit className="w-4 h-4 md:w-5 md:h-5" />
-                      </button>
+                      {pEdit && (
+                        <button
+                          onClick={() => {
+                            setEditingSchedule(schedule)
+                            setShowModal(true)
+                          }}
+                          className="p-1.5 md:p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                          title="Edit"
+                        >
+                          <Edit className="w-4 h-4 md:w-5 md:h-5" />
+                        </button>
+                      )}
 
-                      <button
-                        onClick={() => {
-                          if (window.confirm('Are you sure you want to delete this schedule?')) {
-                            deleteMutation.mutate(schedule.id)
-                          }
-                        }}
-                        disabled={deleteMutation.isLoading}
-                        className="p-1.5 md:p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                        title="Delete"
-                      >
-                        <Trash2 className="w-4 h-4 md:w-5 md:h-5" />
-                      </button>
+                      {pDelete && (
+                        <button
+                          onClick={() => {
+                            if (window.confirm('Are you sure you want to delete this schedule?')) {
+                              deleteMutation.mutate(schedule.id)
+                            }
+                          }}
+                          disabled={deleteMutation.isLoading}
+                          className="p-1.5 md:p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                          title="Delete"
+                        >
+                          <Trash2 className="w-4 h-4 md:w-5 md:h-5" />
+                        </button>
+                      )}
                     </div>
                   </div>
                 </div>

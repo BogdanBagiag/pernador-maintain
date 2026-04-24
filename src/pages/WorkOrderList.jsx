@@ -3,21 +3,26 @@ import { Link, useSearchParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { useLanguage } from '../contexts/LanguageContext'
-import { 
-  Plus, 
-  Search, 
-  Filter, 
-  AlertTriangle, 
+import { usePermissions } from '../contexts/PermissionsContext'
+import {
+  Plus,
+  Search,
+  Filter,
+  AlertTriangle,
   Clock,
   CheckCircle,
   XCircle,
   Wrench,
-  Calendar
+  Calendar,
+  ShieldOff,
 } from 'lucide-react'
 import LoadingSpinner from '../components/LoadingSpinner'
 
 export default function WorkOrderList() {
   const { t } = useLanguage()
+  const { canView, canEdit } = usePermissions()
+  const pView = canView('work_orders')
+  const pEdit = canEdit('work_orders')
   const [searchParams] = useSearchParams()
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState('open')
@@ -166,6 +171,14 @@ export default function WorkOrderList() {
     return null
   }
 
+  if (!pView) return (
+    <div className="flex flex-col items-center justify-center h-64 gap-4 text-center">
+      <ShieldOff className="w-14 h-14 text-gray-300" />
+      <p className="text-lg font-semibold text-gray-500">Acces restricționat</p>
+      <p className="text-sm text-gray-400">Nu ai permisiunea de a vizualiza Reparațiile.</p>
+    </div>
+  )
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -182,10 +195,12 @@ export default function WorkOrderList() {
           <h1 className="text-3xl font-bold text-gray-900">{t('workOrders.title')}</h1>
           <p className="text-gray-600 mt-1">{t('workOrders.subtitle')}</p>
         </div>
-        <Link to="/work-orders/new" className="btn-primary inline-flex items-center">
-          <Plus className="w-5 h-5 mr-2" />
-          {t('workOrders.new')}
-        </Link>
+        {pEdit && (
+          <Link to="/work-orders/new" className="btn-primary inline-flex items-center">
+            <Plus className="w-5 h-5 mr-2" />
+            {t('workOrders.new')}
+          </Link>
+        )}
       </div>
 
       {/* Status Tabs */}

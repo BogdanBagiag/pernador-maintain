@@ -4,18 +4,19 @@ import { useQuery } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import { useLanguage } from '../contexts/LanguageContext'
-import { Plus, Search, Filter, Car } from 'lucide-react'
+import { usePermissions } from '../contexts/PermissionsContext'
+import { Plus, Search, Filter, Car, ShieldOff } from 'lucide-react'
 import LoadingSpinner from '../components/LoadingSpinner'
 import VehiclesStatusDashboard from '../components/VehiclesStatusDashboard'
 
 export default function VehiclesList() {
-  const { profile } = useAuth()
   const { t } = useLanguage()
+  const { canView, canEdit } = usePermissions()
+  const pView = canView('vehicles')
+  const pEdit = canEdit('vehicles')
   const [searchTerm, setSearchTerm] = useState('')
   const [filterStatus, setFilterStatus] = useState('all')
   const [filterType, setFilterType] = useState('all')
-
-  const canCreate = profile?.role === 'admin' || profile?.role === 'manager'
 
   // Fetch vehicles
   const { data: vehicles, isLoading } = useQuery({
@@ -145,6 +146,14 @@ export default function VehiclesList() {
     return matchesSearch && matchesStatus && matchesType
   })
 
+  if (!pView) return (
+    <div className="flex flex-col items-center justify-center h-64 gap-4 text-center">
+      <ShieldOff className="w-14 h-14 text-gray-300" />
+      <p className="text-lg font-semibold text-gray-500">Acces restricționat</p>
+      <p className="text-sm text-gray-400">Nu ai permisiunea de a vizualiza Vehiculele.</p>
+    </div>
+  )
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -164,7 +173,7 @@ export default function VehiclesList() {
               Gestionează flota de vehicule
             </p>
           </div>
-          {canCreate && (
+          {pEdit && (
             <Link
               to="/vehicles/new"
               className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700"
@@ -333,7 +342,7 @@ export default function VehiclesList() {
               ? 'Încearcă să modifici filtrele de căutare.'
               : 'Începe prin a adăuga primul vehicul.'}
           </p>
-          {canCreate && !searchTerm && filterStatus === 'all' && filterType === 'all' && (
+          {pEdit && !searchTerm && filterStatus === 'all' && filterType === 'all' && (
             <div className="mt-6">
               <Link
                 to="/vehicles/new"

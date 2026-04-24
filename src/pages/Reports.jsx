@@ -2,11 +2,12 @@ import { useState, useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
-import { 
-  FileText, 
-  Calendar, 
-  DollarSign, 
-  Clock, 
+import { usePermissions } from '../contexts/PermissionsContext'
+import {
+  FileText,
+  Calendar,
+  DollarSign,
+  Clock,
   Wrench,
   Filter,
   Download,
@@ -19,7 +20,8 @@ import {
   ChevronDown,
   ChevronUp,
   ExternalLink,
-  Package
+  Package,
+  ShieldOff,
 } from 'lucide-react'
 import LoadingSpinner from '../components/LoadingSpinner'
 
@@ -32,6 +34,9 @@ const debugLog = (...args) => {
 }
 
 export default function Reports() {
+  const { canView } = usePermissions()
+  const pView = canView('reports')
+
   const [dateFilter, setDateFilter] = useState('all')
   const [customStartDate, setCustomStartDate] = useState('')
   const [customEndDate, setCustomEndDate] = useState('')
@@ -388,6 +393,14 @@ export default function Reports() {
       return `${minutes}m`
     }
   }
+
+  if (!pView) return (
+    <div className="flex flex-col items-center justify-center h-64 gap-4 text-center">
+      <ShieldOff className="w-14 h-14 text-gray-300" />
+      <p className="text-lg font-semibold text-gray-500">Acces restricționat</p>
+      <p className="text-sm text-gray-400">Nu ai permisiunea de a vizualiza Rapoartele.</p>
+    </div>
+  )
 
   if (isLoading) {
     return (

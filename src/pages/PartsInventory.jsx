@@ -2,10 +2,11 @@ import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
-import { 
-  Package, 
-  Plus, 
-  Search, 
+import { usePermissions } from '../contexts/PermissionsContext'
+import {
+  Package,
+  Plus,
+  Search,
   Filter,
   AlertTriangle,
   Edit,
@@ -13,7 +14,8 @@ import {
   TrendingDown,
   TrendingUp,
   Archive,
-  ExternalLink
+  ExternalLink,
+  ShieldOff,
 } from 'lucide-react'
 import LoadingSpinner from '../components/LoadingSpinner'
 import PartFormModal from '../components/PartFormModal'
@@ -21,6 +23,10 @@ import PartDetailModal from '../components/PartDetailModal'
 
 export default function PartsInventory() {
   const { profile } = useAuth()
+  const { canView, canEdit, canDelete } = usePermissions()
+  const pView   = canView('parts_inventory')
+  const pEdit   = canEdit('parts_inventory')
+  const pDelete = canDelete('parts_inventory')
   const queryClient = useQueryClient()
   const [searchQuery, setSearchQuery] = useState('')
   const [categoryFilter, setCategoryFilter] = useState('all')
@@ -28,8 +34,6 @@ export default function PartsInventory() {
   const [showPartModal, setShowPartModal] = useState(false)
   const [editingPart, setEditingPart] = useState(null)
   const [selectedPart, setSelectedPart] = useState(null)
-
-  const canManage = profile?.role === 'admin' || profile?.role === 'manager'
 
   // Fetch parts
   const { data: parts, isLoading } = useQuery({
@@ -108,6 +112,14 @@ export default function PartsInventory() {
     }
   }
 
+  if (!pView) return (
+    <div className="flex flex-col items-center justify-center h-64 gap-4 text-center">
+      <ShieldOff className="w-14 h-14 text-gray-300" />
+      <p className="text-lg font-semibold text-gray-500">Acces restricționat</p>
+      <p className="text-sm text-gray-400">Nu ai permisiunea de a vizualiza Inventarul de Piese.</p>
+    </div>
+  )
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -123,7 +135,7 @@ export default function PartsInventory() {
           <h1 className="text-3xl font-bold text-gray-900 mb-2">Inventar Piese</h1>
           <p className="text-gray-600">Gestionează piesele de rezervă și consumabilele</p>
         </div>
-        {canManage && (
+        {pEdit && (
           <button
             onClick={() => {
               setEditingPart(null)
@@ -347,23 +359,23 @@ export default function PartsInventory() {
                           >
                             <ExternalLink className="w-4 h-4 text-gray-600" />
                           </button>
-                          {canManage && (
-                            <>
-                              <button
-                                onClick={() => handleEdit(part)}
-                                className="p-1 hover:bg-gray-100 rounded"
-                                title="Editează"
-                              >
-                                <Edit className="w-4 h-4 text-blue-600" />
-                              </button>
-                              <button
-                                onClick={() => handleDelete(part.id)}
-                                className="p-1 hover:bg-gray-100 rounded"
-                                title="Șterge"
-                              >
-                                <Trash2 className="w-4 h-4 text-red-600" />
-                              </button>
-                            </>
+                          {pEdit && (
+                            <button
+                              onClick={() => handleEdit(part)}
+                              className="p-1 hover:bg-gray-100 rounded"
+                              title="Editează"
+                            >
+                              <Edit className="w-4 h-4 text-blue-600" />
+                            </button>
+                          )}
+                          {pDelete && (
+                            <button
+                              onClick={() => handleDelete(part.id)}
+                              className="p-1 hover:bg-gray-100 rounded"
+                              title="Șterge"
+                            >
+                              <Trash2 className="w-4 h-4 text-red-600" />
+                            </button>
                           )}
                         </div>
                       </td>
@@ -391,7 +403,7 @@ export default function PartsInventory() {
         <PartDetailModal
           part={selectedPart}
           onClose={() => setSelectedPart(null)}
-          onEdit={canManage ? handleEdit : null}
+          onEdit={pEdit ? handleEdit : null}
         />
       )}
     </div>

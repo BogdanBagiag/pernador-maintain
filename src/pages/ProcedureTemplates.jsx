@@ -2,29 +2,31 @@ import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
-import { 
-  Plus, 
-  Edit, 
-  Trash2, 
+import { usePermissions } from '../contexts/PermissionsContext'
+import {
+  Plus,
+  Edit,
+  Trash2,
   X,
   ChevronUp,
   ChevronDown,
   Save,
   Image as ImageIcon,
   Upload,
-  FileText
+  FileText,
+  ShieldOff,
 } from 'lucide-react'
 import LoadingSpinner from '../components/LoadingSpinner'
 
 export default function ProcedureTemplates() {
-  const { user, profile } = useAuth()
+  const { user } = useAuth()
+  const { canView, canEdit, canDelete } = usePermissions()
+  const pView   = canView('procedures')
+  const pEdit   = canEdit('procedures')
+  const pDelete = canDelete('procedures')
   const queryClient = useQueryClient()
   const [showModal, setShowModal] = useState(false)
   const [editingTemplate, setEditingTemplate] = useState(null)
-
-  // Check permissions
-  const canCreateEdit = profile?.role === 'admin' || profile?.role === 'manager'
-  const canDelete = profile?.role === 'admin'
 
   const { data: templates, isLoading } = useQuery({
     queryKey: ['procedure-templates'],
@@ -57,6 +59,14 @@ export default function ProcedureTemplates() {
     }
   }
 
+  if (!pView) return (
+    <div className="flex flex-col items-center justify-center h-64 gap-4 text-center">
+      <ShieldOff className="w-14 h-14 text-gray-300" />
+      <p className="text-lg font-semibold text-gray-500">Acces restricționat</p>
+      <p className="text-sm text-gray-400">Nu ai permisiunea de a vizualiza Procedurile.</p>
+    </div>
+  )
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -72,7 +82,7 @@ export default function ProcedureTemplates() {
           <h1 className="text-3xl font-bold text-gray-900">Procedure Templates</h1>
           <p className="text-gray-600 mt-1">Create and manage step-by-step procedures with images</p>
         </div>
-        {canCreateEdit && (
+        {pEdit && (
           <button
             onClick={() => {
               setEditingTemplate(null)
@@ -93,7 +103,7 @@ export default function ProcedureTemplates() {
           <p className="text-gray-600 mb-4">
             Create your first procedure template with step-by-step instructions
           </p>
-          {canCreateEdit && (
+          {pEdit && (
             <button
               onClick={() => setShowModal(true)}
               className="btn-primary inline-flex items-center"
@@ -117,7 +127,7 @@ export default function ProcedureTemplates() {
                   )}
                 </div>
                 <div className="flex items-center space-x-2 ml-4">
-                  {canCreateEdit && (
+                  {pEdit && (
                     <button
                       onClick={() => {
                         setEditingTemplate(template)
@@ -128,7 +138,7 @@ export default function ProcedureTemplates() {
                       <Edit className="w-4 h-4" />
                     </button>
                   )}
-                  {canDelete && (
+                  {pDelete && (
                     <button
                       onClick={() => handleDelete(template)}
                       disabled={deleteMutation.isLoading}

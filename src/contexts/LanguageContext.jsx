@@ -19,6 +19,8 @@ export const translations = {
     'nav.manual': 'User Manual',
     'nav.users': 'Users',
     'nav.settings': 'Settings',
+    'nav.todo': 'To Do',
+    'nav.contracts': 'Contracts',
     'nav.logout': 'Logout',
     
     // Common
@@ -356,6 +358,8 @@ export const translations = {
     'nav.manual': 'Manual de Utilizare',
     'nav.users': 'Utilizatori',
     'nav.settings': 'Setări',
+    'nav.todo': 'To Do',
+    'nav.contracts': 'Contracte',
     'nav.logout': 'Deconectare',
     
     // Common
