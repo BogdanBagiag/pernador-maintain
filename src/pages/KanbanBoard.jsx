@@ -1010,7 +1010,11 @@ function TaskDetailModal({
     const normalized = raw
       ? (/^https?:\/\//i.test(raw) ? raw : 'https://' + raw)
       : null
-    await supabase.from('kan_subtasks').update({ url: normalized }).eq('id', id)
+    const { error } = await supabase.from('kan_subtasks').update({ url: normalized }).eq('id', id)
+    if (error) {
+      alert('Eroare la salvarea linkului: ' + error.message)
+      return
+    }
     setEditingLinkId(null)
     setLinkDraft('')
     refetchSubtasks()
