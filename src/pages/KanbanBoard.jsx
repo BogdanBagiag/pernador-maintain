@@ -1100,8 +1100,9 @@ function TaskDetailModal({
               <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1.5">Titlu</label>
               <textarea
                 value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                className="w-full text-base font-semibold text-gray-900 border-0 resize-none p-0 outline-none leading-snug bg-transparent"
+                onChange={(e) => !isMemberOnly && setTitle(e.target.value)}
+                readOnly={isMemberOnly}
+                className={`w-full text-base font-semibold text-gray-900 border-0 resize-none p-0 outline-none leading-snug bg-transparent ${isMemberOnly ? 'cursor-default' : ''}`}
                 rows={2}
               />
             </div>
@@ -1132,9 +1133,10 @@ function TaskDetailModal({
               <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1.5">Descriere</label>
               <textarea
                 value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                placeholder="Adaugă o descriere..."
-                className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm resize-none outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                onChange={(e) => !isMemberOnly && setDescription(e.target.value)}
+                readOnly={isMemberOnly}
+                placeholder={isMemberOnly ? '' : 'Adaugă o descriere...'}
+                className={`w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm resize-none outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent ${isMemberOnly ? 'bg-gray-50 cursor-default text-gray-600' : ''}`}
                 rows={3}
               />
             </div>
@@ -1146,7 +1148,8 @@ function TaskDetailModal({
                 <select
                   value={assigneeId}
                   onChange={(e) => setAssigneeId(e.target.value)}
-                  className="w-full border border-gray-200 rounded-lg px-2.5 py-2 text-sm outline-none focus:ring-2 focus:ring-primary-500 bg-white"
+                  disabled={isMemberOnly}
+                  className={`w-full border border-gray-200 rounded-lg px-2.5 py-2 text-sm outline-none focus:ring-2 focus:ring-primary-500 bg-white ${isMemberOnly ? 'opacity-70 cursor-not-allowed' : ''}`}
                 >
                   <option value="">Nealocat</option>
                   {members.map((m) => (
@@ -1160,7 +1163,8 @@ function TaskDetailModal({
                   type="date"
                   value={dueDate}
                   onChange={(e) => setDueDate(e.target.value)}
-                  className="w-full border border-gray-200 rounded-lg px-2.5 py-2 text-sm outline-none focus:ring-2 focus:ring-primary-500"
+                  readOnly={isMemberOnly}
+                  className={`w-full border border-gray-200 rounded-lg px-2.5 py-2 text-sm outline-none focus:ring-2 focus:ring-primary-500 ${isMemberOnly ? 'bg-gray-50 cursor-default opacity-70' : ''}`}
                 />
               </div>
             </div>
@@ -1354,7 +1358,7 @@ function TaskDetailModal({
                       <span className={`flex-1 text-sm ${st.completed ? 'line-through text-gray-400' : 'text-gray-700'}`}>
                         {st.title}
                       </span>
-                      {/* Link deschide URL dacă există */}
+                      {/* Link — vizibil tuturor, editabil doar de admin/manager */}
                       {st.url ? (
                         <a
                           href={st.url}
@@ -1366,7 +1370,7 @@ function TaskDetailModal({
                         >
                           <ExternalLink className="w-3.5 h-3.5" />
                         </a>
-                      ) : (
+                      ) : !isMemberOnly ? (
                         <button
                           onClick={() => openLinkEdit(st)}
                           title="Adaugă link"
@@ -1374,9 +1378,9 @@ function TaskDetailModal({
                         >
                           <Link2 className="w-3.5 h-3.5" />
                         </button>
-                      )}
-                      {/* Editare URL (dacă are deja link) */}
-                      {st.url && (
+                      ) : null}
+                      {/* Editare URL — doar admin/manager */}
+                      {st.url && !isMemberOnly && (
                         <button
                           onClick={() => openLinkEdit(st)}
                           title="Editează linkul"
@@ -1385,12 +1389,15 @@ function TaskDetailModal({
                           <Pencil className="w-3 h-3" />
                         </button>
                       )}
-                      <button
-                        onClick={() => deleteSubtask(st.id)}
-                        className="opacity-0 group-hover:opacity-100 p-0.5 text-gray-300 hover:text-red-400 transition-all flex-shrink-0"
-                      >
-                        <X className="w-3.5 h-3.5" />
-                      </button>
+                      {/* Ștergere item — doar admin/manager */}
+                      {!isMemberOnly && (
+                        <button
+                          onClick={() => deleteSubtask(st.id)}
+                          className="opacity-0 group-hover:opacity-100 p-0.5 text-gray-300 hover:text-red-400 transition-all flex-shrink-0"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      )}
                     </div>
 
                     {/* Input inline URL */}
@@ -1440,22 +1447,24 @@ function TaskDetailModal({
                 ))}
               </div>
 
-              <div className="flex gap-2">
-                <input
-                  value={newSubtask}
-                  onChange={(e) => setNewSubtask(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === 'Enter') addSubtask() }}
-                  placeholder="Adaugă item checklist..."
-                  className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary-500"
-                />
-                <button
-                  onClick={addSubtask}
-                  disabled={!newSubtask.trim()}
-                  className="px-3 py-2 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 disabled:opacity-50 transition-colors"
-                >
-                  <Plus className="w-4 h-4" />
-                </button>
-              </div>
+              {!isMemberOnly && (
+                <div className="flex gap-2">
+                  <input
+                    value={newSubtask}
+                    onChange={(e) => setNewSubtask(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') addSubtask() }}
+                    placeholder="Adaugă item checklist..."
+                    className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary-500"
+                  />
+                  <button
+                    onClick={addSubtask}
+                    disabled={!newSubtask.trim()}
+                    className="px-3 py-2 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 disabled:opacity-50 transition-colors"
+                  >
+                    <Plus className="w-4 h-4" />
+                  </button>
+                </div>
+              )}
             </div>
 
             <div className="border-t border-gray-100" />
