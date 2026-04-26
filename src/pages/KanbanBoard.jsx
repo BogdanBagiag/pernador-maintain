@@ -9,6 +9,7 @@ import {
   ArrowLeft, Plus, X, Check, Trash2,
   Calendar, User, MessageSquare, CheckSquare,
   Loader2, AlertCircle, GripVertical, Repeat, Pencil, Users,
+  Link2, ExternalLink,
 } from 'lucide-react'
 
 // ── Constante ─────────────────────────────────────────────────
@@ -823,8 +824,10 @@ function TaskDetailModal({
   const [assigneeId, setAssigneeId] = useState(task.assignee_id || '')
   const [dueDate, setDueDate] = useState(task.due_date || '')
   const [completed, setCompleted] = useState(task.completed)
-  const [newSubtask, setNewSubtask] = useState('')
-  const [newComment, setNewComment] = useState('')
+  const [newSubtask,    setNewSubtask]    = useState('')
+  const [newComment,    setNewComment]    = useState('')
+  const [editingLinkId, setEditingLinkId] = useState(null) // id subtask cu URL deschis
+  const [linkDraft,     setLinkDraft]     = useState('')
   const [postingComment, setPostingComment] = useState(false)
 
   // Auto-save
@@ -994,6 +997,22 @@ function TaskDetailModal({
 
   const deleteSubtask = async (id) => {
     await supabase.from('kan_subtasks').delete().eq('id', id)
+    refetchSubtasks()
+  }
+
+  const openLinkEdit = (st) => {
+    setEditingLinkId(st.id)
+    setLinkDraft(st.url || '')
+  }
+
+  const saveLinkDraft = async (id) => {
+    const raw = linkDraft.trim()
+    const normalized = raw
+      ? (/^https?:\/\//i.test(raw) ? raw : 'https://' + raw)
+      : null
+    await supabase.from('kan_subtasks').update({ url: normalized }).eq('id', id)
+    setEditingLinkId(null)
+    setLinkDraft('')
     refetchSubtasks()
   }
 
@@ -1320,22 +1339,99 @@ function TaskDetailModal({
 
               <div className="space-y-1.5 mb-3">
                 {subtasks.map((st) => (
-                  <div key={st.id} className="flex items-center gap-2 group">
-                    <input
-                      type="checkbox"
-                      checked={st.completed}
-                      onChange={(e) => toggleSubtask(st.id, e.target.checked)}
-                      className="w-4 h-4 text-primary-600 rounded cursor-pointer"
-                    />
-                    <span className={`flex-1 text-sm ${st.completed ? 'line-through text-gray-400' : 'text-gray-700'}`}>
-                      {st.title}
-                    </span>
-                    <button
-                      onClick={() => deleteSubtask(st.id)}
-                      className="opacity-0 group-hover:opacity-100 p-0.5 text-gray-300 hover:text-red-400 transition-all"
-                    >
-                      <X className="w-3.5 h-3.5" />
-                    </button>
+                  <div key={st.id} className="group">
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        checked={st.completed}
+                        onChange={(e) => toggleSubtask(st.id, e.target.checked)}
+                        className="w-4 h-4 text-primary-600 rounded cursor-pointer flex-shrink-0"
+                      />
+                      <span className={`flex-1 text-sm ${st.completed ? 'line-through text-gray-400' : 'text-gray-700'}`}>
+                        {st.title}
+                      </span>
+                      {/* Link deschide URL dacă există */}
+                      {st.url ? (
+                        <a
+                          href={st.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          title={st.url}
+                          className="p-0.5 text-blue-500 hover:text-blue-700 flex-shrink-0"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <ExternalLink className="w-3.5 h-3.5" />
+                        </a>
+                      ) : (
+                        <button
+                          onClick={() => openLinkEdit(st)}
+                          title="Adaugă link"
+                          className="opacity-0 group-hover:opacity-100 p-0.5 text-gray-300 hover:text-blue-500 transition-all flex-shrink-0"
+                        >
+                          <Link2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                      {/* Editare URL (dacă are deja link) */}
+                      {st.url && (
+                        <button
+                          onClick={() => openLinkEdit(st)}
+                          title="Editează linkul"
+                          className="opacity-0 group-hover:opacity-100 p-0.5 text-gray-300 hover:text-blue-500 transition-all flex-shrink-0"
+                        >
+                          <Pencil className="w-3 h-3" />
+                        </button>
+                      )}
+                      <button
+                        onClick={() => deleteSubtask(st.id)}
+                        className="opacity-0 group-hover:opacity-100 p-0.5 text-gray-300 hover:text-red-400 transition-all flex-shrink-0"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+
+                    {/* Input inline URL */}
+                    {editingLinkId === st.id && (
+                      <div className="ml-6 mt-1.5 flex gap-2">
+                        <input
+                          autoFocus
+                          type="text"
+                          value={linkDraft}
+                          onChange={(e) => setLinkDraft(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') saveLinkDraft(st.id)
+                            if (e.key === 'Escape') { setEditingLinkId(null); setLinkDraft('') }
+                          }}
+                          placeholder="https:// sau www.site.ro"
+                          className="flex-1 border border-blue-300 rounded-lg px-2.5 py-1.5 text-xs outline-none focus:ring-2 focus:ring-blue-400"
+                        />
+                        <button
+                          onClick={() => saveLinkDraft(st.id)}
+                          className="px-2.5 py-1.5 bg-blue-500 text-white rounded-lg text-xs hover:bg-blue-600"
+                        >
+                          <Check className="w-3.5 h-3.5" />
+                        </button>
+                        {st.url && (
+                          <button
+                            onClick={async () => {
+                              await supabase.from('kan_subtasks').update({ url: null }).eq('id', st.id)
+                              setEditingLinkId(null)
+                              setLinkDraft('')
+                              refetchSubtasks()
+                            }}
+                            className="px-2.5 py-1.5 bg-red-50 text-red-400 rounded-lg text-xs hover:bg-red-100"
+                            title="Șterge linkul"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                        <button
+                          onClick={() => { setEditingLinkId(null); setLinkDraft('') }}
+                          className="px-2.5 py-1.5 bg-gray-100 text-gray-500 rounded-lg text-xs hover:bg-gray-200"
+                        >
+                          Anulează
+                        </button>
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
