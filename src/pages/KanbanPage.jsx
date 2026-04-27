@@ -65,10 +65,10 @@ export default function KanbanPage() {
         .order('created_at', { ascending: false })
       if (error) throw error
 
-      // Filtrare: personal = doar ale mele; team = ale mele + unde sunt membru + admin/manager vede toate
+      // Filtrare: personal = doar ale mele; team = ale mele + unde sunt membru + admin vede toate
       return data.filter((b) => {
         if (b.type === 'personal') return b.created_by === user.id
-        if (isAdmin || isManager) return true
+        if (isAdmin) return true
         return b.created_by === user.id || b.kan_board_members?.some((m) => m.user_id === user.id)
       })
     },
@@ -409,7 +409,7 @@ export default function KanbanPage() {
                       board={board}
                       stats={getTaskStats(board)}
                       canDelete={isAdmin || board.created_by === user.id}
-                      canManageMembers={isAdmin || isManager || board.created_by === user.id}
+                      canManageMembers={isAdmin || board.created_by === user.id}
                       currentUserId={user.id}
                       onOpen={() => navigate(`/todo/${board.id}`)}
                       onDelete={() => {
