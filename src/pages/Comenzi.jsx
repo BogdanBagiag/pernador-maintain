@@ -245,7 +245,8 @@ function ComandaModal({ comanda, onClose, onSaved, pEdit }) {
   const queryClient = useQueryClient()
 
   // Header state
-  const [clientId,   setClientId]   = useState(comanda?.client_id || '')
+  const [clientName, setClientName] = useState('')   // typed text
+  const [clientId,   setClientId]   = useState('')   // resolved ID
   const [transport,  setTransport]  = useState(comanda?.transport || '')
   const [nrColete,   setNrColete]   = useState(comanda?.nr_colete || '')
   const [data,       setData]       = useState(comanda?.data || format(new Date(), 'yyyy-MM-dd'))
@@ -259,8 +260,8 @@ function ComandaModal({ comanda, onClose, onSaved, pEdit }) {
 
   const [saving, setSaving] = useState(false)
 
-  const emptyLine = () => ({ id: null, produs_text: '', dimensiune: '', cantitate: 1, model: '', croit: false, cusut: false, produs_ok: false, livrat: false })
-  const [linii, setLinii] = useState([emptyLine(), emptyLine(), emptyLine()])
+  const emptyLine = () => ({ id: null, produs_text: '', dimensiune: '', cantitate: 1, model: '' })
+  const [linii, setLinii] = useState(() => Array.from({ length: 6 }, emptyLine))
 
   // Fetch clients + products
   const { data: clienti = [] } = useQuery({
@@ -280,6 +281,14 @@ function ComandaModal({ comanda, onClose, onSaved, pEdit }) {
     },
   })
 
+  // Populate client name when editing existing order
+  useEffect(() => {
+    if (comanda?.client_id && clienti.length > 0) {
+      const found = clienti.find(c => c.id === comanda.client_id)
+      if (found) { setClientName(found.denumire); setClientId(found.id) }
+    }
+  }, [comanda?.client_id, clienti])
+
   // Load lines if editing
   useEffect(() => {
     if (!comanda?.id) return
@@ -287,38 +296,44 @@ function ComandaModal({ comanda, onClose, onSaved, pEdit }) {
       .then(({ data }) => {
         if (!data) return
         const loaded = data.map(l => ({
-          id: l.id,
+          id:          l.id,
           produs_text: l.produs_text || '',
           dimensiune:  l.dimensiune  || '',
           cantitate:   l.cantitate   || 1,
           model:       l.model       || '',
-          croit:       l.croit       || false,
-          cusut:       l.cusut       || false,
-          produs_ok:   l.produs_ok   || false,
-          livrat:      l.livrat      || false,
         }))
-        while (loaded.length < 3) loaded.push(emptyLine())
+        while (loaded.length < 6) loaded.push(emptyLine())
         setLinii(loaded)
       })
   }, [comanda?.id])
 
-  const updateLine = (idx, field, val) => {
+  const updateLine = (idx, field, val) =>
     setLinii(prev => prev.map((l, i) => i === idx ? { ...l, [field]: val } : l))
-  }
-
-  // Auto-save production checkbox immediately (only if order already saved)
-  const autoSaveCheck = async (lineId, field, val) => {
-    if (!lineId) return
-    await supabase.from('com_linii').update({ [field]: val }).eq('id', lineId)
-  }
 
   const handleSave = async () => {
-    if (!clientId) { alert('Selectează un client!'); return }
+    if (!clientName.trim()) { alert('Introdu numele clientului!'); return }
     setSaving(true)
     try {
+      // Resolve or create client
+      let resolvedClientId = clientId
+      if (!resolvedClientId) {
+        const match = clienti.find(c => c.denumire.toLowerCase() === clientName.trim().toLowerCase())
+        if (match) {
+          resolvedClientId = match.id
+        } else {
+          const { data: nc, error: ncErr } = await supabase
+            .from('com_clienti')
+            .insert({ denumire: clientName.trim(), created_by: user.id })
+            .select().single()
+          if (ncErr) throw ncErr
+          resolvedClientId = nc.id
+          queryClient.invalidateQueries({ queryKey: ['com_clienti'] })
+        }
+      }
+
       let comandaId = comanda?.id
       const payload = {
-        client_id:       clientId,
+        client_id:       resolvedClientId,
         transport:       transport.trim()  || null,
         nr_colete:       nrColete.trim()   || null,
         data,
@@ -340,7 +355,7 @@ function ComandaModal({ comanda, onClose, onSaved, pEdit }) {
         comandaId = nd.id
       }
 
-      // Delete all existing lines and re-insert
+      // Delete and re-insert lines
       await supabase.from('com_linii').delete().eq('comanda_id', comandaId)
 
       const validLinii = linii.filter(l => l.produs_text.trim())
@@ -349,9 +364,7 @@ function ComandaModal({ comanda, onClose, onSaved, pEdit }) {
         for (const l of validLinii) {
           const name = l.produs_text.trim()
           const exists = produseCatalog.some(p => p.denumire.toLowerCase() === name.toLowerCase())
-          if (!exists) {
-            await supabase.from('com_produse').insert({ denumire: name })
-          }
+          if (!exists) await supabase.from('com_produse').insert({ denumire: name })
         }
         const { error: liniiErr } = await supabase.from('com_linii').insert(
           validLinii.map((l, i) => ({
@@ -360,10 +373,10 @@ function ComandaModal({ comanda, onClose, onSaved, pEdit }) {
             dimensiune:  l.dimensiune.trim()  || null,
             cantitate:   parseInt(l.cantitate) || 1,
             model:       l.model.trim()        || null,
-            croit:       l.croit,
-            cusut:       l.cusut,
-            produs_ok:   l.produs_ok,
-            livrat:      l.livrat,
+            croit:       false,
+            cusut:       false,
+            produs_ok:   false,
+            livrat:      false,
             pozitie:     i,
           }))
         )
@@ -380,8 +393,6 @@ function ComandaModal({ comanda, onClose, onSaved, pEdit }) {
   }
 
   const handlePrint = () => window.print()
-
-  const clientName = clienti.find(c => c.id === clientId)?.denumire || ''
   const validPrintLinii = linii.filter(l => l.produs_text.trim())
 
   return (
@@ -413,7 +424,7 @@ function ComandaModal({ comanda, onClose, onSaved, pEdit }) {
 
       {/* Modal */}
       <div className="fixed inset-0 bg-black/50 flex items-start justify-center z-50 p-4 overflow-y-auto">
-        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-5xl my-4">
+        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl my-4">
 
           {/* Header */}
           <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
@@ -440,47 +451,36 @@ function ComandaModal({ comanda, onClose, onSaved, pEdit }) {
                 <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">
                   Client <span className="text-red-400">*</span>
                 </label>
-                <select
-                  value={clientId}
-                  onChange={e => setClientId(e.target.value)}
+                <ClientInput
+                  value={clientName}
+                  clienti={clienti}
                   disabled={!pEdit}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary-400 disabled:bg-gray-50"
-                >
-                  <option value="">Selectează client...</option>
-                  {clienti.map(c => <option key={c.id} value={c.id}>{c.denumire}</option>)}
-                </select>
+                  onChange={(name, id) => { setClientName(name); setClientId(id || '') }}
+                />
+                {clientName.trim() && !clientId && (
+                  <p className="text-xs text-primary-600 mt-1">✨ Client nou — va fi adăugat la salvare</p>
+                )}
               </div>
               {[
-                { label: 'Transport', val: transport, set: setTransport },
-                { label: 'Nr. Colete', val: nrColete, set: setNrColete },
+                { label: 'Transport',   val: transport, set: setTransport },
+                { label: 'Nr. Colete', val: nrColete,  set: setNrColete  },
               ].map(({ label, val, set }) => (
                 <div key={label}>
                   <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">{label}</label>
-                  <input
-                    type="text" value={val}
-                    onChange={e => set(e.target.value)}
-                    readOnly={!pEdit}
+                  <input type="text" value={val} onChange={e => set(e.target.value)} readOnly={!pEdit}
                     className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary-400 read-only:bg-gray-50"
                   />
                 </div>
               ))}
               <div>
                 <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Data</label>
-                <input
-                  type="date" value={data}
-                  onChange={e => setData(e.target.value)}
-                  readOnly={!pEdit}
+                <input type="date" value={data} onChange={e => setData(e.target.value)} readOnly={!pEdit}
                   className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary-400 read-only:bg-gray-50"
                 />
               </div>
               <div>
-                <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">
-                  Genți
-                </label>
-                <input
-                  type="text" value={genti}
-                  onChange={e => setGenti(e.target.value)}
-                  readOnly={!pEdit}
+                <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Genți</label>
+                <input type="text" value={genti} onChange={e => setGenti(e.target.value)} readOnly={!pEdit}
                   className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary-400 read-only:bg-gray-50"
                 />
               </div>
@@ -491,10 +491,8 @@ function ComandaModal({ comanda, onClose, onSaved, pEdit }) {
               <div className="flex items-center justify-between mb-2">
                 <span className="text-xs font-semibold text-gray-500 uppercase">Produse</span>
                 {pEdit && (
-                  <button
-                    onClick={() => setLinii(prev => [...prev, emptyLine()])}
-                    className="flex items-center gap-1 text-xs text-primary-600 hover:text-primary-700 font-medium"
-                  >
+                  <button onClick={() => setLinii(prev => [...prev, emptyLine()])}
+                    className="flex items-center gap-1 text-xs text-primary-600 hover:text-primary-700 font-medium">
                     <Plus className="w-3.5 h-3.5" /> Adaugă rând
                   </button>
                 )}
@@ -504,68 +502,45 @@ function ComandaModal({ comanda, onClose, onSaved, pEdit }) {
                 <table className="min-w-full text-sm">
                   <thead className="bg-gray-50">
                     <tr>
-                      <th className="px-3 py-2 text-left text-xs font-semibold text-gray-600 min-w-[160px]">Produs</th>
-                      <th className="px-3 py-2 text-left text-xs font-semibold text-gray-600 w-24">Dimensiune</th>
-                      <th className="px-3 py-2 text-center text-xs font-semibold text-gray-600 w-14">Cant.</th>
-                      <th className="px-3 py-2 text-left text-xs font-semibold text-gray-600 w-28">Model</th>
-                      <th className="px-3 py-2 text-center text-xs font-semibold text-red-500 w-14">Croit</th>
-                      <th className="px-3 py-2 text-center text-xs font-semibold text-red-500 w-14">Cusut</th>
-                      <th className="px-3 py-2 text-center text-xs font-semibold text-gray-600 w-14">Produs</th>
-                      <th className="px-3 py-2 text-center text-xs font-semibold text-gray-600 w-14">Livrat</th>
+                      <th className="px-3 py-2.5 text-left text-xs font-semibold text-gray-600 min-w-[200px]">Produs</th>
+                      <th className="px-3 py-2.5 text-center text-xs font-semibold text-gray-600 w-28">Dimensiune</th>
+                      <th className="px-3 py-2.5 text-center text-xs font-semibold text-gray-600 w-20">Cant.</th>
+                      <th className="px-3 py-2.5 text-left text-xs font-semibold text-gray-600 w-36">Model</th>
                       {pEdit && <th className="w-8" />}
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
                     {linii.map((l, idx) => (
                       <tr key={idx} className="hover:bg-gray-50/80">
-                        <td className="px-2 py-1.5">
+                        <td className="px-2 py-2">
                           {pEdit
                             ? <ProductInput value={l.produs_text} catalog={produseCatalog} onChange={v => updateLine(idx, 'produs_text', v)} />
                             : <span className="text-sm text-gray-800 px-1">{l.produs_text}</span>
                           }
                         </td>
-                        <td className="px-2 py-1.5">
+                        <td className="px-2 py-2">
                           <input type="text" value={l.dimensiune}
                             onChange={e => updateLine(idx, 'dimensiune', e.target.value)}
                             readOnly={!pEdit}
-                            className="w-full border-0 bg-transparent text-sm outline-none focus:ring-1 focus:ring-primary-300 rounded px-1"
+                            className="w-full border border-gray-200 bg-white text-sm text-center outline-none focus:ring-2 focus:ring-primary-300 focus:border-primary-400 rounded-md px-2 py-1 read-only:bg-gray-50 read-only:border-transparent"
                           />
                         </td>
-                        <td className="px-2 py-1.5">
+                        <td className="px-2 py-2">
                           <input type="number" min="1" value={l.cantitate}
                             onChange={e => updateLine(idx, 'cantitate', e.target.value)}
                             readOnly={!pEdit}
-                            className="w-full border-0 bg-transparent text-sm text-center outline-none focus:ring-1 focus:ring-primary-300 rounded px-1"
+                            className="w-full border border-gray-200 bg-white text-sm text-center outline-none focus:ring-2 focus:ring-primary-300 focus:border-primary-400 rounded-md px-2 py-1 read-only:bg-gray-50 read-only:border-transparent"
                           />
                         </td>
-                        <td className="px-2 py-1.5">
+                        <td className="px-2 py-2">
                           <input type="text" value={l.model}
                             onChange={e => updateLine(idx, 'model', e.target.value)}
                             readOnly={!pEdit}
                             className="w-full border-0 bg-transparent text-sm outline-none focus:ring-1 focus:ring-primary-300 rounded px-1"
                           />
                         </td>
-                        {/* Production checkboxes — always editable */}
-                        {[
-                          { field: 'croit',     color: 'text-red-500' },
-                          { field: 'cusut',     color: 'text-red-500' },
-                          { field: 'produs_ok', color: 'text-gray-600' },
-                          { field: 'livrat',    color: 'text-gray-600' },
-                        ].map(({ field, color }) => (
-                          <td key={field} className="px-2 py-1.5 text-center">
-                            <input
-                              type="checkbox"
-                              checked={l[field]}
-                              onChange={e => {
-                                updateLine(idx, field, e.target.checked)
-                                autoSaveCheck(l.id, field, e.target.checked)
-                              }}
-                              className={`w-4 h-4 rounded cursor-pointer ${color}`}
-                            />
-                          </td>
-                        ))}
                         {pEdit && (
-                          <td className="px-2 py-1.5 text-center">
+                          <td className="px-2 py-2 text-center">
                             <button onClick={() => setLinii(prev => prev.filter((_, i) => i !== idx))}
                               className="text-gray-300 hover:text-red-500 transition-colors">
                               <X className="w-3.5 h-3.5" />
@@ -625,6 +600,56 @@ function ComandaModal({ comanda, onClose, onSaved, pEdit }) {
         </div>
       </div>
     </>
+  )
+}
+
+// ─────────────────────────────────────────────────────────────
+// Client autocomplete — selectează sau creează client nou
+// ─────────────────────────────────────────────────────────────
+function ClientInput({ value, clienti, disabled, onChange }) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef()
+  const filtered = value.trim()
+    ? clienti.filter(c => c.denumire.toLowerCase().includes(value.toLowerCase())).slice(0, 8)
+    : clienti.slice(0, 8)
+
+  useEffect(() => {
+    const h = e => { if (ref.current && !ref.current.contains(e.target)) setOpen(false) }
+    document.addEventListener('mousedown', h)
+    return () => document.removeEventListener('mousedown', h)
+  }, [])
+
+  return (
+    <div className="relative" ref={ref}>
+      <input
+        type="text"
+        value={value}
+        disabled={disabled}
+        onChange={e => { onChange(e.target.value, null); setOpen(true) }}
+        onFocus={() => setOpen(true)}
+        placeholder="Scrie sau caută client..."
+        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary-400 disabled:bg-gray-50"
+      />
+      {open && !disabled && (
+        <div className="absolute top-full left-0 z-50 w-full bg-white border border-gray-200 rounded-lg shadow-lg max-h-48 overflow-y-auto mt-0.5">
+          {filtered.length > 0 ? filtered.map(c => (
+            <button key={c.id}
+              onMouseDown={() => { onChange(c.denumire, c.id); setOpen(false) }}
+              className="w-full text-left px-3 py-2 text-sm hover:bg-primary-50 hover:text-primary-700 flex items-center gap-2"
+            >
+              <span className="w-6 h-6 rounded-full bg-gray-100 flex items-center justify-center text-xs font-bold text-gray-500 flex-shrink-0">
+                {c.denumire[0]?.toUpperCase()}
+              </span>
+              {c.denumire}
+            </button>
+          )) : (
+            <div className="px-3 py-2 text-xs text-gray-400 italic">
+              Client nou — va fi creat la salvare
+            </div>
+          )}
+        </div>
+      )}
+    </div>
   )
 }
 
