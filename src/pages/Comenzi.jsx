@@ -756,7 +756,7 @@ function ProductInput({ value, catalog, onChange, placeholder = 'Produs...' }) {
   const ref = useRef()
   const filtered = value.trim()
     ? catalog.filter(p => p.denumire.toLowerCase().includes(value.toLowerCase())).slice(0, 8)
-    : []
+    : catalog.slice(0, 8)
 
   useEffect(() => {
     const h = e => { if (ref.current && !ref.current.contains(e.target)) setOpen(false) }
