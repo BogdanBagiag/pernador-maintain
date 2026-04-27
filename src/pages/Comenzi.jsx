@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
+import { createPortal } from 'react-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
@@ -435,30 +436,31 @@ function ComandaModal({ comanda, onClose, onSaved, pEdit }) {
     <>
       <style>{`
         @media print {
-          body * { visibility: hidden; }
-          #comanda-print-area, #comanda-print-area * { visibility: visible; }
-          #comanda-print-area {
-            position: fixed; top: 0; left: 0;
-            width: 100%; height: auto;
-          }
+          body > *:not(#comanda-print-area) { display: none !important; }
+          #comanda-print-area { display: block !important; }
           @page { size: A5 portrait; margin: 6mm; }
         }
-        #comanda-print-area { display: none; }
+        @media screen {
+          #comanda-print-area { display: none; }
+        }
       `}</style>
 
-      {/* Print area */}
-      <div id="comanda-print-area">
-        <PrintLayout
-          clientName={displayClientName}
-          data={data}
-          observatii={observatii}
-          linii={validPrintLinii}
-          etichetaCusuta={etichetaCusuta}
-          etichetaColt={etichetaColt}
-          etichetaPunga={etichetaPunga}
-          geantaTnt={geantaTnt}
-        />
-      </div>
+      {/* Print area — portal direct sub body ca să nu fie afectat de modal */}
+      {createPortal(
+        <div id="comanda-print-area">
+          <PrintLayout
+            clientName={displayClientName}
+            data={data}
+            observatii={observatii}
+            linii={validPrintLinii}
+            etichetaCusuta={etichetaCusuta}
+            etichetaColt={etichetaColt}
+            etichetaPunga={etichetaPunga}
+            geantaTnt={geantaTnt}
+          />
+        </div>,
+        document.body
+      )}
 
       {/* Modal */}
       <div className="fixed inset-0 bg-black/50 flex items-start justify-center z-50 p-4 overflow-y-auto">
