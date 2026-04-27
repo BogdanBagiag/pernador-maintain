@@ -92,7 +92,7 @@ function ComenziTab({ pEdit, pDelete }) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('com_comenzi')
-        .select('*, com_clienti(denumire), com_linii(id)')
+        .select('*, com_clienti(denumire), com_linii(id, produs_text, cantitate, model, pozitie)')
         .order('created_at', { ascending: false })
       if (error) throw error
       return data
@@ -191,7 +191,7 @@ function ComenziTab({ pEdit, pDelete }) {
 function ComandaCard({ comanda, statusIndex, pEdit, pDelete, onOpen, onMove, onDelete }) {
   const prevSt = statusIndex > 0 ? STATUSES[statusIndex - 1] : null
   const nextSt = statusIndex < STATUSES.length - 1 ? STATUSES[statusIndex + 1] : null
-  const nrProduse = comanda.com_linii?.length || 0
+  const linii = [...(comanda.com_linii || [])].sort((a, b) => (a.pozitie ?? 0) - (b.pozitie ?? 0))
 
   return (
     <div
@@ -203,10 +203,19 @@ function ComandaCard({ comanda, statusIndex, pEdit, pDelete, onOpen, onMove, onD
       </p>
       <p className="text-xs text-gray-400 mt-0.5">
         {comanda.data ? format(new Date(comanda.data), 'dd.MM.yyyy') : '—'}
-        {nrProduse > 0 && ` · ${nrProduse} prod.`}
       </p>
-      {comanda.transport && (
-        <p className="text-xs text-gray-500 truncate mt-0.5">🚚 {comanda.transport}</p>
+      {linii.length > 0 && (
+        <div className="mt-1.5 space-y-0.5">
+          {linii.slice(0, 4).map((l, i) => (
+            <p key={i} className="text-xs text-gray-500 truncate leading-snug">
+              <span className="font-medium text-gray-700">{l.cantitate}×</span>{' '}
+              {l.produs_text}{l.model ? ` · ${l.model}` : ''}
+            </p>
+          ))}
+          {linii.length > 4 && (
+            <p className="text-xs text-gray-400 italic">+{linii.length - 4} mai multe...</p>
+          )}
+        </div>
       )}
 
       {pEdit && (
