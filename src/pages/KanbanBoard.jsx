@@ -1279,11 +1279,11 @@ function TaskDetailModal({
           </div>
 
           {/* Body — două coloane pe desktop */}
-          <div className="flex-1 overflow-y-auto md:overflow-hidden">
-            <div className="flex flex-col md:flex-row md:h-full">
+          <div className="flex-1 min-h-0 flex flex-col md:flex-row overflow-hidden">
+            <div className="flex flex-col md:flex-row flex-1 min-h-0">
 
               {/* Coloana principală: descriere + checklist */}
-              <div className="flex-1 px-6 py-5 space-y-6 md:overflow-y-auto">
+              <div className="flex-1 min-h-0 px-6 py-5 space-y-6 overflow-y-auto">
 
                 {/* Descriere */}
                 <div>
@@ -1305,7 +1305,7 @@ function TaskDetailModal({
               </div>
 
               {/* Sidebar: meta-date + repeat */}
-              <div className="md:w-56 lg:w-64 px-5 py-5 space-y-5 border-t md:border-t-0 md:border-l border-gray-100 md:overflow-y-auto flex-shrink-0 bg-gray-50/50">
+              <div className="md:w-56 lg:w-64 px-5 py-5 space-y-5 border-t md:border-t-0 md:border-l border-gray-100 overflow-y-auto flex-shrink-0 bg-gray-50/50">
 
                 {/* Prioritate */}
                 <div>
