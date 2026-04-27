@@ -449,7 +449,7 @@ function ComandaModal({ comanda, onClose, onSaved, pEdit }) {
         @media print {
           body > *:not(#comanda-print-area) { display: none !important; }
           #comanda-print-area { display: block !important; }
-          @page { size: A5 portrait; margin: 6mm; }
+          @page { size: A5 landscape; margin: 6mm; }
         }
         @media screen {
           #comanda-print-area { display: none; }
@@ -807,7 +807,7 @@ function DimensiuneInput({ value, catalog, onChange, placeholder = '' }) {
 // PrintLayout — A5
 // ═════════════════════════════════════════════════════════════
 function PrintLayout({ clientName, data, observatii, linii, etichetaCusuta, etichetaColt, etichetaPunga, geantaTnt }) {
-  const PRINT_ROWS = 11   // rows per A5 page (safe number)
+  const PRINT_ROWS = 8   // rows per A5 landscape page
 
   // Pad rows to fill pages
   const allRows = [...linii]
