@@ -18,6 +18,7 @@ export const MODULES = [
   { key: 'registru_incasari', label: 'Registru Încasări',      href: '/registru-incasari', hasDelete: true  },
   { key: 'retururi',          label: 'Retururi',               href: '/retururi',          hasDelete: true  },
   { key: 'reclamatii',        label: 'Reclamații',             href: '/reclamatii',        hasDelete: true  },
+  { key: 'comenzi',           label: 'Comenzi',                href: '/comenzi',           hasDelete: true  },
 ]
 
 const PermissionsContext = createContext({})

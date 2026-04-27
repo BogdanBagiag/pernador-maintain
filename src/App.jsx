@@ -42,6 +42,7 @@ import ContractTemplateEditor from './pages/ContractTemplateEditor'
 import RegistruIncasari from './pages/RegistruIncasari'
 import Retururi from './pages/Retururi'
 import Reclamatii from './pages/Reclamatii'
+import Comenzi from './pages/Comenzi'
 
 // Components
 import Layout from './components/Layout'
@@ -176,6 +177,7 @@ function App() {
                       <Route path="/registru-incasari" element={<RegistruIncasari />} />
                       <Route path="/retururi" element={<Retururi />} />
                       <Route path="/reclamatii" element={<Reclamatii />} />
+                      <Route path="/comenzi" element={<Comenzi />} />
                       <Route path="/users" element={<UserManagement />} />
                       <Route path="/settings" element={<Settings />} />
 

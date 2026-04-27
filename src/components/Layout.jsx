@@ -8,7 +8,7 @@ import {
   LayoutDashboard, Wrench, ClipboardList, Calendar, BarChart3,
   Settings, LogOut, Menu, X, MapPin, QrCode, CheckSquare,
   FileText, Users, Car, Package, BookOpen, LayoutGrid,
-  ScrollText, ChevronDown, BookMarked, RotateCcw, Megaphone,
+  ScrollText, ChevronDown, BookMarked, RotateCcw, Megaphone, ShoppingCart,
 } from 'lucide-react'
 import { useState, useEffect } from 'react'
 
@@ -48,7 +48,8 @@ const GROUPS = [
       { name: 'Contracte',           href: '/contracte',          icon: ScrollText,  moduleKey: 'contracts' },
       { name: 'Registru Încasări',   href: '/registru-incasari',  icon: BookMarked,  moduleKey: 'registru_incasari' },
       { name: 'Retururi',            href: '/retururi',           icon: RotateCcw,   moduleKey: 'retururi' },
-      { name: 'Reclamații',          href: '/reclamatii',         icon: Megaphone,   moduleKey: 'reclamatii' },
+      { name: 'Reclamații',          href: '/reclamatii',         icon: Megaphone,      moduleKey: 'reclamatii' },
+      { name: 'Comenzi',             href: '/comenzi',            icon: ShoppingCart,   moduleKey: 'comenzi' },
       { name: 'Manual de utilizare', href: '/manual',             icon: BookOpen },
     ],
   },
