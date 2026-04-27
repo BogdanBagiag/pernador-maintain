@@ -112,7 +112,7 @@ export default function QuickLinksPanel({ page }) {
                     className="group flex items-center gap-1 pl-3 pr-1 py-1.5 bg-gray-50 border border-gray-200 rounded-lg hover:border-primary-300 hover:bg-primary-50 transition-colors"
                   >
                     <a
-                      href={link.url}
+                      href={/^https?:\/\//i.test(link.url) ? link.url : 'https://' + link.url}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="flex items-center gap-1.5 text-sm font-medium text-gray-700 group-hover:text-primary-700"
@@ -164,9 +164,16 @@ function LinkModal({ link, onClose, onSave }) {
   const [saving,  setSaving]  = useState(false)
   const isEdit = !!link
 
+  const normalizeUrl = (raw) => {
+    const t = raw.trim()
+    if (!t) return t
+    if (/^https?:\/\//i.test(t)) return t
+    return 'https://' + t
+  }
+
   const handleSave = async () => {
     const trimLabel = label.trim()
-    const trimUrl   = url.trim()
+    const trimUrl   = normalizeUrl(url)
     if (!trimLabel || !trimUrl) return
     setSaving(true)
     await onSave({ label: trimLabel, url: trimUrl })
@@ -209,13 +216,14 @@ function LinkModal({ link, onClose, onSave }) {
               URL <span className="text-red-400">*</span>
             </label>
             <input
-              type="url"
+              type="text"
               value={url}
               onChange={e => setUrl(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && handleSave()}
-              placeholder="https://..."
+              placeholder="https:// sau www.site.ro"
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary-400"
             />
+            <p className="text-xs text-gray-400 mt-1">Dacă nu începe cu https://, îl adăugăm automat.</p>
           </div>
         </div>
 

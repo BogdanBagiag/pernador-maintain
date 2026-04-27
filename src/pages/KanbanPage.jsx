@@ -25,8 +25,7 @@ export default function KanbanPage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const isAdmin = profile?.role === 'admin'
-  const isManager = profile?.role === 'manager'
-  const canCreateTeamBoard = isAdmin || isManager
+  const canCreateTeamBoard = isAdmin
 
   const [showCreate, setShowCreate] = useState(false)
   const [createType, setCreateType] = useState('personal')

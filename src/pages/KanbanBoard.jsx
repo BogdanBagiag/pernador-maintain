@@ -57,7 +57,6 @@ export default function KanbanBoard() {
   const queryClient = useQueryClient()
 
   const isAdmin = profile?.role === 'admin'
-  const isManager = profile?.role === 'manager'
 
   // Drag & Drop state
   const [dragState, setDragState] = useState(null)
@@ -164,7 +163,7 @@ export default function KanbanBoard() {
     },
   })
 
-  const canManageBoard = board && (isAdmin || isManager || board.created_by === user?.id)
+  const canManageBoard = board && (isAdmin || board.created_by === user?.id)
   // Membru asociat: poate vedea, muta taskuri si bifa checklist, dar nu poate gestiona board-ul
   const isMemberOnly = !canManageBoard && boardMembers.some((m) => m.user_id === user?.id)
 
@@ -861,8 +860,7 @@ function TaskDetailModal({
   const [repeatSaved, setRepeatSaved] = useState(false)
 
   const isAdmin = currentProfile?.role === 'admin'
-  const isManager = currentProfile?.role === 'manager'
-  const canDelete = !isMemberOnly && (task.created_by === currentUser.id || isAdmin || isManager)
+  const canDelete = !isMemberOnly && (task.created_by === currentUser.id || isAdmin)
 
   const currentColumn = columns.find((c) => c.kan_tasks?.some((t) => t.id === task.id))
 

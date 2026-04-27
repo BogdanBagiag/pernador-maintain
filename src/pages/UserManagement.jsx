@@ -3,13 +3,12 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import { useLanguage } from '../contexts/LanguageContext'
-import { 
-  Users, 
-  UserPlus, 
-  Mail, 
-  Shield, 
+import {
+  Users,
+  UserPlus,
+  Mail,
+  Shield,
   Trash2,
-  Edit,
   Check,
   X,
   AlertCircle,
@@ -27,7 +26,6 @@ export default function UserManagement() {
   const { t } = useLanguage()
   const queryClient = useQueryClient()
   const [showInviteModal, setShowInviteModal] = useState(false)
-  const [editingUser, setEditingUser] = useState(null)
   const [showDeletedUsers, setShowDeletedUsers] = useState(false)
   const [showPendingUsers, setShowPendingUsers] = useState(false)
   const [resetPasswordUser, setResetPasswordUser] = useState(null)
@@ -77,12 +75,6 @@ export default function UserManagement() {
     return result
   }
 
-  const updateRoleMutation = useMutation({
-    mutationFn: ({ userId, newRole }) => callManageUser('update_role', userId, { newRole }),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['users'] }); setEditingUser(null) },
-    onError: (error) => alert('Eroare la schimbarea rolului: ' + error.message),
-  })
-
   const deleteUserMutation = useMutation({
     mutationFn: (userId) => callManageUser('delete', userId),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['users'] }),
@@ -107,10 +99,6 @@ export default function UserManagement() {
     onError: (error) => alert('Eroare la respingerea utilizatorului: ' + error.message),
   })
 
-  const handleRoleChange = (userId, newRole) => {
-    updateRoleMutation.mutate({ userId, newRole })
-  }
-
   const handleDeleteUser = (userData) => {
     if (userData.id === user.id) {
       alert('You cannot delete yourself!')
@@ -125,23 +113,6 @@ export default function UserManagement() {
     if (window.confirm(`Reactivate ${userData.full_name || userData.email}?\n\nThis will:\n- Restore user access\n- User can login again with existing password`)) {
       reactivateMutation.mutate(userData.id)
     }
-  }
-
-  const getRoleBadge = (role) => {
-    switch (role) {
-      case 'admin':
-        return 'bg-purple-100 text-purple-800 border-purple-200'
-      case 'manager':
-        return 'bg-blue-100 text-blue-800 border-blue-200'
-      case 'technician':
-        return 'bg-green-100 text-green-800 border-green-200'
-      default:
-        return 'bg-gray-100 text-gray-800 border-gray-200'
-    }
-  }
-
-  const getRoleIcon = (role) => {
-    return <Shield className="w-4 h-4" />
   }
 
   if (profile?.role !== 'admin') {
@@ -258,47 +229,6 @@ export default function UserManagement() {
         </div>
       </div>
 
-      {/* Stats - only show for active users */}
-      {!showDeletedUsers && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          <div className="card bg-purple-50 border-purple-200">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-purple-600 font-medium">Admins</p>
-                <p className="text-2xl font-bold text-purple-900">
-                  {users?.filter(u => u.role === 'admin').length || 0}
-                </p>
-              </div>
-              <Shield className="w-10 h-10 text-purple-600 opacity-50" />
-            </div>
-          </div>
-
-          <div className="card bg-blue-50 border-blue-200">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-blue-600 font-medium">Managers</p>
-                <p className="text-2xl font-bold text-blue-900">
-                  {users?.filter(u => u.role === 'manager').length || 0}
-                </p>
-              </div>
-              <Users className="w-10 h-10 text-blue-600 opacity-50" />
-            </div>
-          </div>
-
-          <div className="card bg-green-50 border-green-200">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-green-600 font-medium">Technicians</p>
-                <p className="text-2xl font-bold text-green-900">
-                  {users?.filter(u => u.role === 'technician').length || 0}
-                </p>
-              </div>
-              <Users className="w-10 h-10 text-green-600 opacity-50" />
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Users Table */}
       <div className="card overflow-hidden">
         <div className="overflow-x-auto">
@@ -310,9 +240,6 @@ export default function UserManagement() {
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
                   Email
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
-                  Role
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
                   Joined
@@ -341,33 +268,6 @@ export default function UserManagement() {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
                     {userData.email}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    {editingUser === userData.id ? (
-                      <div className="flex items-center gap-2">
-                        <select
-                          value={userData.role}
-                          onChange={(e) => handleRoleChange(userData.id, e.target.value)}
-                          className="input py-1 px-2 text-sm"
-                          disabled={userData.id === user.id}
-                        >
-                          <option value="admin">Admin</option>
-                          <option value="manager">Manager</option>
-                          <option value="technician">Technician</option>
-                        </select>
-                        <button
-                          onClick={() => setEditingUser(null)}
-                          className="p-1 text-gray-400 hover:text-gray-600"
-                        >
-                          <X className="w-4 h-4" />
-                        </button>
-                      </div>
-                    ) : (
-                      <span className={`inline-flex items-center gap-2 px-3 py-1 text-xs font-semibold rounded-full border ${getRoleBadge(userData.role)}`}>
-                        {getRoleIcon(userData.role)}
-                        <span className="capitalize">{userData.role}</span>
-                      </span>
-                    )}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
                     {new Date(userData.created_at).toLocaleDateString()}
@@ -428,19 +328,10 @@ export default function UserManagement() {
                         </button>
                         <button
                           onClick={() => setPermissionsUser(userData)}
-                          disabled={userData.role === 'admin'}
-                          className="p-2 text-purple-600 hover:bg-purple-50 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                          className="p-2 text-purple-600 hover:bg-purple-50 rounded-lg transition-colors"
                           title="Permisiuni acces"
                         >
                           <Shield className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => setEditingUser(userData.id)}
-                          disabled={userData.id === user.id}
-                          className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                          title="Edit role"
-                        >
-                          <Edit className="w-4 h-4" />
                         </button>
                         <button
                           onClick={() => setResetPasswordUser(userData)}
@@ -710,7 +601,6 @@ function InviteUserModal({ onClose }) {
   const [formData, setFormData] = useState({
     email: '',
     full_name: '',
-    role: 'technician',
     password: ''
   })
   const [error, setError] = useState('')
@@ -744,7 +634,7 @@ function InviteUserModal({ onClose }) {
           email: data.email,
           password: data.password,
           full_name: data.full_name,
-          role: data.role,
+          role: 'technician',
         }),
       })
 
@@ -891,27 +781,6 @@ function InviteUserModal({ onClose }) {
                 className="input"
                 placeholder="user@example.com"
               />
-            </div>
-
-            <div>
-              <label htmlFor="role" className="block text-sm font-medium text-gray-700 mb-1">
-                Role <span className="text-red-500">*</span>
-              </label>
-              <select
-                id="role"
-                value={formData.role}
-                onChange={(e) => setFormData({ ...formData, role: e.target.value })}
-                className="input"
-              >
-                <option value="technician">Technician</option>
-                <option value="manager">Manager</option>
-                <option value="admin">Admin</option>
-              </select>
-              <p className="text-xs text-gray-500 mt-2">
-                <strong>Technician:</strong> Can view and complete work orders/schedules<br/>
-                <strong>Manager:</strong> Can create/edit equipment, schedules, templates<br/>
-                <strong>Admin:</strong> Full access including user management
-              </p>
             </div>
 
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
