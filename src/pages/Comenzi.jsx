@@ -268,7 +268,7 @@ function ComandaModal({ comanda, onClose, onSaved, pEdit }) {
 
   const [saving, setSaving] = useState(false)
 
-  const emptyLine = () => ({ id: null, produs_text: '', dimensiune: '', cantitate: 1, model: '' })
+  const emptyLine = () => ({ id: null, produs_text: '', dimensiune: '', cantitate: '', model: '' })
   const [linii, setLinii] = useState(() => Array.from({ length: 6 }, emptyLine))
 
   // Fetch clients + products
@@ -336,7 +336,7 @@ function ComandaModal({ comanda, onClose, onSaved, pEdit }) {
         lastDim  = l.dimensiune.trim()
         return { ...l, _inherited: false }
       }
-      if (lastProd && (l.model.trim() || parseInt(l.cantitate) !== 1)) {
+      if (lastProd && (l.model.trim() || (l.cantitate !== '' && l.cantitate !== null))) {
         return { ...l, _inherited: true, _iProd: lastProd, _iDim: lastDim }
       }
       return { ...l, _inherited: false }
