@@ -1040,489 +1040,336 @@ function TaskDetailModal({
 
   const doneSubtasks = subtasks.filter((s) => s.completed).length
 
-  return (
-    <>
-      <div className="fixed inset-0 bg-black/40 z-40" onClick={onClose} />
-
-      <div className="fixed right-0 top-0 bottom-0 w-full max-w-lg bg-white shadow-2xl z-50 flex flex-col overflow-hidden">
-        {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 flex-shrink-0">
-          <div className="flex items-center gap-2">
-            {task.template_id && (
-              <span className="flex items-center gap-1 text-xs text-indigo-500 bg-indigo-50 px-2 py-1 rounded-full">
-                <Repeat className="w-3 h-3" />
-                Recurent
+  // Checklist JSX extras ca variabilă pentru reutilizare
+  const checklistSection = (
+    <div>
+      <div className="flex items-center justify-between mb-2">
+        <label className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Checklist</label>
+        {subtasks.length > 0 && (
+          <span className="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">
+            {doneSubtasks}/{subtasks.length}
+          </span>
+        )}
+      </div>
+      {subtasks.length > 0 && (
+        <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden mb-3">
+          <div className="h-full bg-emerald-500 rounded-full transition-all duration-300"
+            style={{ width: `${(doneSubtasks / subtasks.length) * 100}%` }} />
+        </div>
+      )}
+      <div className="space-y-1.5 mb-3">
+        {subtasks.map((st) => (
+          <div key={st.id} className="group">
+            <div className="flex items-center gap-2">
+              <input type="checkbox" checked={st.completed}
+                onChange={(e) => toggleSubtask(st.id, e.target.checked)}
+                className="w-4 h-4 text-primary-600 rounded cursor-pointer flex-shrink-0" />
+              <span className={`flex-1 text-sm ${st.completed ? 'line-through text-gray-400' : 'text-gray-700'}`}>
+                {st.title}
               </span>
+              {st.url ? (
+                <a href={st.url} target="_blank" rel="noopener noreferrer" title={st.url}
+                  className="p-0.5 text-blue-500 hover:text-blue-700 flex-shrink-0"
+                  onClick={(e) => e.stopPropagation()}>
+                  <ExternalLink className="w-3.5 h-3.5" />
+                </a>
+              ) : !isMemberOnly ? (
+                <button onClick={() => openLinkEdit(st)} title="Adaugă link"
+                  className="opacity-0 group-hover:opacity-100 p-0.5 text-gray-300 hover:text-blue-500 transition-all flex-shrink-0">
+                  <Link2 className="w-3.5 h-3.5" />
+                </button>
+              ) : null}
+              {st.url && !isMemberOnly && (
+                <button onClick={() => openLinkEdit(st)} title="Editează linkul"
+                  className="opacity-0 group-hover:opacity-100 p-0.5 text-gray-300 hover:text-blue-500 transition-all flex-shrink-0">
+                  <Pencil className="w-3 h-3" />
+                </button>
+              )}
+              {!isMemberOnly && (
+                <button onClick={() => deleteSubtask(st.id)}
+                  className="opacity-0 group-hover:opacity-100 p-0.5 text-gray-300 hover:text-red-400 transition-all flex-shrink-0">
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+            {editingLinkId === st.id && (
+              <div className="ml-6 mt-1.5 flex gap-2">
+                <input autoFocus type="text" value={linkDraft}
+                  onChange={(e) => setLinkDraft(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') saveLinkDraft(st.id)
+                    if (e.key === 'Escape') { setEditingLinkId(null); setLinkDraft('') }
+                  }}
+                  placeholder="https:// sau www.site.ro"
+                  className="flex-1 border border-blue-300 rounded-lg px-2.5 py-1.5 text-xs outline-none focus:ring-2 focus:ring-blue-400" />
+                <button onClick={() => saveLinkDraft(st.id)}
+                  className="px-2.5 py-1.5 bg-blue-500 text-white rounded-lg text-xs hover:bg-blue-600">
+                  <Check className="w-3.5 h-3.5" />
+                </button>
+                {st.url && (
+                  <button onClick={async () => {
+                    await supabase.from('kan_subtasks').update({ url: null }).eq('id', st.id)
+                    setEditingLinkId(null); setLinkDraft(''); refetchSubtasks()
+                  }} className="px-2.5 py-1.5 bg-red-50 text-red-400 rounded-lg text-xs hover:bg-red-100" title="Șterge linkul">
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
+                <button onClick={() => { setEditingLinkId(null); setLinkDraft('') }}
+                  className="px-2.5 py-1.5 bg-gray-100 text-gray-500 rounded-lg text-xs hover:bg-gray-200">
+                  Anulează
+                </button>
+              </div>
             )}
-            <select
-              value={priority}
-              onChange={(e) => setPriority(e.target.value)}
-              className={`text-xs px-2.5 py-1 rounded-full border font-medium cursor-pointer outline-none ${PRIORITIES[priority]?.color}`}
-            >
-              {Object.entries(PRIORITIES).map(([k, v]) => (
-                <option key={k} value={k}>{v.label}</option>
-              ))}
-            </select>
-            <label className="flex items-center gap-1.5 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={completed}
-                onChange={(e) => setCompleted(e.target.checked)}
-                className="w-4 h-4 text-primary-600 rounded"
-              />
-              <span className="text-xs text-gray-500">Finalizat</span>
-            </label>
           </div>
-          <div className="flex items-center gap-1">
-            {canDelete && (
-              <button
-                onClick={() => { if (confirm('Ștergi acest task definitiv?')) onDelete() }}
-                className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-              >
-                <Trash2 className="w-4 h-4" />
+        ))}
+      </div>
+      {!isMemberOnly && (
+        <div className="flex gap-2">
+          <input value={newSubtask} onChange={(e) => setNewSubtask(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') addSubtask() }}
+            placeholder="Adaugă item checklist..."
+            className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary-500" />
+          <button onClick={addSubtask} disabled={!newSubtask.trim()}
+            className="px-3 py-2 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 disabled:opacity-50 transition-colors">
+            <Plus className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+    </div>
+  )
+
+  const repeatSection = !isMemberOnly && (
+    <div className="border border-gray-200 rounded-xl overflow-hidden">
+      <button onClick={() => setRepeatOpen((v) => !v)}
+        className="w-full flex items-center justify-between px-4 py-3 hover:bg-gray-50 transition-colors">
+        <div className="flex items-center gap-2">
+          <Repeat className={`w-4 h-4 ${task.template_id ? 'text-indigo-500' : 'text-gray-400'}`} />
+          <span className="text-sm font-medium text-gray-700">Repeat</span>
+          {task.template_id && (
+            <span className="text-xs bg-indigo-100 text-indigo-600 px-2 py-0.5 rounded-full font-medium">Activ</span>
+          )}
+        </div>
+        <span className="text-gray-400 text-xs">{repeatOpen ? '▲' : '▼'}</span>
+      </button>
+      {repeatOpen && (
+        <div className="px-4 pb-4 space-y-3 border-t border-gray-100 pt-3">
+          <div>
+            <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Frecvență</label>
+            <div className="flex gap-2">
+              {[{ value: 'daily', label: 'Zilnic' }, { value: 'weekly', label: 'Săptămânal' }, { value: 'monthly', label: 'Lunar' }].map((opt) => (
+                <button key={opt.value} onClick={() => { setRepeatType(opt.value); setRepeatDays([1]); setRepeatDay(5) }}
+                  className={`flex-1 py-1.5 text-xs rounded-lg border font-medium transition-colors ${repeatType === opt.value ? 'border-indigo-500 bg-indigo-50 text-indigo-700' : 'border-gray-200 text-gray-500 hover:border-gray-400'}`}>
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          </div>
+          {repeatType === 'weekly' && (
+            <div>
+              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Zilele săptămânii</label>
+              <div className="flex gap-1">
+                {DAYS_RO.map((d, i) => {
+                  const sel = repeatDays.includes(i)
+                  return (
+                    <button key={i} onClick={() => setRepeatDays((prev) => sel ? prev.filter((x) => x !== i) : [...prev, i])}
+                      className={`flex-1 h-9 rounded-lg text-xs font-medium border transition-colors ${sel ? 'border-indigo-500 bg-indigo-500 text-white' : 'border-gray-200 text-gray-600 hover:border-indigo-300 hover:bg-indigo-50'}`}>
+                      {d}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+          {repeatType === 'monthly' && (
+            <div>
+              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Ziua lunii</label>
+              <div className="flex items-center gap-2">
+                <input type="number" min={1} max={28} value={repeatDay}
+                  onChange={(e) => setRepeatDay(Number(e.target.value))}
+                  className="w-20 border border-gray-300 rounded-lg px-3 py-1.5 text-sm outline-none focus:ring-2 focus:ring-indigo-400 text-center font-semibold" />
+                <span className="text-sm text-gray-500">a fiecărei luni</span>
+              </div>
+            </div>
+          )}
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Coloana</label>
+              <select value={repeatColumnId} onChange={(e) => setRepeatColumnId(e.target.value)}
+                className="w-full border border-gray-200 rounded-lg px-2.5 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-400 bg-white">
+                {columns.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
+                Ora <span className="text-gray-400 font-normal">(opț.)</span>
+              </label>
+              <input type="time" value={repeatTime} onChange={(e) => setRepeatTime(e.target.value)}
+                className="w-full border border-gray-200 rounded-lg px-2.5 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-400 font-semibold" />
+            </div>
+          </div>
+          <div className="flex gap-2 pt-1">
+            <button onClick={handleSaveRepeat}
+              disabled={savingRepeat || (repeatType === 'weekly' && repeatDays.length === 0)}
+              className="flex-1 py-2 bg-indigo-600 text-white rounded-lg text-xs font-semibold hover:bg-indigo-700 disabled:opacity-50 transition-colors">
+              {repeatSaved ? '✓ Salvat!' : savingRepeat ? 'Se salvează...' : 'Salvează repeat'}
+            </button>
+            {task.template_id && (
+              <button onClick={handleRemoveRepeat}
+                className="px-3 py-2 text-xs text-red-500 border border-red-200 rounded-lg hover:bg-red-50 transition-colors">
+                Oprește
               </button>
             )}
-            <button
-              onClick={onClose}
-              className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
-            >
-              <X className="w-5 h-5" />
-            </button>
           </div>
         </div>
+      )}
+    </div>
+  )
 
-        {/* Scrollable content */}
-        <div className="flex-1 overflow-y-auto">
-          <div className="px-5 py-4 space-y-5">
+  return (
+    <>
+      <div className="fixed inset-0 bg-black/50 z-40" onClick={onClose} />
 
-            {/* Title */}
-            <div>
-              <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1.5">Titlu</label>
+      {/* Modal centrat — mare pe desktop, full pe mobil */}
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-0 md:p-6">
+        <div className="bg-white w-full h-full md:h-auto md:max-w-4xl md:rounded-2xl md:max-h-[88vh] shadow-2xl flex flex-col overflow-hidden">
+
+          {/* Header */}
+          <div className="flex items-start justify-between px-6 py-4 border-b border-gray-100 flex-shrink-0 gap-4">
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+                {task.template_id && (
+                  <span className="flex items-center gap-1 text-xs text-indigo-500 bg-indigo-50 px-2 py-0.5 rounded-full">
+                    <Repeat className="w-3 h-3" /> Recurent
+                  </span>
+                )}
+                {currentColumn && (
+                  <span className="text-xs text-gray-400 font-medium">{currentColumn.name}</span>
+                )}
+              </div>
               <textarea
                 value={title}
                 onChange={(e) => !isMemberOnly && setTitle(e.target.value)}
                 readOnly={isMemberOnly}
-                className={`w-full text-base font-semibold text-gray-900 border-0 resize-none p-0 outline-none leading-snug bg-transparent ${isMemberOnly ? 'cursor-default' : ''}`}
+                className={`w-full text-xl font-bold text-gray-900 border-0 resize-none p-0 outline-none leading-snug bg-transparent ${isMemberOnly ? 'cursor-default' : ''}`}
                 rows={2}
               />
             </div>
-
-            {/* Mută în coloana */}
-            <div>
-              <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Coloană</label>
-              <div className="flex flex-wrap gap-1.5">
-                {columns.map((col) => (
-                  <button
-                    key={col.id}
-                    onClick={() => onMoveToColumn(col.id)}
-                    className={`flex items-center gap-1.5 px-3 py-1 text-xs rounded-full border font-medium transition-colors ${
-                      col.id === currentColumn?.id
-                        ? 'border-primary-500 bg-primary-50 text-primary-700'
-                        : 'border-gray-200 text-gray-500 hover:border-gray-400 hover:text-gray-700'
-                    }`}
-                  >
-                    <div className="w-2 h-2 rounded-full" style={{ backgroundColor: col.color }} />
-                    {col.name}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Description */}
-            <div>
-              <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1.5">Descriere</label>
-              <textarea
-                value={description}
-                onChange={(e) => !isMemberOnly && setDescription(e.target.value)}
-                readOnly={isMemberOnly}
-                placeholder={isMemberOnly ? '' : 'Adaugă o descriere...'}
-                className={`w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm resize-none outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent ${isMemberOnly ? 'bg-gray-50 cursor-default text-gray-600' : ''}`}
-                rows={3}
-              />
-            </div>
-
-            {/* Assignee + Due Date */}
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1.5">Responsabil</label>
-                <select
-                  value={assigneeId}
-                  onChange={(e) => setAssigneeId(e.target.value)}
-                  disabled={isMemberOnly}
-                  className={`w-full border border-gray-200 rounded-lg px-2.5 py-2 text-sm outline-none focus:ring-2 focus:ring-primary-500 bg-white ${isMemberOnly ? 'opacity-70 cursor-not-allowed' : ''}`}
-                >
-                  <option value="">Nealocat</option>
-                  {members.map((m) => (
-                    <option key={m.id} value={m.id}>{m.full_name}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1.5">Termen limită</label>
-                <input
-                  type="date"
-                  value={dueDate}
-                  onChange={(e) => setDueDate(e.target.value)}
-                  readOnly={isMemberOnly}
-                  className={`w-full border border-gray-200 rounded-lg px-2.5 py-2 text-sm outline-none focus:ring-2 focus:ring-primary-500 ${isMemberOnly ? 'bg-gray-50 cursor-default opacity-70' : ''}`}
-                />
-              </div>
-            </div>
-
-            {/* Auto-save indicator */}
-            <div className="flex items-center justify-end h-5">
+            <div className="flex items-center gap-1 flex-shrink-0 pt-1">
               {saveStatus === 'saving' && (
-                <span className="flex items-center gap-1.5 text-xs text-gray-400">
-                  <Loader2 className="w-3 h-3 animate-spin" />
-                  Se salvează...
+                <span className="flex items-center gap-1 text-xs text-gray-400 mr-1">
+                  <Loader2 className="w-3 h-3 animate-spin" /> Salvează...
                 </span>
               )}
               {saveStatus === 'saved' && (
-                <span className="flex items-center gap-1 text-xs text-emerald-500 font-medium">
-                  <Check className="w-3.5 h-3.5" />
-                  Salvat
+                <span className="flex items-center gap-1 text-xs text-emerald-500 font-medium mr-1">
+                  <Check className="w-3.5 h-3.5" /> Salvat
                 </span>
               )}
-            </div>
-
-            {/* ── Secțiunea Repeat — ascunsă pentru membri ── */}
-            {!isMemberOnly && <div className="border border-gray-200 rounded-xl overflow-hidden">
-              <button
-                onClick={() => setRepeatOpen((v) => !v)}
-                className="w-full flex items-center justify-between px-4 py-3 hover:bg-gray-50 transition-colors"
-              >
-                <div className="flex items-center gap-2">
-                  <Repeat className={`w-4 h-4 ${task.template_id ? 'text-indigo-500' : 'text-gray-400'}`} />
-                  <span className="text-sm font-medium text-gray-700">Repeat</span>
-                  {task.template_id && (
-                    <span className="text-xs bg-indigo-100 text-indigo-600 px-2 py-0.5 rounded-full font-medium">Activ</span>
-                  )}
-                </div>
-                <span className="text-gray-400 text-xs">{repeatOpen ? '▲' : '▼'}</span>
-              </button>
-
-              {repeatOpen && (
-                <div className="px-4 pb-4 space-y-3 border-t border-gray-100 pt-3">
-                  {/* Frecvență */}
-                  <div>
-                    <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Frecvență</label>
-                    <div className="flex gap-2">
-                      {[{ value: 'daily', label: 'Zilnic' }, { value: 'weekly', label: 'Săptămânal' }, { value: 'monthly', label: 'Lunar' }].map((opt) => (
-                        <button
-                          key={opt.value}
-                          onClick={() => {
-                            setRepeatType(opt.value)
-                            setRepeatDays([1])
-                            setRepeatDay(5)
-                          }}
-                          className={`flex-1 py-1.5 text-xs rounded-lg border font-medium transition-colors ${
-                            repeatType === opt.value
-                              ? 'border-indigo-500 bg-indigo-50 text-indigo-700'
-                              : 'border-gray-200 text-gray-500 hover:border-gray-400'
-                          }`}
-                        >
-                          {opt.label}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Zile săptămână */}
-                  {repeatType === 'weekly' && (
-                    <div>
-                      <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Zilele săptămânii</label>
-                      <div className="flex gap-1">
-                        {DAYS_RO.map((d, i) => {
-                          const sel = repeatDays.includes(i)
-                          return (
-                            <button
-                              key={i}
-                              onClick={() => setRepeatDays((prev) =>
-                                sel ? prev.filter((x) => x !== i) : [...prev, i]
-                              )}
-                              className={`flex-1 h-9 rounded-lg text-xs font-medium border transition-colors ${
-                                sel
-                                  ? 'border-indigo-500 bg-indigo-500 text-white'
-                                  : 'border-gray-200 text-gray-600 hover:border-indigo-300 hover:bg-indigo-50'
-                              }`}
-                            >
-                              {d}
-                            </button>
-                          )
-                        })}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Ziua lunii */}
-                  {repeatType === 'monthly' && (
-                    <div>
-                      <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Ziua lunii</label>
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="number"
-                          min={1}
-                          max={28}
-                          value={repeatDay}
-                          onChange={(e) => setRepeatDay(Number(e.target.value))}
-                          className="w-20 border border-gray-300 rounded-lg px-3 py-1.5 text-sm outline-none focus:ring-2 focus:ring-indigo-400 text-center font-semibold"
-                        />
-                        <span className="text-sm text-gray-500">a fiecărei luni</span>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Coloana destinație + Ora */}
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Coloana</label>
-                      <select
-                        value={repeatColumnId}
-                        onChange={(e) => setRepeatColumnId(e.target.value)}
-                        className="w-full border border-gray-200 rounded-lg px-2.5 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-400 bg-white"
-                      >
-                        {columns.map((c) => (
-                          <option key={c.id} value={c.id}>{c.name}</option>
-                        ))}
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
-                        Ora <span className="text-gray-400 font-normal">(opț.)</span>
-                      </label>
-                      <input
-                        type="time"
-                        value={repeatTime}
-                        onChange={(e) => setRepeatTime(e.target.value)}
-                        className="w-full border border-gray-200 rounded-lg px-2.5 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-400 font-semibold"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Acțiuni */}
-                  <div className="flex gap-2 pt-1">
-                    <button
-                      onClick={handleSaveRepeat}
-                      disabled={savingRepeat || (repeatType === 'weekly' && repeatDays.length === 0)}
-                      className="flex-1 py-2 bg-indigo-600 text-white rounded-lg text-xs font-semibold hover:bg-indigo-700 disabled:opacity-50 transition-colors"
-                    >
-                      {repeatSaved ? '✓ Salvat!' : savingRepeat ? 'Se salvează...' : 'Salvează repeat'}
-                    </button>
-                    {task.template_id && (
-                      <button
-                        onClick={handleRemoveRepeat}
-                        className="px-3 py-2 text-xs text-red-500 border border-red-200 rounded-lg hover:bg-red-50 transition-colors"
-                      >
-                        Oprește
-                      </button>
-                    )}
-                  </div>
-                </div>
-              )}
-            </div>}
-
-            <div className="border-t border-gray-100" />
-
-            {/* Subtasks */}
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <label className="text-xs font-semibold text-gray-400 uppercase tracking-wide">
-                  Checklist
-                </label>
-                {subtasks.length > 0 && (
-                  <span className="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">
-                    {doneSubtasks}/{subtasks.length}
-                  </span>
-                )}
-              </div>
-
-              {subtasks.length > 0 && (
-                <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden mb-3">
-                  <div
-                    className="h-full bg-emerald-500 rounded-full transition-all duration-300"
-                    style={{ width: `${(doneSubtasks / subtasks.length) * 100}%` }}
-                  />
-                </div>
-              )}
-
-              <div className="space-y-1.5 mb-3">
-                {subtasks.map((st) => (
-                  <div key={st.id} className="group">
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="checkbox"
-                        checked={st.completed}
-                        onChange={(e) => toggleSubtask(st.id, e.target.checked)}
-                        className="w-4 h-4 text-primary-600 rounded cursor-pointer flex-shrink-0"
-                      />
-                      <span className={`flex-1 text-sm ${st.completed ? 'line-through text-gray-400' : 'text-gray-700'}`}>
-                        {st.title}
-                      </span>
-                      {/* Link — vizibil tuturor, editabil doar de admin/manager */}
-                      {st.url ? (
-                        <a
-                          href={st.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          title={st.url}
-                          className="p-0.5 text-blue-500 hover:text-blue-700 flex-shrink-0"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <ExternalLink className="w-3.5 h-3.5" />
-                        </a>
-                      ) : !isMemberOnly ? (
-                        <button
-                          onClick={() => openLinkEdit(st)}
-                          title="Adaugă link"
-                          className="opacity-0 group-hover:opacity-100 p-0.5 text-gray-300 hover:text-blue-500 transition-all flex-shrink-0"
-                        >
-                          <Link2 className="w-3.5 h-3.5" />
-                        </button>
-                      ) : null}
-                      {/* Editare URL — doar admin/manager */}
-                      {st.url && !isMemberOnly && (
-                        <button
-                          onClick={() => openLinkEdit(st)}
-                          title="Editează linkul"
-                          className="opacity-0 group-hover:opacity-100 p-0.5 text-gray-300 hover:text-blue-500 transition-all flex-shrink-0"
-                        >
-                          <Pencil className="w-3 h-3" />
-                        </button>
-                      )}
-                      {/* Ștergere item — doar admin/manager */}
-                      {!isMemberOnly && (
-                        <button
-                          onClick={() => deleteSubtask(st.id)}
-                          className="opacity-0 group-hover:opacity-100 p-0.5 text-gray-300 hover:text-red-400 transition-all flex-shrink-0"
-                        >
-                          <X className="w-3.5 h-3.5" />
-                        </button>
-                      )}
-                    </div>
-
-                    {/* Input inline URL */}
-                    {editingLinkId === st.id && (
-                      <div className="ml-6 mt-1.5 flex gap-2">
-                        <input
-                          autoFocus
-                          type="text"
-                          value={linkDraft}
-                          onChange={(e) => setLinkDraft(e.target.value)}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') saveLinkDraft(st.id)
-                            if (e.key === 'Escape') { setEditingLinkId(null); setLinkDraft('') }
-                          }}
-                          placeholder="https:// sau www.site.ro"
-                          className="flex-1 border border-blue-300 rounded-lg px-2.5 py-1.5 text-xs outline-none focus:ring-2 focus:ring-blue-400"
-                        />
-                        <button
-                          onClick={() => saveLinkDraft(st.id)}
-                          className="px-2.5 py-1.5 bg-blue-500 text-white rounded-lg text-xs hover:bg-blue-600"
-                        >
-                          <Check className="w-3.5 h-3.5" />
-                        </button>
-                        {st.url && (
-                          <button
-                            onClick={async () => {
-                              await supabase.from('kan_subtasks').update({ url: null }).eq('id', st.id)
-                              setEditingLinkId(null)
-                              setLinkDraft('')
-                              refetchSubtasks()
-                            }}
-                            className="px-2.5 py-1.5 bg-red-50 text-red-400 rounded-lg text-xs hover:bg-red-100"
-                            title="Șterge linkul"
-                          >
-                            <X className="w-3.5 h-3.5" />
-                          </button>
-                        )}
-                        <button
-                          onClick={() => { setEditingLinkId(null); setLinkDraft('') }}
-                          className="px-2.5 py-1.5 bg-gray-100 text-gray-500 rounded-lg text-xs hover:bg-gray-200"
-                        >
-                          Anulează
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-
-              {!isMemberOnly && (
-                <div className="flex gap-2">
-                  <input
-                    value={newSubtask}
-                    onChange={(e) => setNewSubtask(e.target.value)}
-                    onKeyDown={(e) => { if (e.key === 'Enter') addSubtask() }}
-                    placeholder="Adaugă item checklist..."
-                    className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary-500"
-                  />
-                  <button
-                    onClick={addSubtask}
-                    disabled={!newSubtask.trim()}
-                    className="px-3 py-2 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 disabled:opacity-50 transition-colors"
-                  >
-                    <Plus className="w-4 h-4" />
-                  </button>
-                </div>
-              )}
-            </div>
-
-            <div className="border-t border-gray-100" />
-
-            {/* Comments */}
-            <div>
-              <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">
-                Comentarii ({comments.length})
-              </label>
-
-              <div className="space-y-3 mb-4">
-                {comments.map((c) => (
-                  <div key={c.id} className="flex gap-2.5 group">
-                    <div className="w-8 h-8 bg-primary-100 rounded-full flex items-center justify-center flex-shrink-0 text-sm font-semibold text-primary-700">
-                      {c.profiles?.full_name?.[0]?.toUpperCase() || '?'}
-                    </div>
-                    <div className="flex-1 bg-gray-50 rounded-xl px-3 py-2.5">
-                      <p className="text-xs font-semibold text-gray-700">{c.profiles?.full_name || 'Utilizator'}</p>
-                      <p className="text-sm text-gray-600 mt-0.5 leading-relaxed">{c.content}</p>
-                      <p className="text-xs text-gray-400 mt-1.5">
-                        {format(new Date(c.created_at), 'd MMM, HH:mm', { locale: ro })}
-                      </p>
-                    </div>
-                    {c.user_id === currentUser.id && (
-                      <button
-                        onClick={() => deleteComment(c.id)}
-                        className="self-start p-1 opacity-0 group-hover:opacity-100 text-gray-300 hover:text-red-400 transition-all"
-                      >
-                        <X className="w-3.5 h-3.5" />
-                      </button>
-                    )}
-                  </div>
-                ))}
-
-                {comments.length === 0 && (
-                  <p className="text-sm text-gray-400 text-center py-2">Niciun comentariu încă.</p>
-                )}
-              </div>
-
-              <div className="flex gap-2">
-                <input
-                  value={newComment}
-                  onChange={(e) => setNewComment(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === 'Enter') addComment() }}
-                  placeholder="Scrie un comentariu..."
-                  className="flex-1 border border-gray-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary-500"
-                />
-                <button
-                  onClick={addComment}
-                  disabled={!newComment.trim() || postingComment}
-                  className="px-3 py-2 bg-primary-600 text-white rounded-xl hover:bg-primary-700 disabled:opacity-50 transition-colors"
-                >
-                  <MessageSquare className="w-4 h-4" />
+              {canDelete && (
+                <button onClick={() => { if (confirm('Ștergi acest task definitiv?')) onDelete() }}
+                  className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors">
+                  <Trash2 className="w-4 h-4" />
                 </button>
+              )}
+              <button onClick={onClose}
+                className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+          </div>
+
+          {/* Body — două coloane pe desktop */}
+          <div className="flex-1 overflow-y-auto md:overflow-hidden">
+            <div className="flex flex-col md:flex-row md:h-full">
+
+              {/* Coloana principală: descriere + checklist */}
+              <div className="flex-1 px-6 py-5 space-y-6 md:overflow-y-auto">
+
+                {/* Descriere */}
+                <div>
+                  <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Descriere</label>
+                  <textarea
+                    value={description}
+                    onChange={(e) => !isMemberOnly && setDescription(e.target.value)}
+                    readOnly={isMemberOnly}
+                    placeholder={isMemberOnly ? '' : 'Adaugă o descriere...'}
+                    className={`w-full border border-gray-200 rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent leading-relaxed ${isMemberOnly ? 'bg-gray-50 cursor-default text-gray-700' : ''}`}
+                    rows={8}
+                  />
+                </div>
+
+                {/* Checklist */}
+                {checklistSection}
+
+                <div className="h-2" />
+              </div>
+
+              {/* Sidebar: meta-date + repeat */}
+              <div className="md:w-56 lg:w-64 px-5 py-5 space-y-5 border-t md:border-t-0 md:border-l border-gray-100 md:overflow-y-auto flex-shrink-0 bg-gray-50/50">
+
+                {/* Prioritate */}
+                <div>
+                  <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Prioritate</label>
+                  <select value={priority} onChange={(e) => setPriority(e.target.value)}
+                    className={`w-full text-xs px-3 py-2 rounded-lg border font-medium cursor-pointer outline-none ${PRIORITIES[priority]?.color}`}>
+                    {Object.entries(PRIORITIES).map(([k, v]) => (
+                      <option key={k} value={k}>{v.label}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Finalizat */}
+                <div>
+                  <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Status</label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input type="checkbox" checked={completed}
+                      onChange={(e) => setCompleted(e.target.checked)}
+                      className="w-4 h-4 text-primary-600 rounded" />
+                    <span className="text-sm text-gray-700 font-medium">Finalizat</span>
+                  </label>
+                </div>
+
+                {/* Coloană */}
+                <div>
+                  <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Coloană</label>
+                  <div className="flex flex-col gap-1.5">
+                    {columns.map((col) => (
+                      <button key={col.id} onClick={() => onMoveToColumn(col.id)}
+                        className={`flex items-center gap-2 px-3 py-1.5 text-xs rounded-lg border font-medium transition-colors text-left ${
+                          col.id === currentColumn?.id
+                            ? 'border-primary-500 bg-primary-50 text-primary-700'
+                            : 'border-gray-200 text-gray-500 hover:border-gray-400 hover:text-gray-700 bg-white'
+                        }`}>
+                        <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: col.color }} />
+                        {col.name}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Responsabil */}
+                <div>
+                  <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Responsabil</label>
+                  <select value={assigneeId} onChange={(e) => setAssigneeId(e.target.value)}
+                    disabled={isMemberOnly}
+                    className={`w-full border border-gray-200 rounded-lg px-2.5 py-2 text-sm outline-none focus:ring-2 focus:ring-primary-500 bg-white ${isMemberOnly ? 'opacity-70 cursor-not-allowed' : ''}`}>
+                    <option value="">Nealocat</option>
+                    {members.map((m) => <option key={m.id} value={m.id}>{m.full_name}</option>)}
+                  </select>
+                </div>
+
+                {/* Termen limită */}
+                <div>
+                  <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Termen limită</label>
+                  <input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)}
+                    readOnly={isMemberOnly}
+                    className={`w-full border border-gray-200 rounded-lg px-2.5 py-2 text-sm outline-none focus:ring-2 focus:ring-primary-500 bg-white ${isMemberOnly ? 'bg-gray-50 cursor-default opacity-70' : ''}`} />
+                </div>
+
+                {/* Repeat */}
+                {repeatSection}
               </div>
             </div>
-
-            <div className="h-4" />
           </div>
         </div>
       </div>
