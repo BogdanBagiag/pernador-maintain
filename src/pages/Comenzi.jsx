@@ -8,7 +8,7 @@ import { format } from 'date-fns'
 import {
   Plus, X, Save, Loader2, Printer, ShoppingCart,
   Users, Package, BarChart2, Pencil, Trash2, Check,
-  ShieldOff, Search,
+  ShieldOff, Search, Settings,
 } from 'lucide-react'
 
 // ─────────────────────────────────────────────────────────────
@@ -54,6 +54,7 @@ export default function Comenzi() {
             { key: 'clienti',  label: 'Clienți',  icon: Users },
             { key: 'produse',  label: 'Produse',  icon: Package },
             { key: 'rapoarte', label: 'Rapoarte', icon: BarChart2 },
+            { key: 'setari',   label: 'Setări',   icon: Settings },
           ].map(({ key, label, icon: Icon }) => (
             <button
               key={key}
@@ -75,6 +76,7 @@ export default function Comenzi() {
       {tab === 'clienti'  && <ClientiTab  pEdit={pEdit} pDelete={pDelete} />}
       {tab === 'produse'  && <ProduseTab  pEdit={pEdit} pDelete={pDelete} />}
       {tab === 'rapoarte' && <RapoarteTab />}
+      {tab === 'setari'   && <SetariTab   pEdit={pEdit} pDelete={pDelete} />}
     </div>
   )
 }
@@ -101,7 +103,9 @@ function ComenziTab({ pEdit, pDelete }) {
 
   const moveStatus = useMutation({
     mutationFn: async ({ id, status }) => {
-      const { error } = await supabase.from('com_comenzi').update({ status }).eq('id', id)
+      const update = { status }
+      if (status === 'livrate') update.data_livrare = new Date().toISOString()
+      const { error } = await supabase.from('com_comenzi').update(update).eq('id', id)
       if (error) throw error
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['com_comenzi'] }),
@@ -262,11 +266,8 @@ function ComandaModal({ comanda, onClose, onSaved, pEdit }) {
   const [data,        setData]        = useState(comanda?.data || format(new Date(), 'yyyy-MM-dd'))
   const [observatii,  setObservatii]  = useState(comanda?.observatii || '')
 
-  // Bottom checkboxes
-  const [etichetaCusuta, setEtichetaCusuta] = useState(comanda?.eticheta_cusuta ?? false)
-  const [etichetaColt,   setEtichetaColt]   = useState(comanda?.eticheta_colt   ?? false)
-  const [etichetaPunga,  setEtichetaPunga]  = useState(comanda?.eticheta_punga  ?? false)
-  const [geantaTnt,      setGeantaTnt]      = useState(comanda?.geanta_tnt      ?? false)
+  // Opțiuni dinamice bifate
+  const [checkedOptiuni, setCheckedOptiuni] = useState(new Set())
 
   const [saving, setSaving] = useState(false)
 
@@ -298,6 +299,14 @@ function ComandaModal({ comanda, onClose, onSaved, pEdit }) {
       return data
     },
   })
+  const { data: optiuni = [] } = useQuery({
+    queryKey: ['com_optiuni'],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('com_optiuni').select('*').eq('activ', true).order('pozitie')
+      if (error) throw error
+      return data
+    },
+  })
 
   // Populate client name when editing existing order
   useEffect(() => {
@@ -306,6 +315,15 @@ function ComandaModal({ comanda, onClose, onSaved, pEdit }) {
       if (found) { setClientName(found.denumire); setClientId(found.id) }
     }
   }, [comanda?.client_id, clienti])
+
+  // Load checked options if editing
+  useEffect(() => {
+    if (!comanda?.id) return
+    supabase.from('com_comenzi_optiuni').select('optiune_id').eq('comanda_id', comanda.id)
+      .then(({ data }) => {
+        if (data) setCheckedOptiuni(new Set(data.map(r => r.optiune_id)))
+      })
+  }, [comanda?.id])
 
   // Load lines if editing
   useEffect(() => {
@@ -368,13 +386,9 @@ function ComandaModal({ comanda, onClose, onSaved, pEdit }) {
 
       let comandaId = comanda?.id
       const payload = {
-        client_id:       resolvedClientId,
+        client_id:  resolvedClientId,
         data,
-        observatii:      observatii.trim() || null,
-        eticheta_cusuta: etichetaCusuta,
-        eticheta_colt:   etichetaColt,
-        eticheta_punga:  etichetaPunga,
-        geanta_tnt:      geantaTnt,
+        observatii: observatii.trim() || null,
       }
 
       if (comandaId) {
@@ -386,6 +400,14 @@ function ComandaModal({ comanda, onClose, onSaved, pEdit }) {
           .select().single()
         if (error) throw error
         comandaId = nd.id
+      }
+
+      // Save options (junction table)
+      await supabase.from('com_comenzi_optiuni').delete().eq('comanda_id', comandaId)
+      if (checkedOptiuni.size > 0) {
+        await supabase.from('com_comenzi_optiuni').insert(
+          [...checkedOptiuni].map(optiune_id => ({ comanda_id: comandaId, optiune_id }))
+        )
       }
 
       // Delete and re-insert lines (apply inheritance)
@@ -437,6 +459,8 @@ function ComandaModal({ comanda, onClose, onSaved, pEdit }) {
     }
   }
 
+  const optiuniCheckedLabels = optiuni.filter(o => checkedOptiuni.has(o.id)).map(o => o.label)
+
   const handlePrint = () => {
     window.print()
     if (comanda?.id && comanda?.status === 'noi') {
@@ -474,10 +498,7 @@ function ComandaModal({ comanda, onClose, onSaved, pEdit }) {
             data={data}
             observatii={observatii}
             linii={validPrintLinii}
-            etichetaCusuta={etichetaCusuta}
-            etichetaColt={etichetaColt}
-            etichetaPunga={etichetaPunga}
-            geantaTnt={geantaTnt}
+            optiuniChecked={optiuniCheckedLabels}
           />
         </div>,
         document.body
@@ -617,33 +638,29 @@ function ComandaModal({ comanda, onClose, onSaved, pEdit }) {
               </div>
             </div>
 
-            {/* ── Bottom checkboxes ── */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-4 bg-orange-50 rounded-xl border border-orange-100">
-              <div className="space-y-2">
-                {[
-                  { label: 'Eticheta personalizata cusuta', val: etichetaCusuta, set: setEtichetaCusuta },
-                  { label: 'Eticheta personalizata in punga', val: etichetaPunga, set: setEtichetaPunga },
-                  { label: 'Geanta TNT', val: geantaTnt, set: setGeantaTnt },
-                ].map(({ label, val, set }) => (
-                  <label key={label} className="flex items-center gap-2.5 cursor-pointer">
-                    <input type="checkbox" checked={val} onChange={e => set(e.target.checked)}
-                      disabled={!pEdit}
-                      className="w-4 h-4 rounded text-orange-500 cursor-pointer"
-                    />
-                    <span className="text-sm text-orange-700 font-medium">{label}</span>
-                  </label>
-                ))}
+            {/* ── Opțiuni dinamice ── */}
+            {optiuni.length > 0 && (
+              <div className="p-4 bg-orange-50 rounded-xl border border-orange-100">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {optiuni.map(o => (
+                    <label key={o.id} className="flex items-center gap-2.5 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={checkedOptiuni.has(o.id)}
+                        onChange={e => setCheckedOptiuni(prev => {
+                          const next = new Set(prev)
+                          e.target.checked ? next.add(o.id) : next.delete(o.id)
+                          return next
+                        })}
+                        disabled={!pEdit}
+                        className="w-4 h-4 rounded text-orange-500 cursor-pointer"
+                      />
+                      <span className="text-sm text-orange-700 font-medium">{o.label}</span>
+                    </label>
+                  ))}
+                </div>
               </div>
-              <div>
-                <label className="flex items-center gap-2.5 cursor-pointer">
-                  <input type="checkbox" checked={etichetaColt} onChange={e => setEtichetaColt(e.target.checked)}
-                    disabled={!pEdit}
-                    className="w-4 h-4 rounded text-orange-500 cursor-pointer"
-                  />
-                  <span className="text-sm text-orange-700 font-medium">Eticheta pe colt</span>
-                </label>
-              </div>
-            </div>
+            )}
 
             {/* ── Observații ── */}
             <div>
@@ -816,7 +833,7 @@ function DimensiuneInput({ value, catalog, onChange, placeholder = '' }) {
 // ═════════════════════════════════════════════════════════════
 // PrintLayout — A5
 // ═════════════════════════════════════════════════════════════
-function PrintLayout({ clientName, data, observatii, linii, etichetaCusuta, etichetaColt, etichetaPunga, geantaTnt }) {
+function PrintLayout({ clientName, data, observatii, linii, optiuniChecked = [] }) {
   const PRINT_ROWS = 8   // rows per A5 landscape page
 
   // Pad rows to fill pages
@@ -911,30 +928,21 @@ function PrintLayout({ clientName, data, observatii, linii, etichetaCusuta, etic
             {/* ── Footer — only on last page ── */}
             {isLast && (
               <>
-                <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed', marginTop: '1mm' }}>
-                  <colgroup>
-                    <col style={{ width: '44%' }} /><col style={{ width: '6%' }} />
-                    <col style={{ width: '44%' }} /><col style={{ width: '6%' }} />
-                  </colgroup>
-                  <tbody>
-                    <tr>
-                      <td style={cell({ color: '#c55a11' })}>Eticheta personalizata cusuta</td>
-                      <td style={cell({ textAlign: 'center', fontWeight: 'bold' })}>{etichetaCusuta ? 'DA' : 'NU'}</td>
-                      <td style={cell({ color: '#c55a11' })}>Eticheta pe colt</td>
-                      <td style={cell({ textAlign: 'center', fontWeight: 'bold' })}>{etichetaColt ? 'DA' : 'NU'}</td>
-                    </tr>
-                    <tr>
-                      <td style={cell({ color: '#c55a11' })}>Eticheta personalizata in punga</td>
-                      <td style={cell({ textAlign: 'center', fontWeight: 'bold' })}>{etichetaPunga ? 'DA' : 'NU'}</td>
-                      <td style={cell()} colSpan={2} />
-                    </tr>
-                    <tr>
-                      <td style={cell({ color: '#c55a11' })}>Geanta TNT</td>
-                      <td style={cell({ textAlign: 'center', fontWeight: 'bold' })}>{geantaTnt ? 'DA' : 'NU'}</td>
-                      <td style={cell()} colSpan={2} />
-                    </tr>
-                  </tbody>
-                </table>
+                {optiuniChecked.length > 0 && (
+                  <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed', marginTop: '1mm' }}>
+                    <colgroup>
+                      <col style={{ width: '88%' }} /><col style={{ width: '12%' }} />
+                    </colgroup>
+                    <tbody>
+                      {optiuniChecked.map(label => (
+                        <tr key={label}>
+                          <td style={cell({ color: '#c55a11' })}>{label}</td>
+                          <td style={cell({ textAlign: 'center', fontWeight: 'bold' })}>DA</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
 
                 {/* Observatii */}
                 {observatii && (
@@ -1280,6 +1288,157 @@ function ProdusModal({ produs, onClose, onSaved }) {
 }
 
 // ═════════════════════════════════════════════════════════════
+// SetariTab — gestionare opțiuni dinamice
+// ═════════════════════════════════════════════════════════════
+function SetariTab({ pEdit, pDelete }) {
+  const queryClient = useQueryClient()
+  const [newLabel, setNewLabel] = useState('')
+  const [adding, setAdding] = useState(false)
+  const [editingId, setEditingId] = useState(null)
+
+  const { data: optiuni = [], isLoading } = useQuery({
+    queryKey: ['com_optiuni_all'],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('com_optiuni').select('*').order('pozitie')
+      if (error) throw error
+      return data
+    },
+  })
+
+  const addOptiune = async () => {
+    if (!newLabel.trim()) return
+    setAdding(true)
+    const maxPoz = optiuni.length > 0 ? Math.max(...optiuni.map(o => o.pozitie)) + 1 : 1
+    await supabase.from('com_optiuni').insert({ label: newLabel.trim(), pozitie: maxPoz })
+    queryClient.invalidateQueries({ queryKey: ['com_optiuni_all'] })
+    queryClient.invalidateQueries({ queryKey: ['com_optiuni'] })
+    setNewLabel('')
+    setAdding(false)
+  }
+
+  const toggleActiv = async (o) => {
+    await supabase.from('com_optiuni').update({ activ: !o.activ }).eq('id', o.id)
+    queryClient.invalidateQueries({ queryKey: ['com_optiuni_all'] })
+    queryClient.invalidateQueries({ queryKey: ['com_optiuni'] })
+  }
+
+  const updateLabel = async (id, label) => {
+    if (!label.trim()) return
+    await supabase.from('com_optiuni').update({ label: label.trim() }).eq('id', id)
+    queryClient.invalidateQueries({ queryKey: ['com_optiuni_all'] })
+    queryClient.invalidateQueries({ queryKey: ['com_optiuni'] })
+    setEditingId(null)
+  }
+
+  const deleteOptiune = async (id) => {
+    if (!confirm('Ștergi această opțiune?')) return
+    await supabase.from('com_optiuni').delete().eq('id', id)
+    queryClient.invalidateQueries({ queryKey: ['com_optiuni_all'] })
+    queryClient.invalidateQueries({ queryKey: ['com_optiuni'] })
+  }
+
+  return (
+    <div className="max-w-lg space-y-4">
+      <div>
+        <h3 className="text-sm font-semibold text-gray-700">Opțiuni comandă</h3>
+        <p className="text-xs text-gray-400 mt-0.5">Bifele care apar la fiecare comandă (ex: etichete, ambalaje).</p>
+      </div>
+
+      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+        {isLoading ? (
+          <div className="p-4 text-sm text-gray-400">Se încarcă...</div>
+        ) : optiuni.length === 0 ? (
+          <div className="p-4 text-sm text-gray-400 italic">Nicio opțiune adăugată încă.</div>
+        ) : (
+          <div className="divide-y divide-gray-100">
+            {optiuni.map(o => (
+              <div key={o.id} className="flex items-center gap-3 px-4 py-3">
+                <div className={`w-2 h-2 rounded-full flex-shrink-0 ${o.activ ? 'bg-green-500' : 'bg-gray-300'}`} />
+                {editingId === o.id ? (
+                  <EditLabelInline
+                    initial={o.label}
+                    onSave={label => updateLabel(o.id, label)}
+                    onCancel={() => setEditingId(null)}
+                  />
+                ) : (
+                  <>
+                    <span className={`flex-1 text-sm ${o.activ ? 'text-gray-800' : 'text-gray-400 line-through'}`}>
+                      {o.label}
+                    </span>
+                    {pEdit && (
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={() => toggleActiv(o)}
+                          className={`text-xs px-2 py-0.5 rounded-full font-medium transition-colors ${
+                            o.activ
+                              ? 'bg-green-50 text-green-700 hover:bg-green-100'
+                              : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                          }`}
+                        >
+                          {o.activ ? 'Activ' : 'Inactiv'}
+                        </button>
+                        <button onClick={() => setEditingId(o.id)}
+                          className="p-1.5 text-gray-400 hover:text-blue-500 hover:bg-blue-50 rounded">
+                          <Pencil className="w-3.5 h-3.5" />
+                        </button>
+                        {pDelete && (
+                          <button onClick={() => deleteOptiune(o.id)}
+                            className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded">
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {pEdit && (
+        <div className="flex gap-2">
+          <input
+            type="text"
+            value={newLabel}
+            onChange={e => setNewLabel(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && addOptiune()}
+            placeholder="Opțiune nouă (ex: Cutie carton)..."
+            className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary-400"
+          />
+          <button onClick={addOptiune} disabled={adding || !newLabel.trim()}
+            className="flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 text-sm font-medium disabled:opacity-50">
+            <Plus className="w-4 h-4" /> Adaugă
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function EditLabelInline({ initial, onSave, onCancel }) {
+  const [val, setVal] = useState(initial)
+  return (
+    <div className="flex-1 flex items-center gap-2">
+      <input
+        type="text" value={val}
+        onChange={e => setVal(e.target.value)}
+        onKeyDown={e => { if (e.key === 'Enter') onSave(val); if (e.key === 'Escape') onCancel() }}
+        autoFocus
+        className="flex-1 border border-gray-300 rounded px-2 py-1 text-sm outline-none focus:ring-2 focus:ring-primary-400"
+      />
+      <button onClick={() => onSave(val)} className="p-1 text-green-600 hover:bg-green-50 rounded">
+        <Check className="w-4 h-4" />
+      </button>
+      <button onClick={onCancel} className="p-1 text-gray-400 hover:bg-gray-100 rounded">
+        <X className="w-4 h-4" />
+      </button>
+    </div>
+  )
+}
+
+// ═════════════════════════════════════════════════════════════
 // RapoarteTab
 // ═════════════════════════════════════════════════════════════
 function RapoarteTab() {
@@ -1301,6 +1460,17 @@ function RapoarteTab() {
     inLucru:  comenzi.filter(c => c.status === 'in_lucru').length,
     livrate:  comenzi.filter(c => c.status === 'livrate').length,
   }
+
+  // Media zilelor de la primire la livrare
+  const livrateWithDays = comenzi
+    .filter(c => c.status === 'livrate' && c.data && c.data_livrare)
+    .map(c => {
+      const zile = Math.round((new Date(c.data_livrare) - new Date(c.data)) / (1000 * 60 * 60 * 24))
+      return Math.max(0, zile)
+    })
+  const mediaZile = livrateWithDays.length > 0
+    ? Math.round(livrateWithDays.reduce((a, b) => a + b, 0) / livrateWithDays.length)
+    : null
 
   const byClient = {}
   comenzi.forEach(c => {
@@ -1326,6 +1496,16 @@ function RapoarteTab() {
           </div>
         ))}
       </div>
+
+      {mediaZile !== null && (
+        <div className="bg-purple-50 border border-purple-200 rounded-xl p-4 flex items-center gap-4">
+          <div>
+            <p className="text-sm text-purple-600 font-medium">Timp mediu de livrare</p>
+            <p className="text-3xl font-bold text-purple-900 mt-1">{mediaZile} <span className="text-lg font-medium">zile</span></p>
+          </div>
+          <p className="text-xs text-purple-400 ml-auto">de la data primirii până la livrare<br/>({livrateWithDays.length} comenzi livrate)</p>
+        </div>
+      )}
 
       <div className="bg-white rounded-xl border border-gray-200">
         <div className="px-4 py-3 border-b border-gray-100">
