@@ -245,12 +245,10 @@ function ComandaModal({ comanda, onClose, onSaved, pEdit }) {
   const queryClient = useQueryClient()
 
   // Header state
-  const [clientName, setClientName] = useState('')   // typed text
-  const [clientId,   setClientId]   = useState('')   // resolved ID
-  const [transport,  setTransport]  = useState(comanda?.transport || '')
-  const [nrColete,   setNrColete]   = useState(comanda?.nr_colete || '')
-  const [data,       setData]       = useState(comanda?.data || format(new Date(), 'yyyy-MM-dd'))
-  const [genti,      setGenti]      = useState(comanda?.genti || '')
+  const [clientName,  setClientName]  = useState('')   // typed text
+  const [clientId,    setClientId]    = useState('')   // resolved ID
+  const [data,        setData]        = useState(comanda?.data || format(new Date(), 'yyyy-MM-dd'))
+  const [observatii,  setObservatii]  = useState(comanda?.observatii || '')
 
   // Bottom checkboxes
   const [etichetaCusuta, setEtichetaCusuta] = useState(comanda?.eticheta_cusuta ?? false)
@@ -334,10 +332,8 @@ function ComandaModal({ comanda, onClose, onSaved, pEdit }) {
       let comandaId = comanda?.id
       const payload = {
         client_id:       resolvedClientId,
-        transport:       transport.trim()  || null,
-        nr_colete:       nrColete.trim()   || null,
         data,
-        genti:           genti.trim()      || null,
+        observatii:      observatii.trim() || null,
         eticheta_cusuta: etichetaCusuta,
         eticheta_colt:   etichetaColt,
         eticheta_punga:  etichetaPunga,
@@ -394,14 +390,19 @@ function ComandaModal({ comanda, onClose, onSaved, pEdit }) {
 
   const handlePrint = () => window.print()
   const validPrintLinii = linii.filter(l => l.produs_text.trim())
+  const displayClientName = clientName
 
   return (
     <>
       <style>{`
         @media print {
-          body > * { display: none !important; }
-          #comanda-print-area { display: block !important; }
-          @page { size: A5 portrait; margin: 7mm; }
+          body * { visibility: hidden; }
+          #comanda-print-area, #comanda-print-area * { visibility: visible; }
+          #comanda-print-area {
+            position: fixed; top: 0; left: 0;
+            width: 100%; height: auto;
+          }
+          @page { size: A5 portrait; margin: 6mm; }
         }
         #comanda-print-area { display: none; }
       `}</style>
@@ -409,11 +410,9 @@ function ComandaModal({ comanda, onClose, onSaved, pEdit }) {
       {/* Print area */}
       <div id="comanda-print-area">
         <PrintLayout
-          clientName={clientName}
-          transport={transport}
-          nrColete={nrColete}
+          clientName={displayClientName}
           data={data}
-          genti={genti}
+          observatii={observatii}
           linii={validPrintLinii}
           etichetaCusuta={etichetaCusuta}
           etichetaColt={etichetaColt}
@@ -446,7 +445,7 @@ function ComandaModal({ comanda, onClose, onSaved, pEdit }) {
 
           <div className="p-6 space-y-5">
             {/* ── Header fields ── */}
-            <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
               <div className="col-span-2">
                 <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">
                   Client <span className="text-red-400">*</span>
@@ -461,26 +460,9 @@ function ComandaModal({ comanda, onClose, onSaved, pEdit }) {
                   <p className="text-xs text-primary-600 mt-1">✨ Client nou — va fi adăugat la salvare</p>
                 )}
               </div>
-              {[
-                { label: 'Transport',   val: transport, set: setTransport },
-                { label: 'Nr. Colete', val: nrColete,  set: setNrColete  },
-              ].map(({ label, val, set }) => (
-                <div key={label}>
-                  <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">{label}</label>
-                  <input type="text" value={val} onChange={e => set(e.target.value)} readOnly={!pEdit}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary-400 read-only:bg-gray-50"
-                  />
-                </div>
-              ))}
               <div>
                 <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Data</label>
                 <input type="date" value={data} onChange={e => setData(e.target.value)} readOnly={!pEdit}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary-400 read-only:bg-gray-50"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Genți</label>
-                <input type="text" value={genti} onChange={e => setGenti(e.target.value)} readOnly={!pEdit}
                   className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary-400 read-only:bg-gray-50"
                 />
               </div>
@@ -513,10 +495,12 @@ function ComandaModal({ comanda, onClose, onSaved, pEdit }) {
                     {linii.map((l, idx) => (
                       <tr key={idx} className="hover:bg-gray-50/80">
                         <td className="px-2 py-2">
-                          {pEdit
-                            ? <ProductInput value={l.produs_text} catalog={produseCatalog} onChange={v => updateLine(idx, 'produs_text', v)} />
-                            : <span className="text-sm text-gray-800 px-1">{l.produs_text}</span>
-                          }
+                          <div className={pEdit ? "border border-gray-200 rounded-md overflow-hidden" : ""}>
+                            {pEdit
+                              ? <ProductInput value={l.produs_text} catalog={produseCatalog} onChange={v => updateLine(idx, 'produs_text', v)} />
+                              : <span className="text-sm text-gray-800 px-2 py-1 block">{l.produs_text}</span>
+                            }
+                          </div>
                         </td>
                         <td className="px-2 py-2">
                           <input type="text" value={l.dimensiune}
@@ -536,7 +520,7 @@ function ComandaModal({ comanda, onClose, onSaved, pEdit }) {
                           <input type="text" value={l.model}
                             onChange={e => updateLine(idx, 'model', e.target.value)}
                             readOnly={!pEdit}
-                            className="w-full border-0 bg-transparent text-sm outline-none focus:ring-1 focus:ring-primary-300 rounded px-1"
+                            className="w-full border border-gray-200 bg-white text-sm outline-none focus:ring-2 focus:ring-primary-300 focus:border-primary-400 rounded-md px-2 py-1 read-only:bg-gray-50 read-only:border-transparent"
                           />
                         </td>
                         {pEdit && (
@@ -580,6 +564,22 @@ function ComandaModal({ comanda, onClose, onSaved, pEdit }) {
                   <span className="text-sm text-orange-700 font-medium">Eticheta pe colt</span>
                 </label>
               </div>
+            </div>
+          </div>
+
+            {/* ── Observații ── */}
+            <div>
+              <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">
+                Observații comandă
+              </label>
+              <textarea
+                value={observatii}
+                onChange={e => setObservatii(e.target.value)}
+                readOnly={!pEdit}
+                rows={3}
+                placeholder="Note sau observații pentru această comandă..."
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary-400 resize-none read-only:bg-gray-50"
+              />
             </div>
           </div>
 
@@ -697,32 +697,30 @@ function ProductInput({ value, catalog, onChange }) {
 // ═════════════════════════════════════════════════════════════
 // PrintLayout — A5
 // ═════════════════════════════════════════════════════════════
-function PrintLayout({ clientName, transport, nrColete, data, genti, linii, etichetaCusuta, etichetaColt, etichetaPunga, geantaTnt }) {
-  // Fill with empty rows to at least ROWS_PER_PAGE per page
+function PrintLayout({ clientName, data, observatii, linii, etichetaCusuta, etichetaColt, etichetaPunga, geantaTnt }) {
+  const PRINT_ROWS = 11   // rows per A5 page (safe number)
+
+  // Pad rows to fill pages
   const allRows = [...linii]
-  const needed = Math.max(ROWS_PER_PAGE, Math.ceil(allRows.length / ROWS_PER_PAGE) * ROWS_PER_PAGE)
-  while (allRows.length < needed) {
-    allRows.push({ produs_text: '', dimensiune: '', cantitate: '', model: '', croit: false, cusut: false, produs_ok: false, livrat: false })
+  const totalPages = Math.max(1, Math.ceil(allRows.length / PRINT_ROWS))
+  while (allRows.length < totalPages * PRINT_ROWS) {
+    allRows.push({ produs_text: '', dimensiune: '', cantitate: '', model: '' })
   }
-
   const pages = []
-  for (let i = 0; i < allRows.length; i += ROWS_PER_PAGE) {
-    pages.push(allRows.slice(i, i + ROWS_PER_PAGE))
+  for (let i = 0; i < allRows.length; i += PRINT_ROWS) {
+    pages.push(allRows.slice(i, i + PRINT_ROWS))
   }
 
-  const tdStyle = (extra = {}) => ({
-    border: '1px solid #000',
-    padding: '1mm 1.5mm',
-    fontSize: '7.5pt',
-    fontFamily: 'Arial, sans-serif',
-    ...extra,
-  })
+  const B  = '1px solid #333'        // border
+  const F  = '7.5pt'                 // font size
+  const FF = 'Arial, Helvetica, sans-serif'
 
-  const thStyle = (extra = {}) => ({
-    ...tdStyle(extra),
-    fontWeight: 'bold',
-    backgroundColor: '#f3f3f3',
-    textAlign: 'center',
+  const cell = (extra = {}) => ({
+    border: B, padding: '1.5mm 2mm', fontSize: F, fontFamily: FF,
+    verticalAlign: 'middle', lineHeight: '1.2', ...extra,
+  })
+  const hcell = (extra = {}) => ({
+    ...cell(extra), fontWeight: 'bold', background: '#f0f0f0', textAlign: 'center',
   })
 
   return (
@@ -730,67 +728,62 @@ function PrintLayout({ clientName, transport, nrColete, data, genti, linii, etic
       {pages.map((rows, pi) => {
         const isLast = pi === pages.length - 1
         return (
-          <div
-            key={pi}
-            style={{
-              width: '134mm',
-              minHeight: '196mm',
-              fontFamily: 'Arial, sans-serif',
-              fontSize: '7.5pt',
-              boxSizing: 'border-box',
-              pageBreakAfter: isLast ? 'auto' : 'always',
-            }}
-          >
-            {/* ── Header row ── */}
-            <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '0.5mm' }}>
+          <div key={pi} style={{
+            width: '100%', fontFamily: FF, fontSize: F,
+            boxSizing: 'border-box',
+            pageBreakAfter: isLast ? 'avoid' : 'always',
+            breakAfter:     isLast ? 'avoid' : 'page',
+          }}>
+
+            {/* ── Header ── */}
+            <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed', marginBottom: '1mm' }}>
               <tbody>
+                {/* Row 1: Client + Transport + NrColete + Data + Genti */}
                 <tr>
-                  <td style={tdStyle({ width: '32%' })}>
-                    <b>Client: </b>{clientName}
-                  </td>
-                  <td style={tdStyle({ width: '22%' })}>
-                    <b>Transport: </b>{transport}
-                  </td>
-                  <td style={tdStyle({ width: '18%' })}>
-                    <b>Nr. Colete: </b>{nrColete}
-                  </td>
-                  <td style={tdStyle({ width: '14%' })}>
-                    <b>Data: </b>{data ? format(new Date(data), 'dd.MM.yy') : ''}
-                  </td>
-                  <td style={tdStyle({ width: '14%', backgroundColor: '#d9ead3' })}>
-                    <div style={{ fontWeight: 'bold', fontSize: '6.5pt' }}>Genți:</div>
-                    <div>{genti}</div>
-                  </td>
+                  <td style={cell({ width: '30%' })}><b>Client:</b> {clientName}</td>
+                  <td style={cell({ width: '22%' })}><b>Transport:</b></td>
+                  <td style={cell({ width: '16%' })}><b>Nr. Colete:</b></td>
+                  <td style={cell({ width: '16%' })}><b>Data:</b> {data ? format(new Date(data), 'dd.MM.yy') : ''}</td>
+                  <td style={cell({ width: '16%', background: '#d9ead3' })}><b>Genți:</b></td>
                 </tr>
               </tbody>
             </table>
 
             {/* ── Products table ── */}
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed' }}>
+              <colgroup>
+                <col style={{ width: '30%' }} />
+                <col style={{ width: '16%' }} />
+                <col style={{ width: '8%' }} />
+                <col style={{ width: '16%' }} />
+                <col style={{ width: '7.5%' }} />
+                <col style={{ width: '7.5%' }} />
+                <col style={{ width: '7.5%' }} />
+                <col style={{ width: '7.5%' }} />
+              </colgroup>
               <thead>
                 <tr>
-                  <th style={thStyle({ width: '28%', textAlign: 'left' })}>Produs</th>
-                  <th style={thStyle({ width: '16%' })}>Dimensiune</th>
-                  <th style={thStyle({ width: '8%' })}>Cant</th>
-                  <th style={thStyle({ width: '18%', textAlign: 'left' })}>Model</th>
-                  <th style={thStyle({ width: '7.5%', color: '#c00000' })}>Croit</th>
-                  <th style={thStyle({ width: '7.5%', color: '#c00000' })}>Cusut</th>
-                  <th style={thStyle({ width: '7.5%' })}>Produs</th>
-                  <th style={thStyle({ width: '7.5%' })}>Livrat</th>
+                  <th style={hcell({ textAlign: 'left' })}>Produs</th>
+                  <th style={hcell()}>Dimensiune</th>
+                  <th style={hcell()}>Cant</th>
+                  <th style={hcell({ textAlign: 'left' })}>Model</th>
+                  <th style={hcell({ color: '#c00000' })}>Croit</th>
+                  <th style={hcell({ color: '#c00000' })}>Cusut</th>
+                  <th style={hcell()}>Produs</th>
+                  <th style={hcell()}>Livrat</th>
                 </tr>
               </thead>
               <tbody>
                 {rows.map((row, ri) => (
                   <tr key={ri} style={{ height: '7mm' }}>
-                    <td style={tdStyle()}>{row.produs_text}</td>
-                    <td style={tdStyle({ textAlign: 'center' })}>{row.dimensiune}</td>
-                    <td style={tdStyle({ textAlign: 'center' })}>{row.cantitate || ''}</td>
-                    <td style={tdStyle()}>{row.model}</td>
-                    {['croit', 'cusut', 'produs_ok', 'livrat'].map(f => (
-                      <td key={f} style={tdStyle({ textAlign: 'center', backgroundColor: row[f] ? '#ffd7d7' : 'white' })}>
-                        {row[f] ? '✓' : ''}
-                      </td>
-                    ))}
+                    <td style={cell({ overflow: 'hidden', whiteSpace: 'nowrap' })}>{row.produs_text}</td>
+                    <td style={cell({ textAlign: 'center' })}>{row.dimensiune}</td>
+                    <td style={cell({ textAlign: 'center' })}>{row.cantitate || ''}</td>
+                    <td style={cell({ overflow: 'hidden', whiteSpace: 'nowrap' })}>{row.model}</td>
+                    <td style={cell({ textAlign: 'center' })} />
+                    <td style={cell({ textAlign: 'center' })} />
+                    <td style={cell({ textAlign: 'center' })} />
+                    <td style={cell({ textAlign: 'center' })} />
                   </tr>
                 ))}
               </tbody>
@@ -798,31 +791,50 @@ function PrintLayout({ clientName, transport, nrColete, data, genti, linii, etic
 
             {/* ── Footer — only on last page ── */}
             {isLast && (
-              <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: '0.5mm' }}>
-                <tbody>
-                  <tr>
-                    <td style={tdStyle({ color: '#c55a11', width: '42%' })}>Eticheta personalizata cusuta</td>
-                    <td style={tdStyle({ width: '8%', textAlign: 'center', fontWeight: 'bold' })}>{etichetaCusuta ? 'DA' : 'NU'}</td>
-                    <td style={tdStyle({ color: '#c55a11', width: '42%' })}>Eticheta pe colt</td>
-                    <td style={tdStyle({ width: '8%', textAlign: 'center', fontWeight: 'bold' })}>{etichetaColt ? 'DA' : 'NU'}</td>
-                  </tr>
-                  <tr>
-                    <td style={tdStyle({ color: '#c55a11' })}>Eticheta personalizata in punga</td>
-                    <td style={tdStyle({ textAlign: 'center', fontWeight: 'bold' })}>{etichetaPunga ? 'DA' : 'NU'}</td>
-                    <td style={tdStyle()} colSpan={2} />
-                  </tr>
-                  <tr>
-                    <td style={tdStyle({ color: '#c55a11' })}>Geanta TNT</td>
-                    <td style={tdStyle({ textAlign: 'center', fontWeight: 'bold' })}>{geantaTnt ? 'DA' : 'NU'}</td>
-                    <td style={tdStyle()} colSpan={2} />
-                  </tr>
-                </tbody>
-              </table>
+              <>
+                <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed', marginTop: '1mm' }}>
+                  <colgroup>
+                    <col style={{ width: '44%' }} /><col style={{ width: '6%' }} />
+                    <col style={{ width: '44%' }} /><col style={{ width: '6%' }} />
+                  </colgroup>
+                  <tbody>
+                    <tr>
+                      <td style={cell({ color: '#c55a11' })}>Eticheta personalizata cusuta</td>
+                      <td style={cell({ textAlign: 'center', fontWeight: 'bold' })}>{etichetaCusuta ? 'DA' : 'NU'}</td>
+                      <td style={cell({ color: '#c55a11' })}>Eticheta pe colt</td>
+                      <td style={cell({ textAlign: 'center', fontWeight: 'bold' })}>{etichetaColt ? 'DA' : 'NU'}</td>
+                    </tr>
+                    <tr>
+                      <td style={cell({ color: '#c55a11' })}>Eticheta personalizata in punga</td>
+                      <td style={cell({ textAlign: 'center', fontWeight: 'bold' })}>{etichetaPunga ? 'DA' : 'NU'}</td>
+                      <td style={cell()} colSpan={2} />
+                    </tr>
+                    <tr>
+                      <td style={cell({ color: '#c55a11' })}>Geanta TNT</td>
+                      <td style={cell({ textAlign: 'center', fontWeight: 'bold' })}>{geantaTnt ? 'DA' : 'NU'}</td>
+                      <td style={cell()} colSpan={2} />
+                    </tr>
+                  </tbody>
+                </table>
+
+                {/* Observatii */}
+                {observatii && (
+                  <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: '1mm' }}>
+                    <tbody>
+                      <tr>
+                        <td style={cell({ padding: '1.5mm 2mm' })}>
+                          <b>Observații: </b>{observatii}
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                )}
+              </>
             )}
 
             {pages.length > 1 && (
               <div style={{ textAlign: 'right', fontSize: '6pt', marginTop: '1mm', color: '#888' }}>
-                {pi + 1} / {pages.length}
+                Pagina {pi + 1} / {pages.length}
               </div>
             )}
           </div>
