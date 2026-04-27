@@ -92,7 +92,7 @@ function ComenziTab({ pEdit, pDelete }) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('com_comenzi')
-        .select('*, com_clienti(denumire), com_linii(id, produs_text, cantitate, model, pozitie)')
+        .select('*, com_clienti(denumire), com_linii(id, produs_text, dimensiune, cantitate, model, pozitie)')
         .order('created_at', { ascending: false })
       if (error) throw error
       return data
