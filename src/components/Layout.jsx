@@ -183,6 +183,16 @@ export default function Layout({ children }) {
     enabled: !!user, refetchInterval: 60_000, staleTime: 30_000,
   })
 
+  const { data: comenziNoi = 0 } = useQuery({
+    queryKey: ['badge_comenzi'],
+    queryFn: async () => {
+      const { count } = await supabase
+        .from('com_comenzi').select('id', { count: 'exact', head: true }).eq('status', 'noi')
+      return count || 0
+    },
+    enabled: !!user, refetchInterval: 60_000, staleTime: 30_000,
+  })
+
   // Badge per href și per grup
   const ITEM_BADGES = {
     '/retururi':    retururiNeachitate,
@@ -191,11 +201,12 @@ export default function Layout({ children }) {
     '/vehicles':    vehiclesExpired,
     '/todo':        tasksDueToday,
     '/reclamatii':  reclamatiiNerezolvate,
+    '/comenzi':     comenziNoi,
   }
   const GROUP_BADGES = {
     operational: workOrdersOpen + schedulesOverdue,
     assets:      vehiclesExpired,
-    documents:   retururiNeachitate + reclamatiiNerezolvate,
+    documents:   retururiNeachitate + reclamatiiNerezolvate + comenziNoi,
   }
 
   const isItemVisible = (item) => {
