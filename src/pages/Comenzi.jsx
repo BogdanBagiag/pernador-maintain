@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
@@ -278,6 +278,14 @@ function ComandaModal({ comanda, onClose, onSaved, pEdit }) {
       return data
     },
   })
+  const { data: dimensiuniCatalog = [] } = useQuery({
+    queryKey: ['com_dimensiuni'],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('com_dimensiuni').select('*').order('dimensiune')
+      if (error) throw error
+      return data
+    },
+  })
 
   // Populate client name when editing existing order
   useEffect(() => {
@@ -307,6 +315,23 @@ function ComandaModal({ comanda, onClose, onSaved, pEdit }) {
 
   const updateLine = (idx, field, val) =>
     setLinii(prev => prev.map((l, i) => i === idx ? { ...l, [field]: val } : l))
+
+  // ── Inheritance: rows without produs inherit from the last row that has one ──
+  const resolvedLinii = useMemo(() => {
+    let lastProd = ''
+    let lastDim  = ''
+    return linii.map(l => {
+      if (l.produs_text.trim()) {
+        lastProd = l.produs_text.trim()
+        lastDim  = l.dimensiune.trim()
+        return { ...l, _inherited: false }
+      }
+      if (lastProd && (l.model.trim() || parseInt(l.cantitate) !== 1)) {
+        return { ...l, _inherited: true, _iProd: lastProd, _iDim: lastDim }
+      }
+      return { ...l, _inherited: false }
+    })
+  }, [linii])
 
   const handleSave = async () => {
     if (!clientName.trim()) { alert('Introdu numele clientului!'); return }
@@ -351,22 +376,34 @@ function ComandaModal({ comanda, onClose, onSaved, pEdit }) {
         comandaId = nd.id
       }
 
-      // Delete and re-insert lines
+      // Delete and re-insert lines (apply inheritance)
       await supabase.from('com_linii').delete().eq('comanda_id', comandaId)
 
-      const validLinii = linii.filter(l => l.produs_text.trim())
+      // Apply inheritance then filter rows with real data
+      const validLinii = resolvedLinii
+        .map(l => l._inherited ? { ...l, produs_text: l._iProd, dimensiune: l._iDim } : l)
+        .filter(l => l.produs_text.trim() || l.model.trim())
+
       if (validLinii.length > 0) {
         // Auto-add new products to catalog
-        for (const l of validLinii) {
-          const name = l.produs_text.trim()
+        const uniqueProds = [...new Set(validLinii.map(l => l.produs_text.trim()).filter(Boolean))]
+        for (const name of uniqueProds) {
           const exists = produseCatalog.some(p => p.denumire.toLowerCase() === name.toLowerCase())
           if (!exists) await supabase.from('com_produse').insert({ denumire: name })
         }
+        // Auto-add new dimensions to catalog
+        const uniqueDims = [...new Set(validLinii.map(l => l.dimensiune?.trim()).filter(Boolean))]
+        for (const dim of uniqueDims) {
+          const exists = dimensiuniCatalog.some(d => d.dimensiune.toLowerCase() === dim.toLowerCase())
+          if (!exists) await supabase.from('com_dimensiuni').insert({ dimensiune: dim })
+        }
+        queryClient.invalidateQueries({ queryKey: ['com_dimensiuni'] })
+
         const { error: liniiErr } = await supabase.from('com_linii').insert(
           validLinii.map((l, i) => ({
             comanda_id:  comandaId,
             produs_text: l.produs_text.trim(),
-            dimensiune:  l.dimensiune.trim()  || null,
+            dimensiune:  l.dimensiune?.trim()  || null,
             cantitate:   parseInt(l.cantitate) || 1,
             model:       l.model.trim()        || null,
             croit:       false,
@@ -389,7 +426,9 @@ function ComandaModal({ comanda, onClose, onSaved, pEdit }) {
   }
 
   const handlePrint = () => window.print()
-  const validPrintLinii = linii.filter(l => l.produs_text.trim())
+  const validPrintLinii = resolvedLinii
+    .map(r => r._inherited ? { ...r, produs_text: r._iProd, dimensiune: r._iDim } : r)
+    .filter(r => r.produs_text.trim() || r.model.trim())
   const displayClientName = clientName
 
   return (
@@ -443,7 +482,9 @@ function ComandaModal({ comanda, onClose, onSaved, pEdit }) {
             </div>
           </div>
 
+          {/* Content */}
           <div className="p-6 space-y-5">
+
             {/* ── Header fields ── */}
             <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
               <div className="col-span-2">
@@ -492,32 +533,47 @@ function ComandaModal({ comanda, onClose, onSaved, pEdit }) {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
-                    {linii.map((l, idx) => (
-                      <tr key={idx} className="hover:bg-gray-50/80">
+                    {resolvedLinii.map((r, idx) => (
+                      <tr key={idx} className={`transition-colors hover:bg-gray-50/80 ${r._inherited ? 'bg-blue-50/30' : ''}`}>
                         <td className="px-2 py-2">
-                          <div className={pEdit ? "border border-gray-200 rounded-md overflow-hidden" : ""}>
+                          <div className={pEdit ? 'border border-gray-200 rounded-md overflow-hidden' : ''}>
                             {pEdit
-                              ? <ProductInput value={l.produs_text} catalog={produseCatalog} onChange={v => updateLine(idx, 'produs_text', v)} />
-                              : <span className="text-sm text-gray-800 px-2 py-1 block">{l.produs_text}</span>
+                              ? <ProductInput
+                                  value={r.produs_text}
+                                  catalog={produseCatalog}
+                                  onChange={v => updateLine(idx, 'produs_text', v)}
+                                  placeholder={r._inherited ? r._iProd : 'Produs...'}
+                                />
+                              : <span className="text-sm text-gray-800 px-2 py-1 block">
+                                  {r._inherited ? r._iProd : r.produs_text}
+                                </span>
                             }
                           </div>
                         </td>
                         <td className="px-2 py-2">
-                          <input type="text" value={l.dimensiune}
-                            onChange={e => updateLine(idx, 'dimensiune', e.target.value)}
-                            readOnly={!pEdit}
-                            className="w-full border border-gray-200 bg-white text-sm text-center outline-none focus:ring-2 focus:ring-primary-300 focus:border-primary-400 rounded-md px-2 py-1 read-only:bg-gray-50 read-only:border-transparent"
-                          />
+                          <div className={pEdit ? 'border border-gray-200 rounded-md overflow-hidden' : ''}>
+                            {pEdit
+                              ? <DimensiuneInput
+                                  value={r.dimensiune}
+                                  catalog={dimensiuniCatalog}
+                                  onChange={v => updateLine(idx, 'dimensiune', v)}
+                                  placeholder={r._inherited ? r._iDim : ''}
+                                />
+                              : <span className="text-sm text-gray-600 text-center block px-2 py-1">
+                                  {r._inherited ? r._iDim : r.dimensiune}
+                                </span>
+                            }
+                          </div>
                         </td>
                         <td className="px-2 py-2">
-                          <input type="number" min="1" value={l.cantitate}
+                          <input type="number" min="1" value={r.cantitate}
                             onChange={e => updateLine(idx, 'cantitate', e.target.value)}
                             readOnly={!pEdit}
                             className="w-full border border-gray-200 bg-white text-sm text-center outline-none focus:ring-2 focus:ring-primary-300 focus:border-primary-400 rounded-md px-2 py-1 read-only:bg-gray-50 read-only:border-transparent"
                           />
                         </td>
                         <td className="px-2 py-2">
-                          <input type="text" value={l.model}
+                          <input type="text" value={r.model}
                             onChange={e => updateLine(idx, 'model', e.target.value)}
                             readOnly={!pEdit}
                             className="w-full border border-gray-200 bg-white text-sm outline-none focus:ring-2 focus:ring-primary-300 focus:border-primary-400 rounded-md px-2 py-1 read-only:bg-gray-50 read-only:border-transparent"
@@ -565,7 +621,6 @@ function ComandaModal({ comanda, onClose, onSaved, pEdit }) {
                 </label>
               </div>
             </div>
-          </div>
 
             {/* ── Observații ── */}
             <div>
@@ -656,7 +711,7 @@ function ClientInput({ value, clienti, disabled, onChange }) {
 // ─────────────────────────────────────────────────────────────
 // Product autocomplete
 // ─────────────────────────────────────────────────────────────
-function ProductInput({ value, catalog, onChange }) {
+function ProductInput({ value, catalog, onChange, placeholder = 'Produs...' }) {
   const [open, setOpen] = useState(false)
   const ref = useRef()
   const filtered = value.trim()
@@ -675,8 +730,8 @@ function ProductInput({ value, catalog, onChange }) {
         type="text" value={value}
         onChange={e => { onChange(e.target.value); setOpen(true) }}
         onFocus={() => setOpen(true)}
-        placeholder="Produs..."
-        className="w-full border-0 bg-transparent text-sm outline-none focus:ring-1 focus:ring-primary-300 rounded px-1"
+        placeholder={placeholder}
+        className="w-full border-0 bg-transparent text-sm outline-none focus:ring-1 focus:ring-primary-300 rounded px-1 placeholder:text-gray-300"
       />
       {open && filtered.length > 0 && (
         <div className="absolute top-full left-0 z-50 w-56 bg-white border border-gray-200 rounded-lg shadow-lg max-h-40 overflow-y-auto">
@@ -686,6 +741,47 @@ function ProductInput({ value, catalog, onChange }) {
               className="w-full text-left px-3 py-1.5 text-sm hover:bg-primary-50 hover:text-primary-700"
             >
               {p.denumire}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ─────────────────────────────────────────────────────────────
+// Dimensiune autocomplete
+// ─────────────────────────────────────────────────────────────
+function DimensiuneInput({ value, catalog, onChange, placeholder = '' }) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef()
+  const filtered = value.trim()
+    ? catalog.filter(d => d.dimensiune.toLowerCase().includes(value.toLowerCase())).slice(0, 8)
+    : catalog.slice(0, 6)
+
+  useEffect(() => {
+    const h = e => { if (ref.current && !ref.current.contains(e.target)) setOpen(false) }
+    document.addEventListener('mousedown', h)
+    return () => document.removeEventListener('mousedown', h)
+  }, [])
+
+  return (
+    <div className="relative" ref={ref}>
+      <input
+        type="text" value={value}
+        onChange={e => { onChange(e.target.value); setOpen(true) }}
+        onFocus={() => setOpen(true)}
+        placeholder={placeholder}
+        className="w-full border-0 bg-transparent text-sm text-center outline-none focus:ring-1 focus:ring-primary-300 rounded px-1 placeholder:text-gray-300"
+      />
+      {open && filtered.length > 0 && (
+        <div className="absolute top-full left-1/2 -translate-x-1/2 z-50 w-40 bg-white border border-gray-200 rounded-lg shadow-lg max-h-40 overflow-y-auto">
+          {filtered.map(d => (
+            <button key={d.id}
+              onMouseDown={() => { onChange(d.dimensiune); setOpen(false) }}
+              className="w-full text-center px-3 py-1.5 text-sm hover:bg-primary-50 hover:text-primary-700"
+            >
+              {d.dimensiune}
             </button>
           ))}
         </div>
