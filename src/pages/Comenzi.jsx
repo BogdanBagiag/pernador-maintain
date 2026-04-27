@@ -580,7 +580,7 @@ function ComandaModal({ comanda, onClose, onSaved, pEdit }) {
                     {resolvedLinii.map((r, idx) => (
                       <tr key={idx} className={`transition-colors hover:bg-gray-50/80 ${r._inherited ? 'bg-blue-50/30' : ''}`}>
                         <td className="px-2 py-2">
-                          <div className={pEdit ? 'border border-gray-200 rounded-md overflow-hidden' : ''}>
+                          <div className={pEdit ? 'border border-gray-200 rounded-md' : ''}>
                             {pEdit
                               ? <ProductInput
                                   value={r.produs_text}
@@ -595,7 +595,7 @@ function ComandaModal({ comanda, onClose, onSaved, pEdit }) {
                           </div>
                         </td>
                         <td className="px-2 py-2">
-                          <div className={pEdit ? 'border border-gray-200 rounded-md overflow-hidden' : ''}>
+                          <div className={pEdit ? 'border border-gray-200 rounded-md' : ''}>
                             {pEdit
                               ? <DimensiuneInput
                                   value={r.dimensiune}
