@@ -208,8 +208,10 @@ function ComandaCard({ comanda, statusIndex, pEdit, pDelete, onOpen, onMove, onD
         <div className="mt-1.5 space-y-0.5">
           {linii.slice(0, 4).map((l, i) => (
             <p key={i} className="text-xs text-gray-500 truncate leading-snug">
-              <span className="font-medium text-gray-700">{l.cantitate}×</span>{' '}
-              {l.produs_text}{l.model ? ` · ${l.model}` : ''}
+              {l.produs_text}
+              {l.dimensiune ? <span className="text-gray-400"> · {l.dimensiune}</span> : ''}
+              {l.cantitate ? <span className="text-gray-400"> · {l.cantitate}buc</span> : ''}
+              {l.model ? <span className="text-gray-400"> · {l.model}</span> : ''}
             </p>
           ))}
           {linii.length > 4 && (
