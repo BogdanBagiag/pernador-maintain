@@ -437,7 +437,17 @@ function ComandaModal({ comanda, onClose, onSaved, pEdit }) {
     }
   }
 
-  const handlePrint = () => window.print()
+  const handlePrint = () => {
+    window.print()
+    if (comanda?.id && comanda?.status === 'noi') {
+      const handler = async () => {
+        await supabase.from('com_comenzi').update({ status: 'in_lucru' }).eq('id', comanda.id)
+        queryClient.invalidateQueries({ queryKey: ['com_comenzi'] })
+        window.removeEventListener('afterprint', handler)
+      }
+      window.addEventListener('afterprint', handler)
+    }
+  }
   const validPrintLinii = resolvedLinii
     .map(r => r._inherited ? { ...r, produs_text: r._iProd, dimensiune: r._iDim } : r)
     .filter(r => r.produs_text.trim() || r.model.trim())
