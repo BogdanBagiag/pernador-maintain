@@ -48,7 +48,7 @@ export default function Comenzi() {
       </div>
 
       <div className="border-b border-gray-200 mb-6">
-        <nav className="-mb-px flex gap-6">
+        <nav className="-mb-px flex gap-4 overflow-x-auto scrollbar-none" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
           {[
             { key: 'comenzi',  label: 'Comenzi',  icon: ShoppingCart },
             { key: 'clienti',  label: 'Clienți',  icon: Users },
@@ -59,7 +59,7 @@ export default function Comenzi() {
             <button
               key={key}
               onClick={() => setTab(key)}
-              className={`flex items-center gap-2 py-3 px-1 border-b-2 text-sm font-medium transition-colors ${
+              className={`flex items-center gap-2 py-3 px-1 border-b-2 text-sm font-medium transition-colors whitespace-nowrap flex-shrink-0 ${
                 tab === key
                   ? 'border-primary-500 text-primary-600'
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
