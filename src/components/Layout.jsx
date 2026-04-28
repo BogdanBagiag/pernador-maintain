@@ -11,6 +11,7 @@ import {
   ScrollText, ChevronDown, BookMarked, RotateCcw, Megaphone, ShoppingCart,
 } from 'lucide-react'
 import { useState, useEffect } from 'react'
+import { useRealtimeNotifications } from '../hooks/useRealtimeNotifications'
 
 // ── Structura navigației grupate ─────────────────────────────
 const STANDALONE = [
@@ -70,6 +71,9 @@ export default function Layout({ children }) {
   const { t } = useLanguage()
   const { visibleModules, isAdmin } = usePermissions()
   const [sidebarOpen, setSidebarOpen] = useState(false)
+
+  // Notificări realtime pentru module (comenzi, reclamații, retururi, work orders)
+  useRealtimeNotifications()
 
   // Determină ce grup conține ruta activă
   const activeGroup = GROUPS.find((g) =>

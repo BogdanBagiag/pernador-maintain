@@ -45,6 +45,84 @@ export const sendPushNotification = async ({
   }
 }
 
+// ── Module-based helpers ───────────────────────────────────────
+
+/**
+ * Returnează toți userii care au permisiunea can_view pe un modul dat.
+ * Adminii (role='admin') au mereu acces.
+ */
+export const getUsersWithModuleAccess = async (moduleKey) => {
+  try {
+    // Useri cu permisiune explicită
+    const { data: permUsers } = await supabase
+      .from('user_permissions')
+      .select('user_id')
+      .eq('module', moduleKey)
+      .eq('can_view', true)
+
+    // Useri admin
+    const { data: admins } = await supabase
+      .from('profiles')
+      .select('id')
+      .eq('role', 'admin')
+
+    const ids = new Set([
+      ...(permUsers || []).map((r) => r.user_id),
+      ...(admins || []).map((r) => r.id),
+    ])
+
+    return Array.from(ids)
+  } catch (err) {
+    console.error('getUsersWithModuleAccess error:', err)
+    return []
+  }
+}
+
+/**
+ * Trimite notificare push tuturor userilor cu acces la un modul.
+ */
+export const notifyModuleUsers = async ({ moduleKey, title, body, url, tag }) => {
+  const userIds = await getUsersWithModuleAccess(moduleKey)
+  await Promise.all(
+    userIds.map((uid) =>
+      sendPushNotification({ userId: uid, title, body, url, tag })
+    )
+  )
+}
+
+// Helpers per eveniment ──────────────────────────────────────────
+
+export const notifyNouaComanda = (comanda) =>
+  notifyModuleUsers({
+    moduleKey: 'comenzi',
+    title: '🛒 Comandă Nouă',
+    body: comanda?.observatii
+      ? `Comandă nouă: ${comanda.observatii.substring(0, 80)}`
+      : 'O nouă comandă a fost primită',
+    url: '/comenzi',
+    tag: `comanda-${comanda?.id || Date.now()}`,
+  })
+
+export const notifyNouaReclamatie = (rec) =>
+  notifyModuleUsers({
+    moduleKey: 'reclamatii',
+    title: '⚠️ Reclamație Nouă',
+    body: rec?.descriere
+      ? `Reclamație nouă: ${rec.descriere.substring(0, 80)}`
+      : 'O nouă reclamație a fost înregistrată',
+    url: '/reclamatii',
+    tag: `reclamatie-${rec?.id || Date.now()}`,
+  })
+
+export const notifyNouRetur = () =>
+  notifyModuleUsers({
+    moduleKey: 'retururi',
+    title: '↩️ Retur Nou',
+    body: 'Un nou retur a fost înregistrat',
+    url: '/retururi',
+    tag: `retur-${Date.now()}`,
+  })
+
 // Helper: notify when work order is assigned
 export const notifyWorkOrderAssigned = async (workOrder, assignedUser) => {
   if (!assignedUser?.id) {

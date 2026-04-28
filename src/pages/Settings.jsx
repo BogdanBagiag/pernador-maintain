@@ -153,24 +153,44 @@ export default function Settings() {
             <Bell className="w-6 h-6 mr-2" />
             Notificări Push
           </h2>
-          
+
           <div className="space-y-4">
-            <p className="text-sm text-gray-600 mb-4">
-              Primește notificări instant pentru work orders noi, statusuri actualizate și comentarii.
+            <p className="text-sm text-gray-600">
+              Activează notificările pentru a primi alerte instant direct în browser sau pe telefon,
+              în funcție de modulele la care ai acces.
             </p>
-            
+
             <PushNotificationToggle />
-            
-            <div className="mt-4 pt-4 border-t border-gray-200">
+
+            {/* Ce declanșează notificări */}
+            <div className="mt-2 rounded-lg border border-gray-200 overflow-hidden">
+              <div className="bg-gray-50 px-4 py-2 border-b border-gray-200">
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Ce declanșează notificări</p>
+              </div>
+              <ul className="divide-y divide-gray-100">
+                {[
+                  { icon: '🛒', label: 'Comenzi', desc: 'Comandă nouă cu status „Noi"' },
+                  { icon: '⚠️', label: 'Reclamații', desc: 'Reclamație nouă înregistrată' },
+                  { icon: '↩️', label: 'Retururi', desc: 'Retur nou înregistrat' },
+                  { icon: '🔧', label: 'Work Orders', desc: 'Work order nou creat' },
+                ].map(({ icon, label, desc }) => (
+                  <li key={label} className="flex items-center gap-3 px-4 py-2.5 text-sm">
+                    <span className="text-lg">{icon}</span>
+                    <span className="font-medium text-gray-800 w-28 flex-shrink-0">{label}</span>
+                    <span className="text-gray-500">{desc}</span>
+                  </li>
+                ))}
+              </ul>
+              <div className="bg-blue-50 px-4 py-2 border-t border-blue-100">
+                <p className="text-xs text-blue-700">
+                  Primești notificări doar pentru modulele la care ai acces. Notificările apar în timp real când aplicația este deschisă.
+                </p>
+              </div>
+            </div>
+
+            <div className="pt-2 border-t border-gray-200">
               <p className="text-sm font-medium text-gray-700 mb-3">Testează Notificările:</p>
               <TestNotificationButton />
-            </div>
-            
-            <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-              <p className="text-xs text-blue-800">
-                 <strong>Info:</strong> Notificările funcționează pe desktop și mobil. 
-                Trebuie să permiți notificările în browser-ul tău.
-              </p>
             </div>
           </div>
         </div>
