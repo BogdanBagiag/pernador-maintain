@@ -565,7 +565,44 @@ function ComandaModal({ comanda, onClose, onSaved, pEdit }) {
                 )}
               </div>
 
-              <div className="overflow-x-auto rounded-xl border border-gray-200 -mx-4 sm:mx-0">
+              {/* ── Mobile: card per rând ── */}
+              <div className="sm:hidden space-y-2">
+                {resolvedLinii.map((r, idx) => (
+                  <div key={idx} className={`border rounded-xl p-3 ${r._inherited ? 'border-blue-200 bg-blue-50/20' : 'border-gray-200 bg-white'}`}>
+                    <div className="flex items-center gap-2 mb-2">
+                      <div className="flex-1 border border-gray-200 rounded-lg">
+                        <ProductInput value={r.produs_text} catalog={produseCatalog}
+                          onChange={v => updateLine(idx, 'produs_text', v)}
+                          placeholder={r._inherited ? r._iProd : 'Produs...'} />
+                      </div>
+                      {pEdit && (
+                        <button onClick={() => setLinii(prev => prev.filter((_, i) => i !== idx))}
+                          className="text-gray-300 hover:text-red-500 flex-shrink-0">
+                          <X className="w-4 h-4" />
+                        </button>
+                      )}
+                    </div>
+                    <div className="grid grid-cols-3 gap-2">
+                      <div className="border border-gray-200 rounded-lg">
+                        <DimensiuneInput value={r.dimensiune} catalog={dimensiuniCatalog}
+                          onChange={v => updateLine(idx, 'dimensiune', v)}
+                          placeholder={r._inherited ? r._iDim : 'Dim.'} />
+                      </div>
+                      <input type="number" min="1" value={r.cantitate}
+                        onChange={e => updateLine(idx, 'cantitate', e.target.value)}
+                        readOnly={!pEdit} placeholder="Cant."
+                        className="border border-gray-200 rounded-lg px-2 py-1.5 text-sm text-center outline-none focus:ring-2 focus:ring-primary-300 read-only:bg-gray-50" />
+                      <input type="text" value={r.model}
+                        onChange={e => updateLine(idx, 'model', e.target.value)}
+                        readOnly={!pEdit} placeholder="Model"
+                        className="border border-gray-200 rounded-lg px-2 py-1.5 text-sm outline-none focus:ring-2 focus:ring-primary-300 read-only:bg-gray-50" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* ── Desktop: tabel ── */}
+              <div className="hidden sm:block overflow-x-auto rounded-xl border border-gray-200">
                 <table className="w-full text-sm" style={{ minWidth: '480px' }}>
                   <thead className="bg-gray-50">
                     <tr>
@@ -582,30 +619,20 @@ function ComandaModal({ comanda, onClose, onSaved, pEdit }) {
                         <td className="px-2 py-2">
                           <div className={pEdit ? 'border border-gray-200 rounded-md' : ''}>
                             {pEdit
-                              ? <ProductInput
-                                  value={r.produs_text}
-                                  catalog={produseCatalog}
+                              ? <ProductInput value={r.produs_text} catalog={produseCatalog}
                                   onChange={v => updateLine(idx, 'produs_text', v)}
-                                  placeholder={r._inherited ? r._iProd : 'Produs...'}
-                                />
-                              : <span className="text-sm text-gray-800 px-2 py-1 block">
-                                  {r._inherited ? r._iProd : r.produs_text}
-                                </span>
+                                  placeholder={r._inherited ? r._iProd : 'Produs...'} />
+                              : <span className="text-sm text-gray-800 px-2 py-1 block">{r._inherited ? r._iProd : r.produs_text}</span>
                             }
                           </div>
                         </td>
                         <td className="px-2 py-2">
                           <div className={pEdit ? 'border border-gray-200 rounded-md' : ''}>
                             {pEdit
-                              ? <DimensiuneInput
-                                  value={r.dimensiune}
-                                  catalog={dimensiuniCatalog}
+                              ? <DimensiuneInput value={r.dimensiune} catalog={dimensiuniCatalog}
                                   onChange={v => updateLine(idx, 'dimensiune', v)}
-                                  placeholder={r._inherited ? r._iDim : ''}
-                                />
-                              : <span className="text-sm text-gray-600 text-center block px-2 py-1">
-                                  {r._inherited ? r._iDim : r.dimensiune}
-                                </span>
+                                  placeholder={r._inherited ? r._iDim : ''} />
+                              : <span className="text-sm text-gray-600 text-center block px-2 py-1">{r._inherited ? r._iDim : r.dimensiune}</span>
                             }
                           </div>
                         </td>
@@ -613,15 +640,13 @@ function ComandaModal({ comanda, onClose, onSaved, pEdit }) {
                           <input type="number" min="1" value={r.cantitate}
                             onChange={e => updateLine(idx, 'cantitate', e.target.value)}
                             readOnly={!pEdit}
-                            className="w-full border border-gray-200 bg-white text-sm text-center outline-none focus:ring-2 focus:ring-primary-300 focus:border-primary-400 rounded-md px-2 py-1 read-only:bg-gray-50 read-only:border-transparent"
-                          />
+                            className="w-full border border-gray-200 bg-white text-sm text-center outline-none focus:ring-2 focus:ring-primary-300 rounded-md px-2 py-1 read-only:bg-gray-50 read-only:border-transparent" />
                         </td>
                         <td className="px-2 py-2">
                           <input type="text" value={r.model}
                             onChange={e => updateLine(idx, 'model', e.target.value)}
                             readOnly={!pEdit}
-                            className="w-full border border-gray-200 bg-white text-sm outline-none focus:ring-2 focus:ring-primary-300 focus:border-primary-400 rounded-md px-2 py-1 read-only:bg-gray-50 read-only:border-transparent"
-                          />
+                            className="w-full border border-gray-200 bg-white text-sm outline-none focus:ring-2 focus:ring-primary-300 rounded-md px-2 py-1 read-only:bg-gray-50 read-only:border-transparent" />
                         </td>
                         {pEdit && (
                           <td className="px-2 py-2 text-center">
