@@ -487,6 +487,7 @@ function ComandaModal({ comanda, onClose, onSaved, pEdit }) {
         }
         @media screen {
           #comanda-print-area { display: none; }
+          body { overflow-x: hidden !important; }
         }
       `}</style>
 
@@ -505,8 +506,8 @@ function ComandaModal({ comanda, onClose, onSaved, pEdit }) {
       )}
 
       {/* Modal */}
-      <div className="fixed inset-0 bg-black/50 flex items-start justify-center z-50 overflow-y-auto">
-        <div className="bg-white w-full min-h-screen sm:min-h-0 sm:rounded-2xl sm:shadow-2xl sm:max-w-4xl sm:my-4 sm:mx-4">
+      <div className="fixed inset-0 bg-black/50 flex items-start justify-center z-50 overflow-x-hidden overflow-y-auto">
+        <div className="bg-white w-full max-w-full min-h-screen sm:min-h-0 sm:rounded-2xl sm:shadow-2xl sm:max-w-4xl sm:my-4 sm:mx-4 overflow-x-hidden">
 
           {/* Header */}
           <div className="flex items-center justify-between px-4 sm:px-6 py-4 border-b border-gray-200">
