@@ -505,11 +505,11 @@ function ComandaModal({ comanda, onClose, onSaved, pEdit }) {
       )}
 
       {/* Modal */}
-      <div className="fixed inset-0 bg-black/50 flex items-start justify-center z-50 p-4 overflow-y-auto">
-        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl my-4">
+      <div className="fixed inset-0 bg-black/50 flex items-start justify-center z-50 overflow-y-auto">
+        <div className="bg-white w-full min-h-screen sm:min-h-0 sm:rounded-2xl sm:shadow-2xl sm:max-w-4xl sm:my-4 sm:mx-4">
 
           {/* Header */}
-          <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
+          <div className="flex items-center justify-between px-4 sm:px-6 py-4 border-b border-gray-200">
             <h2 className="text-lg font-bold text-gray-900">
               {comanda ? 'Editează Comandă' : 'Comandă Nouă'}
             </h2>
@@ -527,7 +527,7 @@ function ComandaModal({ comanda, onClose, onSaved, pEdit }) {
           </div>
 
           {/* Content */}
-          <div className="p-6 space-y-5">
+          <div className="p-4 sm:p-6 space-y-5">
 
             {/* ── Header fields ── */}
             <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
@@ -565,14 +565,14 @@ function ComandaModal({ comanda, onClose, onSaved, pEdit }) {
                 )}
               </div>
 
-              <div className="overflow-x-auto rounded-xl border border-gray-200">
-                <table className="min-w-full text-sm">
+              <div className="overflow-x-auto rounded-xl border border-gray-200 -mx-4 sm:mx-0">
+                <table className="w-full text-sm" style={{ minWidth: '480px' }}>
                   <thead className="bg-gray-50">
                     <tr>
-                      <th className="px-3 py-2.5 text-left text-xs font-semibold text-gray-600 min-w-[200px]">Produs</th>
-                      <th className="px-3 py-2.5 text-center text-xs font-semibold text-gray-600 w-28">Dimensiune</th>
-                      <th className="px-3 py-2.5 text-center text-xs font-semibold text-gray-600 w-20">Cant.</th>
-                      <th className="px-3 py-2.5 text-left text-xs font-semibold text-gray-600 w-36">Model</th>
+                      <th className="px-3 py-2.5 text-left text-xs font-semibold text-gray-600">Produs</th>
+                      <th className="px-3 py-2.5 text-center text-xs font-semibold text-gray-600 w-24">Dim.</th>
+                      <th className="px-3 py-2.5 text-center text-xs font-semibold text-gray-600 w-16">Cant.</th>
+                      <th className="px-3 py-2.5 text-left text-xs font-semibold text-gray-600 w-28">Model</th>
                       {pEdit && <th className="w-8" />}
                     </tr>
                   </thead>
@@ -680,7 +680,7 @@ function ComandaModal({ comanda, onClose, onSaved, pEdit }) {
 
           {/* Footer */}
           {pEdit && (
-            <div className="flex justify-end gap-3 px-6 py-4 border-t border-gray-200">
+            <div className="flex justify-end gap-3 px-4 sm:px-6 py-4 border-t border-gray-200">
               <button onClick={onClose}
                 className="px-4 py-2 text-sm text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50">
                 Anulează
