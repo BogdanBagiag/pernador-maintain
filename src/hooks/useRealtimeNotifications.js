@@ -5,13 +5,16 @@ import { usePermissions } from '../contexts/PermissionsContext'
 import { useQueryClient } from '@tanstack/react-query'
 
 /**
- * Configurare per modul: tabel, filtru, titlu și badge invalidation key.
+ * Configurare per modul.
+ * FĂRĂ filtru server-side — filtrăm client-side pentru maxim compatibilitate
+ * (filtrul server-side Supabase Realtime necesită REPLICA IDENTITY FULL pe tabel).
  */
 const MODULE_NOTIF_CONFIG = [
   {
     table: 'com_comenzi',
     module: 'comenzi',
-    filter: 'status=eq.noi',
+    // Notificăm doar dacă comanda e nouă (status 'noi')
+    clientFilter: (rec) => rec.status === 'noi',
     title: '🛒 Comandă Nouă',
     getBody: (rec) => `O nouă comandă a fost primită${rec.observatii ? ': ' + rec.observatii.substring(0, 60) : ''}`,
     url: '/comenzi',
@@ -36,7 +39,7 @@ const MODULE_NOTIF_CONFIG = [
   {
     table: 'work_orders',
     module: 'work_orders',
-    filter: 'status=eq.open',
+    clientFilter: (rec) => rec.status === 'open',
     title: '🔧 Work Order Nou',
     getBody: (rec) => rec.title || 'Un nou work order a fost creat',
     url: '/work-orders',
@@ -64,46 +67,64 @@ async function showBrowserNotif(title, body, url, tag) {
 
 export function useRealtimeNotifications() {
   const { user } = useAuth()
-  const { canView, loading: permLoading } = usePermissions()
+  // Extragem isAdmin și permissions direct (valori primitive/obiecte stabile)
+  // pentru a evita canView (funcție nouă la fiecare render) în dependency array
+  const { isAdmin, permissions, loading: permLoading } = usePermissions()
   const queryClient = useQueryClient()
-  // Track last seen IDs to avoid double-notifying on reconnect
   const seenIds = useRef(new Set())
+  // Ref pentru permissions ca să fie accesibil în closure fără a reporni efectul
+  const permRef = useRef({ isAdmin, permissions })
+  permRef.current = { isAdmin, permissions }
 
   useEffect(() => {
     if (!user || permLoading) return
 
+    const canViewModule = (moduleKey) => {
+      const { isAdmin: adm, permissions: perms } = permRef.current
+      return adm || !!perms[moduleKey]?.can_view
+    }
+
     const channels = []
 
     for (const cfg of MODULE_NOTIF_CONFIG) {
-      if (!canView(cfg.module)) continue
-
-      const channelOpts = {
-        event: 'INSERT',
-        schema: 'public',
-        table: cfg.table,
-        ...(cfg.filter ? { filter: cfg.filter } : {}),
-      }
+      if (!canViewModule(cfg.module)) continue
 
       const ch = supabase
         .channel(`notif_${cfg.table}_${user.id}`)
-        .on('postgres_changes', channelOpts, (payload) => {
-          const rec = payload.new || {}
-          const id = rec.id
+        .on(
+          'postgres_changes',
+          { event: 'INSERT', schema: 'public', table: cfg.table },
+          (payload) => {
+            const rec = payload.new || {}
+            const id = rec.id
 
-          // Evită notificări duplicate la reconectare
-          if (id && seenIds.current.has(`${cfg.table}:${id}`)) return
-          if (id) seenIds.current.add(`${cfg.table}:${id}`)
+            // Filtru client-side (ex. doar comenzi cu status='noi')
+            if (cfg.clientFilter && !cfg.clientFilter(rec)) return
 
-          // Invalidează badge-urile
-          for (const key of cfg.badgeKeys) {
-            queryClient.invalidateQueries({ queryKey: key })
+            // Evită notificări duplicate la reconectare
+            const key = `${cfg.table}:${id}`
+            if (id && seenIds.current.has(key)) return
+            if (id) seenIds.current.add(key)
+
+            console.log(`[Notif] Eveniment nou pe ${cfg.table}:`, rec)
+
+            // Invalidează badge-urile din sidebar
+            for (const bKey of cfg.badgeKeys) {
+              queryClient.invalidateQueries({ queryKey: bKey })
+            }
+
+            // Notificare browser
+            showBrowserNotif(
+              cfg.title,
+              cfg.getBody(rec),
+              cfg.url,
+              `${cfg.table}-${id || Date.now()}`
+            )
           }
-
-          // Afișează notificare browser
-          const body = cfg.getBody(rec)
-          showBrowserNotif(cfg.title, body, cfg.url, `${cfg.table}-${id || Date.now()}`)
+        )
+        .subscribe((status) => {
+          console.log(`[Notif] Canal ${cfg.table} status:`, status)
         })
-        .subscribe()
 
       channels.push(ch)
     }
@@ -111,5 +132,8 @@ export function useRealtimeNotifications() {
     return () => {
       channels.forEach((ch) => supabase.removeChannel(ch))
     }
-  }, [user, permLoading, canView, queryClient])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id, permLoading])
+  // ^ Folosim user.id (string stabil) în loc de user (obiect nou la fiecare render)
+  //   și permLoading. Permissions sunt citite via ref la momentul evenimentului.
 }
