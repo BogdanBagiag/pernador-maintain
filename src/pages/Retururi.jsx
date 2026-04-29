@@ -176,12 +176,34 @@ export default function Retururi() {
 
   // ── Editare ───────────────────────────────────────────────
   const handleUpdate = async (id, data) => {
+    const row = rows.find(r => r.id === id)
     const { error } = await supabase.from('retururi').update(data).eq('id', id)
     if (error) { alert(error.message); return false }
     queryClient.invalidateQueries({ queryKey: ['retururi'] })
     setEditingRow(null)
-    const row = rows.find(r => r.id === id)
-    await logActivity('Retur editat', row?.nume_client ? `Client: ${row.nume_client}` : null, id)
+
+    // Construiește detalii cu ce s-a modificat
+    const LABELS = {
+      nume_client: 'Client', valoare: 'Valoare', sursa: 'Sursă',
+      motiv: 'Motiv', data_cerere: 'Data cerere', observatii: 'Observații',
+      responsabil_id: 'Responsabil',
+    }
+    const changes = []
+    if (row) {
+      Object.entries(data).forEach(([key, val]) => {
+        const oldVal = row[key]
+        if (String(oldVal ?? '') !== String(val ?? '') && LABELS[key]) {
+          changes.push(`${LABELS[key]}: "${oldVal ?? '—'}" → "${val ?? '—'}"`)
+        }
+      })
+    }
+    const client = data.nume_client || row?.nume_client || null
+    const detalii = [
+      client ? `Client: ${client}` : null,
+      changes.length > 0 ? changes.join(', ') : null,
+    ].filter(Boolean).join(' | ') || null
+
+    await logActivity('Retur editat', detalii, id)
     return true
   }
 
