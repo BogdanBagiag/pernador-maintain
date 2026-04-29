@@ -231,6 +231,12 @@ function ComandaCard({ comanda, statusIndex, pEdit, pDelete, onOpen, onMove, onD
   const prevSt = statusIndex > 0 ? STATUSES[statusIndex - 1] : null
   const nextSt = statusIndex < STATUSES.length - 1 ? STATUSES[statusIndex + 1] : null
   const linii = [...(comanda.com_linii || [])].sort((a, b) => (a.pozitie ?? 0) - (b.pozitie ?? 0))
+  const [pendingMove, setPendingMove] = useState(null) // { key, label }
+
+  const confirmMove = (st) => {
+    onMove(st.key)
+    setPendingMove(null)
+  }
 
   return (
     <div
@@ -261,26 +267,43 @@ function ComandaCard({ comanda, statusIndex, pEdit, pDelete, onOpen, onMove, onD
 
       {pEdit && (
         <div
-          className="flex items-center gap-1 mt-2"
+          className="mt-2"
           onClick={e => e.stopPropagation()}
         >
-          {prevSt && (
-            <button
-              onClick={() => onMove(prevSt.key)}
-              className="text-xs px-2 py-0.5 text-gray-500 hover:bg-gray-100 rounded"
-            >← {prevSt.label}</button>
-          )}
-          <div className="flex-1" />
-          {nextSt && (
-            <button
-              onClick={() => onMove(nextSt.key)}
-              className="text-xs px-2 py-0.5 bg-primary-50 text-primary-600 hover:bg-primary-100 rounded"
-            >{nextSt.label} →</button>
-          )}
-          {pDelete && (
-            <button onClick={onDelete} className="p-1 text-gray-300 hover:text-red-500 rounded">
-              <Trash2 className="w-3 h-3" />
-            </button>
+          {/* Confirmare inline */}
+          {pendingMove ? (
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <span className="text-xs text-gray-500">Muți în <b>{pendingMove.label}</b>?</span>
+              <button
+                onClick={() => confirmMove(pendingMove)}
+                className="text-xs px-2 py-0.5 bg-primary-600 text-white rounded hover:bg-primary-700"
+              >Da</button>
+              <button
+                onClick={() => setPendingMove(null)}
+                className="text-xs px-2 py-0.5 text-gray-500 border border-gray-200 rounded hover:bg-gray-50"
+              >Nu</button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-1">
+              {prevSt && (
+                <button
+                  onClick={() => setPendingMove(prevSt)}
+                  className="text-xs px-2 py-0.5 text-gray-500 hover:bg-gray-100 rounded"
+                >← {prevSt.label}</button>
+              )}
+              <div className="flex-1" />
+              {nextSt && (
+                <button
+                  onClick={() => setPendingMove(nextSt)}
+                  className="text-xs px-2 py-0.5 bg-primary-50 text-primary-600 hover:bg-primary-100 rounded"
+                >{nextSt.label} →</button>
+              )}
+              {pDelete && (
+                <button onClick={onDelete} className="p-1 text-gray-300 hover:text-red-500 rounded">
+                  <Trash2 className="w-3 h-3" />
+                </button>
+              )}
+            </div>
           )}
         </div>
       )}
