@@ -874,7 +874,7 @@ function PrintLayout({ clientName, data, observatii, linii, optiuniChecked = [] 
   }
 
   const B  = '1px solid #333'        // border
-  const F  = '7.5pt'                 // font size
+  const F  = '9pt'                   // font size
   const FF = 'Arial, Helvetica, sans-serif'
 
   const cell = (extra = {}) => ({
