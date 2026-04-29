@@ -195,15 +195,13 @@ export default function RegistruIncasari() {
     <div className="max-w-7xl mx-auto space-y-5">
 
       {/* ── Titlu ── */}
-      <div className="text-center">
-        <h1 className="text-xl font-bold text-gray-900 tracking-widest uppercase">
-          Registru Jurnal de Încasări și Plăți
-        </h1>
-        <div className="mt-1 h-0.5 bg-gray-900 mx-auto w-96" />
+      <div>
+        <h1 className="text-xl font-bold text-gray-900">Registru Încasări</h1>
+        <p className="text-sm text-gray-500 mt-0.5">Jurnal de încasări și plăți</p>
       </div>
 
       {/* ── Carduri sumar ── */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
         <div className={`rounded-xl border p-4 flex items-center gap-3 ${
           soldCasaGlobal >= 0 ? 'bg-blue-50 border-blue-200' : 'bg-orange-50 border-orange-200'
         }`}>
@@ -212,9 +210,9 @@ export default function RegistruIncasari() {
           }`}>
             <Wallet className={`w-4 h-4 ${soldCasaGlobal >= 0 ? 'text-blue-600' : 'text-orange-600'}`} />
           </div>
-          <div className="min-w-0">
-            <p className="text-xs text-gray-500 uppercase tracking-wide truncate">Sold Casă</p>
-            <p className={`text-base font-extrabold truncate ${soldCasaGlobal >= 0 ? 'text-blue-700' : 'text-orange-600'}`}>
+          <div>
+            <p className="text-xs text-gray-500 uppercase tracking-wide">Sold Casă</p>
+            <p className={`text-xl font-extrabold ${soldCasaGlobal >= 0 ? 'text-blue-700' : 'text-orange-600'}`}>
               {soldCasaGlobal.toLocaleString('ro-RO', { minimumFractionDigits: 2 })} Lei
             </p>
           </div>
@@ -224,9 +222,9 @@ export default function RegistruIncasari() {
           <div className="w-9 h-9 rounded-full bg-emerald-100 flex items-center justify-center flex-shrink-0">
             <TrendingUp className="w-4 h-4 text-emerald-600" />
           </div>
-          <div className="min-w-0">
-            <p className="text-xs text-gray-400 uppercase tracking-wide truncate">Încasări Numerar</p>
-            <p className="text-base font-bold text-emerald-600 truncate">
+          <div>
+            <p className="text-xs text-gray-400 uppercase tracking-wide">Încasări Numerar</p>
+            <p className="text-xl font-bold text-emerald-600">
               {totalIncasari.toLocaleString('ro-RO', { minimumFractionDigits: 2 })} Lei
             </p>
           </div>
@@ -236,9 +234,9 @@ export default function RegistruIncasari() {
           <div className="w-9 h-9 rounded-full bg-indigo-100 flex items-center justify-center flex-shrink-0">
             <CreditCard className="w-4 h-4 text-indigo-600" />
           </div>
-          <div className="min-w-0">
-            <p className="text-xs text-gray-400 uppercase tracking-wide truncate">Încasări Card</p>
-            <p className="text-base font-bold text-indigo-600 truncate">
+          <div>
+            <p className="text-xs text-gray-400 uppercase tracking-wide">Încasări Card</p>
+            <p className="text-xl font-bold text-indigo-600">
               {totalCard.toLocaleString('ro-RO', { minimumFractionDigits: 2 })} Lei
             </p>
           </div>
@@ -248,9 +246,9 @@ export default function RegistruIncasari() {
           <div className="w-9 h-9 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0">
             <TrendingDown className="w-4 h-4 text-red-500" />
           </div>
-          <div className="min-w-0">
-            <p className="text-xs text-gray-400 uppercase tracking-wide truncate">Plăți Numerar</p>
-            <p className="text-base font-bold text-red-500 truncate">
+          <div>
+            <p className="text-xs text-gray-400 uppercase tracking-wide">Plăți Numerar</p>
+            <p className="text-xl font-bold text-red-500">
               {totalPlati.toLocaleString('ro-RO', { minimumFractionDigits: 2 })} Lei
             </p>
           </div>
