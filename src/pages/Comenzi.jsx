@@ -360,7 +360,7 @@ function ComandaModal({ comanda, onClose, onSaved, pEdit }) {
   }
 
   const emptyLine = () => ({ id: null, produs_text: '', dimensiune: '', cantitate: '', model: '' })
-  const [linii, setLinii] = useState(() => Array.from({ length: 6 }, emptyLine))
+  const [linii, setLinii] = useState(() => [emptyLine(), emptyLine()])
 
   // Fetch clients + products
   const { data: clienti = [] } = useQuery({
@@ -426,13 +426,23 @@ function ComandaModal({ comanda, onClose, onSaved, pEdit }) {
           cantitate:   l.cantitate   || 1,
           model:       l.model       || '',
         }))
-        while (loaded.length < 6) loaded.push(emptyLine())
+        // Asigură minim 2 rânduri și un rând gol la final
+        if (loaded.length < 2) while (loaded.length < 2) loaded.push(emptyLine())
+        const last = loaded[loaded.length - 1]
+        if (last.produs_text || last.dimensiune || last.cantitate || last.model) loaded.push(emptyLine())
         setLinii(loaded)
       })
   }, [comanda?.id])
 
   const updateLine = (idx, field, val) =>
-    setLinii(prev => prev.map((l, i) => i === idx ? { ...l, [field]: val } : l))
+    setLinii(prev => {
+      const updated = prev.map((l, i) => i === idx ? { ...l, [field]: val } : l)
+      // Dacă s-a completat ultimul rând, adaugă automat unul gol
+      if (idx === prev.length - 1 && val.toString().trim() !== '') {
+        return [...updated, emptyLine()]
+      }
+      return updated
+    })
 
   // ── Inheritance: rows without produs inherit from the last row that has one ──
   const resolvedLinii = useMemo(() => {
