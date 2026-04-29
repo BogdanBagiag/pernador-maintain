@@ -9,7 +9,7 @@ import {
   Plus, Save, X, Trash2, Loader2, Settings,
   ChevronLeft, ChevronRight, Calendar, ShieldOff,
   RotateCcw, BarChart2, TableProperties,
-  TrendingDown, CheckCircle, Clock, Package, Banknote, Copy, Check, Pencil, Eye,
+  TrendingDown, CheckCircle, Clock, Package, Banknote, Copy, Check, Pencil, Eye, Activity,
 } from 'lucide-react'
 import QuickLinksPanel from '../components/QuickLinksPanel'
 
@@ -39,7 +39,7 @@ function getDateRange(filterType, customFrom, customTo) {
 
 // ─── Componentă principală ────────────────────────────────────────────────────
 export default function Retururi() {
-  const { user } = useAuth()
+  const { user, profile } = useAuth()
   const queryClient = useQueryClient()
   const { canView, canEdit, canDelete } = usePermissions()
 
@@ -151,13 +151,27 @@ export default function Retururi() {
   const goToPage = (p) => setPage(Math.min(Math.max(1, p), totalPages))
   const handleFilterChange = (key) => { setFilterType(key); setPage(1) }
 
+  // ── Log activitate ───────────────────────────────────────
+  const logActivity = async (actiune, detalii = null, returId = null) => {
+    await supabase.from('retururi_activitate').insert({
+      retur_id:  returId,
+      user_id:   user?.id,
+      user_name: profile?.full_name || user?.email || 'Utilizator',
+      actiune,
+      detalii,
+    })
+    queryClient.invalidateQueries({ queryKey: ['retururi_activitate'] })
+  }
+
   // ── Ștergere ──────────────────────────────────────────────
   const handleDelete = async (id) => {
     if (!confirm('Ștergi această înregistrare?')) return
+    const row = rows.find(r => r.id === id)
     setDeletingId(id)
     await supabase.from('retururi').delete().eq('id', id)
     setDeletingId(null)
     queryClient.invalidateQueries({ queryKey: ['retururi'] })
+    await logActivity('Retur șters', row?.nume_client ? `Client: ${row.nume_client}` : null, id)
   }
 
   // ── Editare ───────────────────────────────────────────────
@@ -166,6 +180,8 @@ export default function Retururi() {
     if (error) { alert(error.message); return false }
     queryClient.invalidateQueries({ queryKey: ['retururi'] })
     setEditingRow(null)
+    const row = rows.find(r => r.id === id)
+    await logActivity('Retur editat', row?.nume_client ? `Client: ${row.nume_client}` : null, id)
     return true
   }
 
@@ -178,6 +194,8 @@ export default function Retururi() {
     if (error) { alert(error.message); return }
     queryClient.invalidateQueries({ queryKey: ['retururi'] })
     setPlatesteRow(null)
+    const row = rows.find(r => r.id === id)
+    await logActivity('Marcat ca plătit', row?.nume_client ? `Client: ${row.nume_client}, Data: ${dataPlata}` : `Data: ${dataPlata}`, id)
   }
 
   // ── Access denied ─────────────────────────────────────────
@@ -294,7 +312,7 @@ export default function Retururi() {
 
       {/* ── Tab-uri + Acțiuni ── */}
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex gap-1 bg-gray-100 rounded-xl p-1">
+        <div className="flex gap-1 bg-gray-100 rounded-xl p-1 overflow-x-auto max-w-full">
           <button
             onClick={() => setActiveTab('table')}
             className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
@@ -315,6 +333,15 @@ export default function Retururi() {
           >
             <BarChart2 className="w-4 h-4" />
             Rapoarte
+          </button>
+          <button
+            onClick={() => setActiveTab('activitate')}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+              activeTab === 'activitate' ? 'bg-white shadow text-gray-900' : 'text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            <Activity className="w-4 h-4" />
+            Activitate
           </button>
         </div>
 
@@ -620,6 +647,9 @@ export default function Retururi() {
         </div>
       )}
 
+      {/* ── Tab: Activitate ── */}
+      {activeTab === 'activitate' && <ActivitateTab />}
+
       {/* ── Modal View ── */}
       {viewRow && <ViewReturModal row={viewRow} onClose={() => setViewRow(null)} />}
 
@@ -650,9 +680,10 @@ export default function Retururi() {
           surse={surse}
           profiles={profiles}
           onClose={() => setShowAddModal(false)}
-          onSaved={() => {
+          onSaved={(newRow) => {
             queryClient.invalidateQueries({ queryKey: ['retururi'] })
             setShowAddModal(false)
+            logActivity('Retur adăugat', newRow?.nume_client ? `Client: ${newRow.nume_client}` : null, newRow?.id)
           }}
         />
       )}
@@ -738,6 +769,85 @@ function StatusBar({ label, count, total, color }) {
         <div className={`${c.bar} h-2.5 rounded-full transition-all`} style={{ width: `${pct}%` }} />
       </div>
       <p className="text-xs text-gray-400 mt-1">{pct}% din total</p>
+    </div>
+  )
+}
+
+// ─── Tab Activitate ──────────────────────────────────────────────────────────
+function ActivitateTab() {
+  const { data: logs = [], isLoading } = useQuery({
+    queryKey: ['retururi_activitate'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('retururi_activitate')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(200)
+      if (error) throw error
+      return data
+    },
+    refetchInterval: 30_000,
+  })
+
+  const actionColor = (actiune) => {
+    if (actiune.includes('adăugat'))  return 'bg-green-100 text-green-700'
+    if (actiune.includes('editat'))   return 'bg-blue-100 text-blue-700'
+    if (actiune.includes('șters'))    return 'bg-red-100 text-red-700'
+    if (actiune.includes('plătit'))   return 'bg-emerald-100 text-emerald-700'
+    return 'bg-gray-100 text-gray-600'
+  }
+
+  const actionIcon = (actiune) => {
+    if (actiune.includes('adăugat'))  return '➕'
+    if (actiune.includes('editat'))   return '✏️'
+    if (actiune.includes('șters'))    return '🗑️'
+    if (actiune.includes('plătit'))   return '💰'
+    return '📋'
+  }
+
+  if (isLoading) return <div className="py-12 text-center text-sm text-gray-400">Se încarcă...</div>
+
+  return (
+    <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+      <div className="px-5 py-4 border-b border-gray-100 flex items-center gap-2">
+        <Activity className="w-4 h-4 text-gray-400" />
+        <h3 className="font-semibold text-gray-800">Jurnal activitate</h3>
+        <span className="ml-auto text-xs text-gray-400">{logs.length} înregistrări</span>
+      </div>
+
+      {logs.length === 0 ? (
+        <div className="py-16 text-center">
+          <Activity className="w-10 h-10 text-gray-200 mx-auto mb-3" />
+          <p className="text-sm text-gray-400 italic">Nicio activitate înregistrată încă</p>
+        </div>
+      ) : (
+        <div className="divide-y divide-gray-50">
+          {logs.map(log => (
+            <div key={log.id} className="flex items-start gap-3 px-5 py-3 hover:bg-gray-50/60 transition-colors">
+              {/* Avatar */}
+              <div className="w-8 h-8 rounded-full bg-primary-100 flex items-center justify-center text-primary-700 text-sm font-bold flex-shrink-0 mt-0.5">
+                {(log.user_name || '?')[0].toUpperCase()}
+              </div>
+              {/* Content */}
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-sm font-medium text-gray-900">{log.user_name || 'Utilizator'}</span>
+                  <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${actionColor(log.actiune)}`}>
+                    {actionIcon(log.actiune)} {log.actiune}
+                  </span>
+                </div>
+                {log.detalii && (
+                  <p className="text-xs text-gray-400 mt-0.5">{log.detalii}</p>
+                )}
+              </div>
+              {/* Timp */}
+              <div className="text-xs text-gray-400 whitespace-nowrap flex-shrink-0 mt-0.5">
+                {log.created_at ? format(new Date(log.created_at), 'dd.MM.yyyy HH:mm') : '—'}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   )
 }
