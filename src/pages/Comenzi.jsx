@@ -274,10 +274,10 @@ function ComandaModal({ comanda, onClose, onSaved, pEdit }) {
 
   const [saving, setSaving] = useState(false)
   const [cancelling, setCancelling] = useState(false)
+  const [confirmCancel, setConfirmCancel] = useState(false)
 
   const handleCancel = async () => {
     if (!comanda?.id) return
-    if (!confirm('Ești sigur că vrei să anulezi această comandă?')) return
     setCancelling(true)
     const { error } = await supabase
       .from('com_comenzi')
@@ -726,17 +726,35 @@ function ComandaModal({ comanda, onClose, onSaved, pEdit }) {
 
           {/* Footer */}
           {pEdit && (
-            <div className="flex items-center gap-3 px-4 sm:px-6 py-4 border-t border-gray-200">
-              {/* Buton anulare comandă — doar pentru comenzi existente, neânulate */}
-              {comanda?.id && comanda?.status !== 'anulat' && (
+            <div className="flex items-center gap-3 px-4 sm:px-6 py-4 border-t border-gray-200 flex-wrap">
+              {/* Anulare comandă — confirmare inline, fără confirm() */}
+              {comanda?.id && comanda?.status !== 'anulat' && !confirmCancel && (
                 <button
-                  onClick={handleCancel}
-                  disabled={cancelling}
-                  className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-red-600 border border-red-200 rounded-lg hover:bg-red-50 disabled:opacity-50 mr-auto"
+                  onClick={() => setConfirmCancel(true)}
+                  className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-red-600 border border-red-200 rounded-lg hover:bg-red-50 mr-auto"
                 >
-                  {cancelling ? <Loader2 className="w-4 h-4 animate-spin" /> : <Ban className="w-4 h-4" />}
+                  <Ban className="w-4 h-4" />
                   Anulează comanda
                 </button>
+              )}
+              {confirmCancel && (
+                <div className="flex items-center gap-2 mr-auto">
+                  <span className="text-sm text-red-600 font-medium">Confirmi anularea?</span>
+                  <button
+                    onClick={handleCancel}
+                    disabled={cancelling}
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 disabled:opacity-50"
+                  >
+                    {cancelling ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+                    Da, anulează
+                  </button>
+                  <button
+                    onClick={() => setConfirmCancel(false)}
+                    className="px-3 py-1.5 text-sm text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50"
+                  >
+                    Nu
+                  </button>
+                </div>
               )}
               <div className="ml-auto flex gap-3">
                 <button onClick={onClose}
