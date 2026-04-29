@@ -8,7 +8,7 @@ import { format } from 'date-fns'
 import {
   Plus, X, Save, Loader2, Printer, ShoppingCart,
   Users, Package, BarChart2, Pencil, Trash2, Check,
-  ShieldOff, Search, Settings,
+  ShieldOff, Search, Settings, Ban, RotateCcw,
 } from 'lucide-react'
 
 // ─────────────────────────────────────────────────────────────
@@ -54,6 +54,7 @@ export default function Comenzi() {
             { key: 'clienti',  label: 'Clienți',  icon: Users },
             { key: 'produse',  label: 'Produse',  icon: Package },
             { key: 'rapoarte', label: 'Rapoarte', icon: BarChart2 },
+            { key: 'anulate',  label: 'Anulate',  icon: Ban },
             { key: 'setari',   label: 'Setări',   icon: Settings },
           ].map(({ key, label, icon: Icon }) => (
             <button
@@ -76,6 +77,7 @@ export default function Comenzi() {
       {tab === 'clienti'  && <ClientiTab  pEdit={pEdit} pDelete={pDelete} />}
       {tab === 'produse'  && <ProduseTab  pEdit={pEdit} pDelete={pDelete} />}
       {tab === 'rapoarte' && <RapoarteTab />}
+      {tab === 'anulate'  && <AnulateTab  pEdit={pEdit} pDelete={pDelete} />}
       {tab === 'setari'   && <SetariTab   pEdit={pEdit} pDelete={pDelete} />}
     </div>
   )
@@ -95,6 +97,7 @@ function ComenziTab({ pEdit, pDelete }) {
       const { data, error } = await supabase
         .from('com_comenzi')
         .select('*, com_clienti(denumire), com_linii(id, produs_text, dimensiune, cantitate, model, pozitie)')
+        .neq('status', 'anulat')
         .order('created_at', { ascending: false })
       if (error) throw error
       return data
@@ -270,6 +273,23 @@ function ComandaModal({ comanda, onClose, onSaved, pEdit }) {
   const [checkedOptiuni, setCheckedOptiuni] = useState(new Set())
 
   const [saving, setSaving] = useState(false)
+  const [cancelling, setCancelling] = useState(false)
+
+  const handleCancel = async () => {
+    if (!comanda?.id) return
+    if (!confirm('Ești sigur că vrei să anulezi această comandă?')) return
+    setCancelling(true)
+    const { error } = await supabase
+      .from('com_comenzi')
+      .update({ status: 'anulat' })
+      .eq('id', comanda.id)
+    setCancelling(false)
+    if (!error) {
+      queryClient.invalidateQueries({ queryKey: ['com_comenzi'] })
+      queryClient.invalidateQueries({ queryKey: ['com_comenzi_anulate'] })
+      onClose()
+    }
+  }
 
   const emptyLine = () => ({ id: null, produs_text: '', dimensiune: '', cantitate: '', model: '' })
   const [linii, setLinii] = useState(() => Array.from({ length: 6 }, emptyLine))
@@ -706,16 +726,29 @@ function ComandaModal({ comanda, onClose, onSaved, pEdit }) {
 
           {/* Footer */}
           {pEdit && (
-            <div className="flex justify-end gap-3 px-4 sm:px-6 py-4 border-t border-gray-200">
-              <button onClick={onClose}
-                className="px-4 py-2 text-sm text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50">
-                Anulează
-              </button>
-              <button onClick={handleSave} disabled={saving}
-                className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-primary-600 rounded-lg hover:bg-primary-700 disabled:opacity-50">
-                {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-                Salvează
-              </button>
+            <div className="flex items-center gap-3 px-4 sm:px-6 py-4 border-t border-gray-200">
+              {/* Buton anulare comandă — doar pentru comenzi existente, neânulate */}
+              {comanda?.id && comanda?.status !== 'anulat' && (
+                <button
+                  onClick={handleCancel}
+                  disabled={cancelling}
+                  className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-red-600 border border-red-200 rounded-lg hover:bg-red-50 disabled:opacity-50 mr-auto"
+                >
+                  {cancelling ? <Loader2 className="w-4 h-4 animate-spin" /> : <Ban className="w-4 h-4" />}
+                  Anulează comanda
+                </button>
+              )}
+              <div className="ml-auto flex gap-3">
+                <button onClick={onClose}
+                  className="px-4 py-2 text-sm text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50">
+                  Închide
+                </button>
+                <button onClick={handleSave} disabled={saving}
+                  className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-primary-600 rounded-lg hover:bg-primary-700 disabled:opacity-50">
+                  {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                  Salvează
+                </button>
+              </div>
             </div>
           )}
         </div>
@@ -1310,6 +1343,137 @@ function ProdusModal({ produs, onClose, onSaved }) {
         </div>
       </div>
     </div>
+  )
+}
+
+// ═════════════════════════════════════════════════════════════
+// AnulateTab — comenzi cu status 'anulat'
+// ═════════════════════════════════════════════════════════════
+function AnulateTab({ pEdit, pDelete }) {
+  const queryClient = useQueryClient()
+  const [showModal, setShowModal] = useState(false)
+  const [editingComanda, setEditingComanda] = useState(null)
+
+  const { data: anulate = [], isLoading } = useQuery({
+    queryKey: ['com_comenzi_anulate'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('com_comenzi')
+        .select('*, com_clienti(denumire), com_linii(id, produs_text, dimensiune, cantitate, model, pozitie)')
+        .eq('status', 'anulat')
+        .order('created_at', { ascending: false })
+      if (error) throw error
+      return data
+    },
+  })
+
+  const restoreComanda = useMutation({
+    mutationFn: async (id) => {
+      const { error } = await supabase.from('com_comenzi').update({ status: 'noi' }).eq('id', id)
+      if (error) throw error
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['com_comenzi'] })
+      queryClient.invalidateQueries({ queryKey: ['com_comenzi_anulate'] })
+      queryClient.invalidateQueries({ queryKey: ['badge_comenzi'] })
+    },
+  })
+
+  const deleteComanda = useMutation({
+    mutationFn: async (id) => {
+      const { error } = await supabase.from('com_comenzi').delete().eq('id', id)
+      if (error) throw error
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['com_comenzi_anulate'] }),
+  })
+
+  if (isLoading) return <div className="py-12 text-center text-sm text-gray-400">Se încarcă...</div>
+
+  return (
+    <>
+      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+        {anulate.length === 0 ? (
+          <div className="py-16 text-center">
+            <Ban className="w-10 h-10 text-gray-200 mx-auto mb-3" />
+            <p className="text-sm text-gray-400 italic">Nicio comandă anulată</p>
+          </div>
+        ) : (
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-gray-100 bg-gray-50">
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500">Client</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500">Data comandă</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 hidden sm:table-cell">Produse</th>
+                <th className="px-4 py-3 text-xs font-semibold text-gray-500 text-right">Acțiuni</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {anulate.map(c => {
+                const linii = [...(c.com_linii || [])].sort((a, b) => (a.pozitie ?? 0) - (b.pozitie ?? 0))
+                const firstLine = linii[0]
+                return (
+                  <tr key={c.id} className="hover:bg-gray-50 transition-colors">
+                    <td className="px-4 py-3 font-medium text-gray-800">
+                      {c.com_clienti?.denumire || '—'}
+                    </td>
+                    <td className="px-4 py-3 text-gray-500">
+                      {c.data ? format(new Date(c.data), 'dd.MM.yyyy') : '—'}
+                    </td>
+                    <td className="px-4 py-3 text-gray-400 hidden sm:table-cell max-w-[200px]">
+                      {firstLine ? (
+                        <span className="truncate block">
+                          {firstLine.produs_text}
+                          {linii.length > 1 && <span className="text-gray-300"> +{linii.length - 1}</span>}
+                        </span>
+                      ) : '—'}
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center justify-end gap-2">
+                        <button
+                          onClick={() => { setEditingComanda(c); setShowModal(true) }}
+                          className="text-xs px-2 py-1 text-gray-500 border border-gray-200 rounded hover:bg-gray-50"
+                        >
+                          Vezi
+                        </button>
+                        {pEdit && (
+                          <button
+                            onClick={() => { if (confirm('Restaurezi comanda ca „Noi"?')) restoreComanda.mutate(c.id) }}
+                            className="flex items-center gap-1 text-xs px-2 py-1 text-blue-600 border border-blue-200 rounded hover:bg-blue-50"
+                          >
+                            <RotateCcw className="w-3 h-3" /> Restaurează
+                          </button>
+                        )}
+                        {pDelete && (
+                          <button
+                            onClick={() => { if (confirm(`Ștergi definitiv comanda pentru ${c.com_clienti?.denumire || ''}?`)) deleteComanda.mutate(c.id) }}
+                            className="p-1 text-gray-300 hover:text-red-500 rounded"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        )}
+      </div>
+
+      {showModal && (
+        <ComandaModal
+          comanda={editingComanda}
+          onClose={() => { setShowModal(false); setEditingComanda(null) }}
+          onSaved={() => {
+            queryClient.invalidateQueries({ queryKey: ['com_comenzi_anulate'] })
+            setShowModal(false)
+            setEditingComanda(null)
+          }}
+          pEdit={false}
+        />
+      )}
+    </>
   )
 }
 
