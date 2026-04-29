@@ -8,7 +8,7 @@ import { ro } from 'date-fns/locale'
 import {
   Plus, X, Trash2, Loader2, Pencil, ShieldOff, Settings,
   ChevronLeft, ChevronRight, Calendar, CheckCircle2, Clock,
-  Megaphone, CheckCheck, BarChart2, TableProperties,
+  Megaphone, CheckCheck, BarChart2, TableProperties, Eye,
 } from 'lucide-react'
 import QuickLinksPanel from '../components/QuickLinksPanel'
 
@@ -70,6 +70,7 @@ export default function Reclamatii() {
   const [deletingId,    setDeletingId]    = useState(null)
   const [configModal,   setConfigModal]   = useState(null) // 'sursa' | 'ce_gresit' | 'cum_rezolvat'
   const [rezolvaRow,    setRezolvaRow]    = useState(null)
+  const [viewRow,       setViewRow]       = useState(null)
 
   // ── Queries ───────────────────────────────────────────────
   const { from, to } = getDateRange(filterType, customFrom, customTo)
@@ -412,6 +413,13 @@ export default function Reclamatii() {
 
                   <td className="px-2 py-3">
                     <div className="flex gap-1 items-center">
+                      <button
+                        onClick={() => setViewRow(row)}
+                        className="p-1 text-gray-300 hover:text-primary-500 hover:bg-primary-50 rounded-lg transition-colors"
+                        title="Vezi detalii"
+                      >
+                        <Eye className="w-3.5 h-3.5" />
+                      </button>
                       {pEdit && !row.data_rezolvare && (
                         <button
                           onClick={() => setRezolvaRow(row)}
@@ -589,6 +597,9 @@ export default function Reclamatii() {
         </div>
       )}
 
+      {/* ── Modal View ── */}
+      {viewRow && <ViewModal row={viewRow} onClose={() => setViewRow(null)} />}
+
       {/* ── Modal Rezolvă ── */}
       {rezolvaRow && (
         <RezolvaModal
@@ -710,6 +721,70 @@ function CineStatusBar({ label, count, total, color }) {
         <div className={`${c.bar} h-2.5 rounded-full transition-all`} style={{ width: `${pct}%` }} />
       </div>
       <p className="text-xs text-gray-400 mt-1">{pct}% din total</p>
+    </div>
+  )
+}
+
+// ══════════════════════════════════════════════════════════════
+// ViewModal — detalii reclamație (read-only)
+// ══════════════════════════════════════════════════════════════
+function ViewModal({ row, onClose }) {
+  const Field = ({ label, value, full = false, badge }) => (
+    <div className={full ? 'col-span-2' : ''}>
+      <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-0.5">{label}</p>
+      {badge
+        ? <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${badge}`}>{value || '—'}</span>
+        : <p className="text-sm text-gray-800 whitespace-pre-wrap">{value || '—'}</p>
+      }
+    </div>
+  )
+
+  return (
+    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 overflow-y-auto">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg my-4">
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
+          <div className="flex items-center gap-2">
+            <Megaphone className="w-5 h-5 text-orange-500" />
+            <h2 className="font-semibold text-gray-900">
+              Reclamație #{row.nr}
+            </h2>
+            {row.data_rezolvare
+              ? <span className="flex items-center gap-1 text-xs font-medium text-emerald-600 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">
+                  <CheckCircle2 className="w-3 h-3" /> Rezolvată
+                </span>
+              : <span className="flex items-center gap-1 text-xs font-medium text-red-600 bg-red-50 border border-red-200 px-2 py-0.5 rounded-full">
+                  <Clock className="w-3 h-3" /> Nerezolvată
+                </span>
+            }
+          </div>
+          <button onClick={onClose} className="p-1.5 text-gray-400 hover:text-gray-600 rounded-lg">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        {/* Content */}
+        <div className="px-6 py-5 grid grid-cols-2 gap-4">
+          <Field label="Sursă"       value={row.sursa}           badge={row.sursa ? sursaBadge(row.sursa) : null} />
+          <Field label="Responsabil" value={row.responsabil} />
+          <Field label="Data reclamație" value={row.data_reclamatie ? format(new Date(row.data_reclamatie + 'T00:00:00'), 'dd.MM.yyyy') : null} />
+          <Field label="Data rezolvare"  value={row.data_rezolvare  ? format(new Date(row.data_rezolvare  + 'T00:00:00'), 'dd.MM.yyyy') : null} />
+          <Field label="Client"      value={row.nume_client} />
+          <Field label="Comandă"     value={row.comanda} />
+          <Field label="AWB"         value={row.awb} />
+          <Field label="Cine a greșit" value={row.cine_gresit}   badge={row.cine_gresit ? cineBadge(row.cine_gresit) : null} />
+          <Field label="Ce a greșit"   value={row.ce_gresit}     full />
+          <Field label="Detalii"       value={row.detalii}       full />
+          <Field label="Cum s-a rezolvat" value={row.cum_rezolvat} full />
+        </div>
+
+        <div className="flex justify-end px-6 py-4 border-t border-gray-200">
+          <button onClick={onClose}
+            className="px-4 py-2 text-sm font-medium text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50">
+            Închide
+          </button>
+        </div>
+      </div>
     </div>
   )
 }
