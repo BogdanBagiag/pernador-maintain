@@ -219,7 +219,7 @@ function ComandaCard({ comanda, statusIndex, pEdit, pDelete, onOpen, onMove, onD
 
   return (
     <div
-      className="bg-white rounded-lg border border-gray-200 p-3 cursor-pointer hover:shadow-sm transition-shadow group"
+      className="bg-white rounded-lg border border-gray-200 p-3 cursor-pointer hover:shadow-sm transition-shadow"
       onClick={onOpen}
     >
       <p className="font-semibold text-gray-900 text-sm truncate">
@@ -246,7 +246,7 @@ function ComandaCard({ comanda, statusIndex, pEdit, pDelete, onOpen, onMove, onD
 
       {pEdit && (
         <div
-          className="flex items-center gap-1 mt-2 opacity-0 group-hover:opacity-100 transition-opacity"
+          className="flex items-center gap-1 mt-2"
           onClick={e => e.stopPropagation()}
         >
           {prevSt && (
