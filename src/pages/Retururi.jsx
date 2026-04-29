@@ -167,11 +167,12 @@ export default function Retururi() {
   const handleDelete = async (id) => {
     if (!confirm('Ștergi această înregistrare?')) return
     const row = rows.find(r => r.id === id)
+    // Logăm ÎNAINTE de ștergere (foreign key constraint)
+    await logActivity('Retur șters', row?.nume_client ? `Client: ${row.nume_client}` : null, id)
     setDeletingId(id)
     await supabase.from('retururi').delete().eq('id', id)
     setDeletingId(null)
     queryClient.invalidateQueries({ queryKey: ['retururi'] })
-    await logActivity('Retur șters', row?.nume_client ? `Client: ${row.nume_client}` : null, id)
   }
 
   // ── Editare ───────────────────────────────────────────────
