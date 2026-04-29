@@ -609,7 +609,7 @@ function ComandaModal({ comanda, onClose, onSaved, pEdit }) {
                     <tr>
                       <th className="px-3 py-2.5 text-left text-xs font-semibold text-gray-600">Produs</th>
                       <th className="px-3 py-2.5 text-center text-xs font-semibold text-gray-600 w-24">Dim.</th>
-                      <th className="px-3 py-2.5 text-center text-xs font-semibold text-gray-600 w-16">Cant.</th>
+                      <th className="px-3 py-2.5 text-center text-xs font-semibold text-gray-600 w-20">Cant.</th>
                       <th className="px-3 py-2.5 text-left text-xs font-semibold text-gray-600 w-28">Model</th>
                       {pEdit && <th className="w-8" />}
                     </tr>
@@ -637,7 +637,7 @@ function ComandaModal({ comanda, onClose, onSaved, pEdit }) {
                             }
                           </div>
                         </td>
-                        <td className="px-2 py-2">
+                        <td className="px-2 py-2 min-w-[5rem]">
                           <input type="number" min="1" value={r.cantitate}
                             onChange={e => updateLine(idx, 'cantitate', e.target.value)}
                             readOnly={!pEdit}
