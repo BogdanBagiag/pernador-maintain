@@ -111,7 +111,24 @@ function ComenziTab({ pEdit, pDelete }) {
       const { error } = await supabase.from('com_comenzi').update(update).eq('id', id)
       if (error) throw error
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['com_comenzi'] }),
+    // Optimistic update — cardul se mută vizual instant
+    onMutate: async ({ id, status }) => {
+      await queryClient.cancelQueries({ queryKey: ['com_comenzi'] })
+      const previous = queryClient.getQueryData(['com_comenzi'])
+      queryClient.setQueryData(['com_comenzi'], (old) =>
+        old?.map((c) => c.id === id ? { ...c, status } : c) ?? old
+      )
+      return { previous }
+    },
+    // Revert dacă serverul returnează eroare
+    onError: (_err, _vars, context) => {
+      if (context?.previous) queryClient.setQueryData(['com_comenzi'], context.previous)
+    },
+    // Refetch adevărat după ce serverul confirmă
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['com_comenzi'] })
+      queryClient.invalidateQueries({ queryKey: ['badge_comenzi'] })
+    },
   })
 
   const deleteComanda = useMutation({
