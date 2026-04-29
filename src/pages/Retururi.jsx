@@ -9,7 +9,7 @@ import {
   Plus, Save, X, Trash2, Loader2, Settings,
   ChevronLeft, ChevronRight, Calendar, ShieldOff,
   RotateCcw, BarChart2, TableProperties,
-  TrendingDown, CheckCircle, Clock, Package, Banknote, Copy, Check, Pencil,
+  TrendingDown, CheckCircle, Clock, Package, Banknote, Copy, Check, Pencil, Eye,
 } from 'lucide-react'
 import QuickLinksPanel from '../components/QuickLinksPanel'
 
@@ -57,7 +57,8 @@ export default function Retururi() {
   const [showSursaConfig, setShowSursaConfig] = useState(false)
   const [deletingId,  setDeletingId]  = useState(null)
   const [platesteRow, setPlatesteRow] = useState(null)
-  const [editingRow,  setEditingRow]  = useState(null) // rândul care urmează să fie marcat plătit
+  const [editingRow,  setEditingRow]  = useState(null)
+  const [viewRow,     setViewRow]     = useState(null)
 
   // ── Queries ───────────────────────────────────────────────
   const { from, to } = getDateRange(filterType, customFrom, customTo)
@@ -412,6 +413,13 @@ export default function Retururi() {
                       <td className="px-3 py-3 text-gray-600 text-xs whitespace-nowrap">{row.responsabil?.full_name || '—'}</td>
                       <td className="px-2 py-3">
                         <div className="flex items-center justify-center gap-1">
+                          <button
+                            onClick={() => setViewRow(row)}
+                            className="p-1 text-gray-300 hover:text-primary-500 hover:bg-primary-50 rounded-lg transition-colors"
+                            title="Vezi detalii"
+                          >
+                            <Eye className="w-3.5 h-3.5" />
+                          </button>
                           {/* Buton Plătește — doar pentru rânduri neachitate */}
                           {pEdit && !row.data_plata && (
                             <button
@@ -612,6 +620,9 @@ export default function Retururi() {
         </div>
       )}
 
+      {/* ── Modal View ── */}
+      {viewRow && <ViewReturModal row={viewRow} onClose={() => setViewRow(null)} />}
+
       {/* ── Modal editare ── */}
       {editingRow && (
         <EditReturModal
@@ -727,6 +738,71 @@ function StatusBar({ label, count, total, color }) {
         <div className={`${c.bar} h-2.5 rounded-full transition-all`} style={{ width: `${pct}%` }} />
       </div>
       <p className="text-xs text-gray-400 mt-1">{pct}% din total</p>
+    </div>
+  )
+}
+
+// ─── Modal View ─────────────────────────────────────────────────────────────
+function ViewReturModal({ row, onClose }) {
+  const achitat = !!row.data_plata
+  const valoare = parseFloat(row.valoare) || 0
+
+  const Field = ({ label, value, full = false }) => (
+    <div className={full ? 'col-span-2' : ''}>
+      <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-0.5">{label}</p>
+      <p className="text-sm text-gray-800">{value || '—'}</p>
+    </div>
+  )
+
+  return (
+    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 overflow-y-auto">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg my-4">
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
+          <div className="flex items-center gap-2">
+            <RotateCcw className="w-5 h-5 text-purple-500" />
+            <h2 className="font-semibold text-gray-900">Retur #{row.nr}</h2>
+            {achitat
+              ? <span className="flex items-center gap-1 text-xs font-medium text-emerald-600 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">
+                  <CheckCircle className="w-3 h-3" /> Achitat
+                </span>
+              : <span className="flex items-center gap-1 text-xs font-medium text-amber-600 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full">
+                  <Clock className="w-3 h-3" /> Neachitat
+                </span>
+            }
+          </div>
+          <button onClick={onClose} className="p-1.5 text-gray-400 hover:text-gray-600 rounded-lg">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        {/* Content */}
+        <div className="px-6 py-5 grid grid-cols-2 gap-4">
+          {row.sursa && (
+            <div>
+              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-0.5">Sursă</p>
+              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-700">{row.sursa}</span>
+            </div>
+          )}
+          <Field label="Responsabil"   value={row.responsabil?.full_name} />
+          <Field label="Data comandă"  value={row.data_comanda  ? format(new Date(row.data_comanda  + 'T00:00:00'), 'dd.MM.yyyy') : null} />
+          <Field label="Data cerere"   value={row.data_cerere   ? format(new Date(row.data_cerere   + 'T00:00:00'), 'dd.MM.yyyy') : null} />
+          <Field label="Data plată"    value={row.data_plata    ? format(new Date(row.data_plata    + 'T00:00:00'), 'dd.MM.yyyy') : null} />
+          <Field label="Valoare"       value={valoare > 0 ? `${valoare.toLocaleString('ro-RO', { minimumFractionDigits: 2 })} RON` : null} />
+          <Field label="Client"        value={row.nume_client} />
+          <Field label="Telefon"       value={row.telefon} />
+          <Field label="Cont bancar"   value={row.cont_bancar} />
+          <Field label="Factură storno" value={row.factura_storno} />
+          <Field label="Motiv"         value={row.motiv} full />
+        </div>
+
+        <div className="flex justify-end px-6 py-4 border-t border-gray-200">
+          <button onClick={onClose}
+            className="px-4 py-2 text-sm font-medium text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50">
+            Închide
+          </button>
+        </div>
+      </div>
     </div>
   )
 }
