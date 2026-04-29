@@ -295,6 +295,14 @@ function ComandaModal({ comanda, onClose, onSaved, pEdit }) {
   const { user } = useAuth()
   const queryClient = useQueryClient()
 
+  // Back button pe mobil închide modalul în loc să navigheze înapoi
+  useEffect(() => {
+    history.pushState({ modal: 'comanda' }, '')
+    const handlePop = () => onClose()
+    window.addEventListener('popstate', handlePop)
+    return () => window.removeEventListener('popstate', handlePop)
+  }, [])
+
   // Header state
   const [clientName,  setClientName]  = useState('')   // typed text
   const [clientId,    setClientId]    = useState('')   // resolved ID
