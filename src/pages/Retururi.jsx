@@ -240,22 +240,20 @@ export default function Retururi() {
     <div className="max-w-full mx-auto space-y-5">
 
       {/* ── Titlu ── */}
-      <div className="text-center">
-        <h1 className="text-xl font-bold text-gray-900 tracking-widest uppercase">
-          Registru Retururi
-        </h1>
-        <div className="mt-1 h-0.5 bg-gray-900 mx-auto w-56" />
+      <div>
+        <h1 className="text-xl font-bold text-gray-900">Retururi</h1>
+        <p className="text-sm text-gray-500 mt-0.5">Evidența retururilor și gestionarea lor</p>
       </div>
 
       {/* ── Carduri sumar ── */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
         <div className="bg-white rounded-xl border border-gray-200 p-4 flex items-center gap-3">
-          <div className="w-9 h-9 rounded-full bg-purple-100 flex items-center justify-center flex-shrink-0">
-            <Package className="w-4 h-4 text-purple-600" />
+          <div className="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0">
+            <Package className="w-4 h-4 text-gray-500" />
           </div>
-          <div className="min-w-0">
-            <p className="text-xs text-gray-400 uppercase tracking-wide truncate">Total Retururi</p>
-            <p className="text-base font-bold text-purple-600">{rows.length}</p>
+          <div>
+            <p className="text-xs text-gray-400 uppercase tracking-wide">Total</p>
+            <p className="text-xl font-bold text-gray-800">{rows.length}</p>
           </div>
         </div>
 
@@ -263,9 +261,9 @@ export default function Retururi() {
           <div className="w-9 h-9 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0">
             <TrendingDown className="w-4 h-4 text-red-500" />
           </div>
-          <div className="min-w-0">
-            <p className="text-xs text-gray-400 uppercase tracking-wide truncate">Valoare Totală</p>
-            <p className="text-base font-bold text-red-500 truncate">
+          <div>
+            <p className="text-xs text-gray-400 uppercase tracking-wide">Valoare Totală</p>
+            <p className="text-xl font-bold text-red-500">
               {totalValoare.toLocaleString('ro-RO', { minimumFractionDigits: 2 })} Lei
             </p>
           </div>
@@ -275,9 +273,9 @@ export default function Retururi() {
           <div className="w-9 h-9 rounded-full bg-emerald-100 flex items-center justify-center flex-shrink-0">
             <CheckCircle className="w-4 h-4 text-emerald-600" />
           </div>
-          <div className="min-w-0">
-            <p className="text-xs text-gray-400 uppercase tracking-wide truncate">Achitate</p>
-            <p className="text-base font-bold text-emerald-600">{countAchitate}</p>
+          <div>
+            <p className="text-xs text-gray-400 uppercase tracking-wide">Achitate</p>
+            <p className="text-xl font-bold text-emerald-600">{countAchitate}</p>
           </div>
         </div>
 
@@ -285,9 +283,9 @@ export default function Retururi() {
           <div className="w-9 h-9 rounded-full bg-amber-100 flex items-center justify-center flex-shrink-0">
             <Clock className="w-4 h-4 text-amber-500" />
           </div>
-          <div className="min-w-0">
-            <p className="text-xs text-gray-400 uppercase tracking-wide truncate">Neachitate</p>
-            <p className="text-base font-bold text-amber-500">{countNeachitate}</p>
+          <div>
+            <p className="text-xs text-gray-400 uppercase tracking-wide">Neachitate</p>
+            <p className="text-xl font-bold text-amber-500">{countNeachitate}</p>
           </div>
         </div>
       </div>
