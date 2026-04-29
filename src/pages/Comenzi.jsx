@@ -292,16 +292,21 @@ function ComandaModal({ comanda, onClose, onSaved, pEdit }) {
   const [saving, setSaving] = useState(false)
   const [cancelling, setCancelling] = useState(false)
   const [confirmCancel, setConfirmCancel] = useState(false)
+  const [cancelError, setCancelError] = useState('')
 
   const handleCancel = async () => {
     if (!comanda?.id) return
     setCancelling(true)
+    setCancelError('')
     const { error } = await supabase
       .from('com_comenzi')
       .update({ status: 'anulat' })
       .eq('id', comanda.id)
     setCancelling(false)
-    if (!error) {
+    if (error) {
+      setCancelError('Eroare: ' + error.message)
+      console.error('Cancel error:', error)
+    } else {
       queryClient.invalidateQueries({ queryKey: ['com_comenzi'] })
       queryClient.invalidateQueries({ queryKey: ['com_comenzi_anulate'] })
       onClose()
@@ -755,7 +760,8 @@ function ComandaModal({ comanda, onClose, onSaved, pEdit }) {
                 </button>
               )}
               {confirmCancel && (
-                <div className="flex items-center gap-2 mr-auto">
+                <div className="flex flex-col gap-1 mr-auto">
+                  <div className="flex items-center gap-2">
                   <span className="text-sm text-red-600 font-medium">Confirmi anularea?</span>
                   <button
                     onClick={handleCancel}
@@ -766,11 +772,15 @@ function ComandaModal({ comanda, onClose, onSaved, pEdit }) {
                     Da, anulează
                   </button>
                   <button
-                    onClick={() => setConfirmCancel(false)}
+                    onClick={() => { setConfirmCancel(false); setCancelError('') }}
                     className="px-3 py-1.5 text-sm text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50"
                   >
                     Nu
                   </button>
+                  </div>
+                  {cancelError && (
+                    <p className="text-xs text-red-600">{cancelError}</p>
+                  )}
                 </div>
               )}
               <div className="ml-auto flex gap-3">
