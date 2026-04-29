@@ -701,7 +701,7 @@ function ComandaModal({ comanda, onClose, onSaved, pEdit }) {
               </div>
 
               {/* ── Desktop: tabel ── */}
-              <div className="hidden sm:block overflow-x-auto rounded-xl border border-gray-200">
+              <div className="hidden sm:block rounded-xl border border-gray-200 min-h-[280px]">
                 <table className="w-full text-sm" style={{ minWidth: '480px' }}>
                   <thead className="bg-gray-50">
                     <tr>
