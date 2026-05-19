@@ -6,7 +6,7 @@ import { format } from 'date-fns'
 import {
   Plus, X, Trash2, Loader2, ShieldOff, Sparkles,
   User, Phone, Eye, ChevronRight, ChevronLeft,
-  Package, Check, Pencil,
+  Package, Check, Pencil, Settings,
 } from 'lucide-react'
 
 // ─── Configurare statusuri ────────────────────────────────────────────────────
@@ -18,8 +18,6 @@ const STATUSES = [
 ]
 
 const STATUS_MAP = Object.fromEntries(STATUSES.map(s => [s.key, s]))
-
-const PRODUSE_OPTIONS = ['Pernă', 'Pilotă', 'Pătură', 'Traversă', 'Husă', 'Altele']
 
 const emptyProdus = () => ({
   produs: '', cantitate: 1, dimensiune: '', culoare: '', modificare_dimensiuni: false,
@@ -142,8 +140,89 @@ function BonCard({ bon, prevStatus, nextStatus, onMove, onView, onDelete, deleti
   )
 }
 
+// ─── LookupConfigModal ────────────────────────────────────────────────────────
+function LookupConfigModal({ label, table, items, onClose, onRefresh }) {
+  const [newNume, setNewNume] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
+  const [deletingId, setDeletingId] = useState(null)
+
+  const handleAdd = async () => {
+    if (!newNume.trim()) return
+    setSaving(true); setError('')
+    const { error: err } = await supabase.from(table).insert({ nume: newNume.trim(), pozitie: items.length })
+    setSaving(false)
+    if (err) { setError('Eroare la salvare.'); return }
+    setNewNume('')
+    onRefresh()
+  }
+
+  const handleDelete = async (id) => {
+    setDeletingId(id)
+    await supabase.from(table).delete().eq('id', id)
+    setDeletingId(null)
+    onRefresh()
+  }
+
+  return (
+    <>
+      <div className="fixed inset-0 bg-black/50 z-40" onClick={onClose} />
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm flex flex-col">
+          <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-gray-100">
+            <div>
+              <h2 className="font-semibold text-gray-900">{label}</h2>
+              <p className="text-xs text-gray-400 mt-0.5">Administrează lista de valori</p>
+            </div>
+            <button onClick={onClose} className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg">
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+          <div className="px-5 py-4 space-y-3">
+            <div className="flex gap-2">
+              <input
+                type="text" value={newNume}
+                onChange={e => setNewNume(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && handleAdd()}
+                placeholder="Valoare nouă..."
+                className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary-400"
+              />
+              <button onClick={handleAdd} disabled={!newNume.trim() || saving}
+                className="px-3 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-40">
+                {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+              </button>
+            </div>
+            {error && <p className="text-xs text-red-500">{error}</p>}
+            <div className="space-y-1.5 max-h-72 overflow-y-auto">
+              {items.length === 0
+                ? <p className="text-sm text-gray-400 text-center py-4">Nicio valoare adăugată.</p>
+                : items.map(item => (
+                  <div key={item.id} className="flex items-center justify-between px-3 py-2 rounded-xl bg-gray-50 border border-gray-200 gap-2">
+                    <span className="text-sm text-gray-800 flex-1">{item.nume}</span>
+                    <button onClick={() => handleDelete(item.id)} disabled={deletingId === item.id}
+                      className="p-1 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-lg">
+                      {deletingId === item.id
+                        ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        : <Trash2 className="w-3.5 h-3.5" />}
+                    </button>
+                  </div>
+                ))}
+            </div>
+          </div>
+          <div className="px-5 pb-5 pt-2 border-t border-gray-100">
+            <button onClick={onClose}
+              className="w-full py-2.5 border border-gray-300 text-gray-700 rounded-xl text-sm font-medium hover:bg-gray-50">
+              Închide
+            </button>
+          </div>
+        </div>
+      </div>
+    </>
+  )
+}
+
 // ─── Modal adăugare bon ───────────────────────────────────────────────────────
-function BonModal({ onClose, onSaved, userId, initialData = null }) {
+function BonModal({ onClose, onSaved, userId, initialData = null, produseOpt = [], dimensiuniOpt = [], culoriOpt = [] }) {
   const isEdit = !!initialData
   const [form, setForm] = useState({
     nume: initialData?.nume || '',
@@ -286,7 +365,7 @@ function BonModal({ onClose, onSaved, userId, initialData = null }) {
                           placeholder="ex: Pernă"
                         />
                         <datalist id={`produs-list-${idx}`}>
-                          {PRODUSE_OPTIONS.map(o => <option key={o} value={o} />)}
+                          {produseOpt.map(o => <option key={o.id} value={o.nume} />)}
                         </datalist>
                       </td>
                       <td className="px-2 py-1.5">
@@ -300,19 +379,27 @@ function BonModal({ onClose, onSaved, userId, initialData = null }) {
                       </td>
                       <td className="px-2 py-1.5">
                         <input
+                          list={`dim-list-${idx}`}
                           value={p.dimensiune}
                           onChange={e => updateProdus(idx, 'dimensiune', e.target.value)}
                           className="w-full border-0 bg-transparent outline-none text-sm text-gray-800 placeholder-gray-300 focus:ring-1 focus:ring-primary-300 rounded px-1"
                           placeholder="50x70"
                         />
+                        <datalist id={`dim-list-${idx}`}>
+                          {dimensiuniOpt.map(o => <option key={o.id} value={o.nume} />)}
+                        </datalist>
                       </td>
                       <td className="px-2 py-1.5">
                         <input
+                          list={`culoare-list-${idx}`}
                           value={p.culoare}
                           onChange={e => updateProdus(idx, 'culoare', e.target.value)}
                           className="w-full border-0 bg-transparent outline-none text-sm text-gray-800 placeholder-gray-300 focus:ring-1 focus:ring-primary-300 rounded px-1"
                           placeholder="alb"
                         />
+                        <datalist id={`culoare-list-${idx}`}>
+                          {culoriOpt.map(o => <option key={o.id} value={o.nume} />)}
+                        </datalist>
                       </td>
                       <td className="px-2 py-1.5 text-center">
                         <input
@@ -484,10 +571,43 @@ export default function PernadorClean() {
   const { user } = useAuth()
   const queryClient = useQueryClient()
 
-  const [showModal, setShowModal] = useState(false)
-  const [editBon, setEditBon]     = useState(null)
-  const [viewBon, setViewBon]     = useState(null)
+  const [showModal, setShowModal]   = useState(false)
+  const [editBon, setEditBon]       = useState(null)
+  const [viewBon, setViewBon]       = useState(null)
   const [deletingId, setDeletingId] = useState(null)
+  const [configModal, setConfigModal] = useState(null) // 'produse' | 'dimensiuni' | 'culori'
+
+  // ── Opțiuni predefinite ───────────────────────────────────
+  const { data: produseOpt = [], refetch: refetchProduse } = useQuery({
+    queryKey: ['pc_produse_opt'],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('pernador_clean_produse_opt').select('*').order('pozitie').order('nume')
+      if (error) throw error
+      return data
+    },
+  })
+  const { data: dimensiuniOpt = [], refetch: refetchDimensiuni } = useQuery({
+    queryKey: ['pc_dimensiuni'],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('pernador_clean_dimensiuni').select('*').order('pozitie').order('nume')
+      if (error) throw error
+      return data
+    },
+  })
+  const { data: culoriOpt = [], refetch: refetchCulori } = useQuery({
+    queryKey: ['pc_culori'],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('pernador_clean_culori').select('*').order('pozitie').order('nume')
+      if (error) throw error
+      return data
+    },
+  })
+
+  const CONFIG_MAP = {
+    produse:    { label: 'Produse',    table: 'pernador_clean_produse_opt', items: produseOpt,    refetch: refetchProduse },
+    dimensiuni: { label: 'Dimensiuni', table: 'pernador_clean_dimensiuni',  items: dimensiuniOpt, refetch: refetchDimensiuni },
+    culori:     { label: 'Culori',     table: 'pernador_clean_culori',      items: culoriOpt,     refetch: refetchCulori },
+  }
 
   const { data: bonuri = [], isLoading } = useQuery({
     queryKey: ['pernador_clean'],
@@ -565,8 +685,21 @@ export default function PernadorClean() {
         ))}
       </div>
 
-      {/* Buton adăugare */}
-      <div className="flex justify-end">
+      {/* Butoane acțiuni */}
+      <div className="flex items-center justify-between gap-3">
+        {/* Settings dropdown */}
+        <div className="flex gap-2 flex-wrap">
+          {['produse', 'dimensiuni', 'culori'].map(key => (
+            <button
+              key={key}
+              onClick={() => setConfigModal(key)}
+              className="flex items-center gap-1.5 px-3 py-2 border border-gray-300 text-gray-600 rounded-lg hover:bg-gray-50 text-sm font-medium transition-colors"
+            >
+              <Settings className="w-3.5 h-3.5" />
+              {CONFIG_MAP[key].label}
+            </button>
+          ))}
+        </div>
         <button
           onClick={() => setShowModal(true)}
           className="btn-primary flex items-center gap-2"
@@ -623,6 +756,9 @@ export default function PernadorClean() {
       {showModal && (
         <BonModal
           userId={user?.id}
+          produseOpt={produseOpt}
+          dimensiuniOpt={dimensiuniOpt}
+          culoriOpt={culoriOpt}
           onClose={() => setShowModal(false)}
           onSaved={() => {
             setShowModal(false)
@@ -636,11 +772,25 @@ export default function PernadorClean() {
         <BonModal
           userId={user?.id}
           initialData={editBon}
+          produseOpt={produseOpt}
+          dimensiuniOpt={dimensiuniOpt}
+          culoriOpt={culoriOpt}
           onClose={() => setEditBon(null)}
           onSaved={() => {
             setEditBon(null)
             queryClient.invalidateQueries({ queryKey: ['pernador_clean'] })
           }}
+        />
+      )}
+
+      {/* Config modal */}
+      {configModal && CONFIG_MAP[configModal] && (
+        <LookupConfigModal
+          label={CONFIG_MAP[configModal].label}
+          table={CONFIG_MAP[configModal].table}
+          items={CONFIG_MAP[configModal].items}
+          onClose={() => setConfigModal(null)}
+          onRefresh={CONFIG_MAP[configModal].refetch}
         />
       )}
 
