@@ -8,15 +8,16 @@ import {
   LayoutDashboard, Wrench, ClipboardList, Calendar, BarChart3,
   Settings, LogOut, Menu, X, MapPin, QrCode, CheckSquare,
   FileText, Users, Car, Package, BookOpen, LayoutGrid,
-  ScrollText, ChevronDown, BookMarked, RotateCcw, Megaphone, ShoppingCart,
+  ScrollText, ChevronDown, BookMarked, RotateCcw, Megaphone, ShoppingCart, Sparkles,
 } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { useRealtimeNotifications } from '../hooks/useRealtimeNotifications'
 
 // ── Structura navigației grupate ─────────────────────────────
 const STANDALONE = [
-  { name: 'Dashboard',  href: '/dashboard', icon: LayoutDashboard },
-  { name: 'To Do',      href: '/todo',       icon: LayoutGrid,  moduleKey: 'todo' },
+  { name: 'Dashboard',       href: '/dashboard',      icon: LayoutDashboard },
+  { name: 'To Do',           href: '/todo',            icon: LayoutGrid,  moduleKey: 'todo' },
+  { name: 'Pernador Clean',  href: '/pernador-clean',  icon: Sparkles,    moduleKey: 'pernador_clean' },
 ]
 
 const GROUPS = [

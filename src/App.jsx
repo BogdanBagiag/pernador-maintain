@@ -43,6 +43,7 @@ import RegistruIncasari from './pages/RegistruIncasari'
 import Retururi from './pages/Retururi'
 import Reclamatii from './pages/Reclamatii'
 import Comenzi from './pages/Comenzi'
+import PernadorClean from './pages/PernadorClean'
 
 // Components
 import Layout from './components/Layout'
@@ -178,6 +179,7 @@ function App() {
                       <Route path="/retururi" element={<Retururi />} />
                       <Route path="/reclamatii" element={<Reclamatii />} />
                       <Route path="/comenzi" element={<Comenzi />} />
+                      <Route path="/pernador-clean" element={<PernadorClean />} />
                       <Route path="/users" element={<UserManagement />} />
                       <Route path="/settings" element={<Settings />} />
 
