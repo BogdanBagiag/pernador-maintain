@@ -91,9 +91,12 @@ function BonCard({ bon, prevStatus, nextStatus, onMove, onView, onDelete, deleti
         </div>
       )}
 
-      <p className="text-[10px] text-gray-300">
-        {bon.created_at ? format(new Date(bon.created_at), 'dd.MM.yyyy HH:mm') : '—'}
-      </p>
+      <div className="text-[10px] text-gray-300 space-y-0.5">
+        <p>📥 {bon.created_at ? format(new Date(bon.created_at), 'dd.MM.yyyy HH:mm') : '—'}</p>
+        {bon.data_gata && (
+          <p className="text-green-400">✅ {format(new Date(bon.data_gata), 'dd.MM.yyyy HH:mm')}</p>
+        )}
+      </div>
 
       {pendingMove && (
         <div className="bg-amber-50 border border-amber-200 rounded-lg p-2 text-xs space-y-1.5">
@@ -537,6 +540,12 @@ function ViewBonModal({ bon, onClose, onEdit }) {
               <p className="text-xs text-gray-400 uppercase tracking-wide mb-1">Data înregistrare</p>
               <p className="text-sm text-gray-800">{bon.created_at ? format(new Date(bon.created_at), 'dd.MM.yyyy HH:mm') : '—'}</p>
             </div>
+            <div>
+              <p className="text-xs text-gray-400 uppercase tracking-wide mb-1">Data gata</p>
+              {bon.data_gata
+                ? <p className="text-sm font-medium text-green-600">{format(new Date(bon.data_gata), 'dd.MM.yyyy HH:mm')}</p>
+                : <p className="text-sm text-gray-400 italic">Nesetat</p>}
+            </div>
           </div>
           {(bon.produse || []).length > 0 && (
             <div>
@@ -737,13 +746,17 @@ export default function PernadorClean() {
   // Move status
   const moveStatus = useMutation({
     mutationFn: async ({ id, newStatus }) => {
-      const { error } = await supabase.from('pernador_clean').update({ status: newStatus }).eq('id', id)
+      const update = { status: newStatus }
+      if (newStatus === 'gata') update.data_gata = new Date().toISOString()
+      if (newStatus !== 'gata') update.data_gata = null // resetează dacă e mutat înapoi
+      const { error } = await supabase.from('pernador_clean').update(update).eq('id', id)
       if (error) throw error
     },
     onMutate: async ({ id, newStatus }) => {
       await queryClient.cancelQueries({ queryKey: ['pernador_clean'] })
       const prev = queryClient.getQueryData(['pernador_clean'])
-      queryClient.setQueryData(['pernador_clean'], (old = []) => old.map(b => b.id === id ? { ...b, status: newStatus } : b))
+      const dataGata = newStatus === 'gata' ? new Date().toISOString() : null
+      queryClient.setQueryData(['pernador_clean'], (old = []) => old.map(b => b.id === id ? { ...b, status: newStatus, data_gata: dataGata } : b))
       return { prev }
     },
     onError: (_, __, ctx) => queryClient.setQueryData(['pernador_clean'], ctx.prev),
