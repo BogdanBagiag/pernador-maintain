@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
@@ -500,6 +501,118 @@ function BonModal({ onClose, onSaved, userId, initialData = null, clienti = [], 
 }
 
 // ─── Print bon A5 ────────────────────────────────────────────────────────────
+function BonPrintLayout({ bon }) {
+  const B  = '1px solid #333'
+  const FF = 'Arial, Helvetica, sans-serif'
+  const F  = '9pt'
+
+  const cell  = (extra = {}) => ({ border: B, padding: '2mm 3mm', fontSize: F, fontFamily: FF, verticalAlign: 'middle', lineHeight: '1.3', ...extra })
+  const hcell = (extra = {}) => ({ ...cell(extra), fontWeight: 'bold', background: '#f0f0f0', textAlign: 'center' })
+
+  const produseFilled = (bon.produse || []).filter(p => p.produs || p.cantitate > 1)
+  const ROWS = 6
+  const allRows = [...produseFilled]
+  while (allRows.length < ROWS) allRows.push({ produs: '', cantitate: '', dimensiune: '', culoare: '', modificare_dimensiuni: false })
+
+  return (
+    <div style={{ width: '100%', fontFamily: FF, fontSize: F, color: '#111', boxSizing: 'border-box' }}>
+
+      {/* Header */}
+      <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '3mm' }}>
+        <tbody>
+          <tr>
+            <td style={{ ...cell({ width: '60%', border: B }), fontSize: '14pt', fontWeight: 'bold', letterSpacing: '0.5px' }}>
+              ✨ Pernador Clean
+              <div style={{ fontSize: '8pt', fontWeight: 'normal', color: '#555', marginTop: '1mm' }}>Servicii curățătorie perne și pilote</div>
+            </td>
+            <td style={{ ...cell({ width: '20%', border: B }), textAlign: 'center' }}>
+              <div style={{ fontSize: '8pt', color: '#888' }}>BON NR.</div>
+              <div style={{ fontSize: '20pt', fontWeight: 'bold', color: '#1d4ed8', lineHeight: '1' }}>#{bon.nr_bon}</div>
+            </td>
+            <td style={{ ...cell({ width: '20%', border: B }), textAlign: 'center' }}>
+              <div style={{ fontSize: '8pt', color: '#888' }}>DATA ADUCERII</div>
+              <div style={{ fontWeight: '600' }}>{bon.created_at ? format(new Date(bon.created_at), 'dd.MM.yyyy') : '—'}</div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+
+      {/* Client */}
+      <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '3mm' }}>
+        <tbody>
+          <tr>
+            <td style={cell({ width: '50%' })}><b>Client:</b> {bon.nume || '—'}</td>
+            <td style={cell({ width: '50%' })}><b>Telefon:</b> {bon.telefon || '—'}</td>
+          </tr>
+        </tbody>
+      </table>
+
+      {/* Produse */}
+      <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '3mm' }}>
+        <colgroup>
+          <col style={{ width: '35%' }} />
+          <col style={{ width: '8%' }} />
+          <col style={{ width: '25%' }} />
+          <col style={{ width: '22%' }} />
+          <col style={{ width: '10%' }} />
+        </colgroup>
+        <thead>
+          <tr>
+            <th style={hcell({ textAlign: 'left' })}>Produs</th>
+            <th style={hcell()}>Cant.</th>
+            <th style={hcell({ textAlign: 'left' })}>Dimensiune</th>
+            <th style={hcell({ textAlign: 'left' })}>Culoare</th>
+            <th style={hcell()}>Mod. dim.</th>
+          </tr>
+        </thead>
+        <tbody>
+          {allRows.map((p, i) => (
+            <tr key={i}>
+              <td style={cell()}>{p.produs || ''}</td>
+              <td style={{ ...cell(), textAlign: 'center' }}>{p.cantitate || ''}</td>
+              <td style={cell()}>{p.dimensiune || ''}</td>
+              <td style={cell()}>{p.culoare || ''}</td>
+              <td style={{ ...cell(), textAlign: 'center' }}>{p.modificare_dimensiuni ? '✓' : ''}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+
+      {/* Observații + Date ridicare */}
+      <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '5mm' }}>
+        <tbody>
+          <tr>
+            <td style={cell({ width: '60%' })}><b>Observații:</b> {bon.observatii || ''}</td>
+            <td style={cell({ width: '40%' })}>
+              <b>Data ridicării:</b>{' '}
+              {bon.data_gata ? format(new Date(bon.data_gata), 'dd.MM.yyyy') : '......................'}
+            </td>
+          </tr>
+        </tbody>
+      </table>
+
+      {/* Semnături */}
+      <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+        <tbody>
+          <tr>
+            <td style={{ ...cell({ width: '50%' }), paddingTop: '8mm', textAlign: 'center', color: '#555', fontSize: '8pt' }}>
+              Semnătură client
+            </td>
+            <td style={{ ...cell({ width: '50%' }), paddingTop: '8mm', textAlign: 'center', color: '#555', fontSize: '8pt' }}>
+              Semnătură operator
+            </td>
+          </tr>
+        </tbody>
+      </table>
+
+      {/* Footer */}
+      <div style={{ marginTop: '3mm', fontSize: '7pt', color: '#aaa', textAlign: 'center' }}>
+        Pernador Clean · Bon #{bon.nr_bon} · {bon.created_at ? format(new Date(bon.created_at), 'dd.MM.yyyy') : ''}
+      </div>
+    </div>
+  )
+}
+
 function PrintBonModal({ bon, onClose }) {
   const handlePrint = () => window.print()
 
@@ -507,124 +620,25 @@ function PrintBonModal({ bon, onClose }) {
 
   return (
     <>
-      {/* Stiluri print */}
+      {/* Stiluri print — portal sub body, same pattern as Comenzi */}
       <style>{`
         @media print {
-          body > * { display: none !important; }
+          body > *:not(#print-bon-area) { display: none !important; }
           #print-bon-area { display: block !important; }
           @page { size: A5 portrait; margin: 8mm; }
         }
-        #print-bon-area { display: none; }
+        @media screen {
+          #print-bon-area { display: none; }
+        }
       `}</style>
 
-      {/* Zona de print (ascunsă normal, vizibilă la print) */}
-      <div id="print-bon-area">
-        <div style={{ fontFamily: 'Arial, sans-serif', fontSize: '11pt', color: '#111' }}>
-          {/* Header */}
-          <div style={{ borderBottom: '2px solid #111', paddingBottom: '6px', marginBottom: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
-            <div>
-              <div style={{ fontSize: '16pt', fontWeight: 'bold', letterSpacing: '1px' }}>✨ Pernador Clean</div>
-              <div style={{ fontSize: '9pt', color: '#555', marginTop: '2px' }}>Servicii curățătorie perne și pilote</div>
-            </div>
-            <div style={{ textAlign: 'right' }}>
-              <div style={{ fontSize: '20pt', fontWeight: 'bold', color: '#1d4ed8' }}>#{bon.nr_bon}</div>
-              <div style={{ fontSize: '8pt', color: '#555' }}>
-                {bon.created_at ? format(new Date(bon.created_at), 'dd.MM.yyyy HH:mm') : '—'}
-              </div>
-            </div>
-          </div>
-
-          {/* Client */}
-          <div style={{ marginBottom: '10px', background: '#f8f8f8', border: '1px solid #ddd', borderRadius: '6px', padding: '8px 12px' }}>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
-              <div>
-                <div style={{ fontSize: '7pt', color: '#888', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Nume client</div>
-                <div style={{ fontWeight: 'bold', fontSize: '12pt' }}>{bon.nume || '—'}</div>
-              </div>
-              <div>
-                <div style={{ fontSize: '7pt', color: '#888', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Telefon</div>
-                <div style={{ fontWeight: 'bold', fontSize: '12pt' }}>{bon.telefon || '—'}</div>
-              </div>
-            </div>
-          </div>
-
-          {/* Produse */}
-          <div style={{ marginBottom: '10px' }}>
-            <div style={{ fontSize: '8pt', color: '#888', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '4px' }}>Produse</div>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '10pt' }}>
-              <thead>
-                <tr style={{ background: '#f0f0f0', borderBottom: '1px solid #ccc' }}>
-                  <th style={{ textAlign: 'left', padding: '4px 6px', fontSize: '8pt', fontWeight: '600' }}>Produs</th>
-                  <th style={{ textAlign: 'center', padding: '4px 6px', fontSize: '8pt', fontWeight: '600', width: '40px' }}>Cant.</th>
-                  <th style={{ textAlign: 'left', padding: '4px 6px', fontSize: '8pt', fontWeight: '600' }}>Dimensiune</th>
-                  <th style={{ textAlign: 'left', padding: '4px 6px', fontSize: '8pt', fontWeight: '600' }}>Culoare</th>
-                  <th style={{ textAlign: 'center', padding: '4px 6px', fontSize: '8pt', fontWeight: '600', width: '30px' }}>✂️</th>
-                </tr>
-              </thead>
-              <tbody>
-                {produseFilled.length > 0 ? produseFilled.map((p, i) => (
-                  <tr key={i} style={{ borderBottom: '1px solid #eee' }}>
-                    <td style={{ padding: '5px 6px', fontWeight: '500' }}>{p.produs || '—'}</td>
-                    <td style={{ padding: '5px 6px', textAlign: 'center' }}>{p.cantitate}</td>
-                    <td style={{ padding: '5px 6px' }}>{p.dimensiune || '—'}</td>
-                    <td style={{ padding: '5px 6px' }}>{p.culoare || '—'}</td>
-                    <td style={{ padding: '5px 6px', textAlign: 'center' }}>{p.modificare_dimensiuni ? '✓' : ''}</td>
-                  </tr>
-                )) : (
-                  <tr><td colSpan={5} style={{ padding: '8px 6px', color: '#aaa', fontStyle: 'italic', textAlign: 'center' }}>Niciun produs</td></tr>
-                )}
-                {/* Rânduri goale extra pentru completare manuală */}
-                {Array.from({ length: Math.max(0, 4 - produseFilled.length) }).map((_, i) => (
-                  <tr key={`empty-${i}`} style={{ borderBottom: '1px solid #eee' }}>
-                    <td style={{ padding: '8px 6px' }}>&nbsp;</td>
-                    <td style={{ padding: '8px 6px' }}></td>
-                    <td style={{ padding: '8px 6px' }}></td>
-                    <td style={{ padding: '8px 6px' }}></td>
-                    <td style={{ padding: '8px 6px' }}></td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          {/* Observații */}
-          {bon.observatii && (
-            <div style={{ marginBottom: '10px', border: '1px solid #ddd', borderRadius: '4px', padding: '6px 10px' }}>
-              <div style={{ fontSize: '7pt', color: '#888', textTransform: 'uppercase', marginBottom: '2px' }}>Observații</div>
-              <div style={{ fontSize: '10pt' }}>{bon.observatii}</div>
-            </div>
-          )}
-
-          {/* Date status */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '12px', fontSize: '9pt' }}>
-            <div style={{ border: '1px solid #ddd', borderRadius: '4px', padding: '6px 10px' }}>
-              <div style={{ color: '#888', fontSize: '7pt', textTransform: 'uppercase' }}>Data aducerii</div>
-              <div style={{ fontWeight: '600' }}>{bon.created_at ? format(new Date(bon.created_at), 'dd.MM.yyyy') : '—'}</div>
-            </div>
-            <div style={{ border: '1px solid #ddd', borderRadius: '4px', padding: '6px 10px' }}>
-              <div style={{ color: '#888', fontSize: '7pt', textTransform: 'uppercase' }}>Data ridicării</div>
-              <div style={{ fontWeight: '600', color: bon.data_gata ? '#16a34a' : '#aaa' }}>
-                {bon.data_gata ? format(new Date(bon.data_gata), 'dd.MM.yyyy') : '...............'}
-              </div>
-            </div>
-          </div>
-
-          {/* Semnături */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginTop: '8px' }}>
-            <div style={{ borderTop: '1px solid #111', paddingTop: '4px', fontSize: '8pt', color: '#555', textAlign: 'center' }}>
-              Semnătură client
-            </div>
-            <div style={{ borderTop: '1px solid #111', paddingTop: '4px', fontSize: '8pt', color: '#555', textAlign: 'center' }}>
-              Semnătură operator
-            </div>
-          </div>
-
-          {/* Footer */}
-          <div style={{ marginTop: '10px', borderTop: '1px solid #eee', paddingTop: '4px', fontSize: '7pt', color: '#aaa', textAlign: 'center' }}>
-            Pernador Clean · Bon #{bon.nr_bon} · {bon.created_at ? format(new Date(bon.created_at), 'dd.MM.yyyy') : ''}
-          </div>
-        </div>
-      </div>
+      {/* Portal direct în body — escapes modal stacking context */}
+      {createPortal(
+        <div id="print-bon-area">
+          <BonPrintLayout bon={bon} />
+        </div>,
+        document.body
+      )}
 
       {/* UI Modal preview */}
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
@@ -639,7 +653,7 @@ function PrintBonModal({ bon, onClose }) {
 
           <div className="px-6 py-5 space-y-3">
             <p className="text-sm text-gray-600">
-              Bonul va fi tipărit în format <strong>A5</strong> cu toate detaliile clientului și produsele.
+              Bonul va fi tipărit în format <strong>A5 portrait</strong> cu toate detaliile clientului și produsele.
             </p>
             <div className="bg-gray-50 rounded-xl border border-gray-200 p-4 space-y-2 text-sm">
               <div className="flex justify-between">
@@ -662,7 +676,7 @@ function PrintBonModal({ bon, onClose }) {
               </div>
             </div>
             <p className="text-xs text-gray-400">
-              Se vor include și rânduri goale pentru completare manuală, plus linii de semnătură.
+              Se vor include rânduri goale pentru completare manuală și linii de semnătură.
             </p>
           </div>
 
