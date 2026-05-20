@@ -1,85 +1,68 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import { format } from 'date-fns'
 import {
-  Plus, X, Trash2, Loader2, ShieldOff, Sparkles,
+  Plus, X, Trash2, Loader2, Sparkles,
   User, Phone, Eye, ChevronRight, ChevronLeft,
-  Package, Check, Pencil, Settings,
+  Package, Check, Pencil, Settings, Mail, Users,
+  LayoutGrid, Bell, BellOff,
 } from 'lucide-react'
 
 // ─── Configurare statusuri ────────────────────────────────────────────────────
 const STATUSES = [
-  { key: 'adus',     label: 'Adus',     emoji: '📥', dot: 'bg-blue-400',   header: 'bg-blue-50 border-blue-200',   badge: 'bg-blue-100 text-blue-700' },
-  { key: 'in_lucru', label: 'În lucru', emoji: '🧼', dot: 'bg-amber-400',  header: 'bg-amber-50 border-amber-200', badge: 'bg-amber-100 text-amber-700' },
-  { key: 'gata',     label: 'Gata',     emoji: '✅', dot: 'bg-green-400',  header: 'bg-green-50 border-green-200', badge: 'bg-green-100 text-green-700' },
-  { key: 'ridicat',  label: 'Ridicat',  emoji: '🏠', dot: 'bg-gray-400',   header: 'bg-gray-50 border-gray-200',   badge: 'bg-gray-100 text-gray-600' },
+  { key: 'adus',     label: 'Adus',     emoji: '📥', dot: 'bg-blue-400',  header: 'bg-blue-50 border-blue-200',   badge: 'bg-blue-100 text-blue-700' },
+  { key: 'in_lucru', label: 'În lucru', emoji: '🧼', dot: 'bg-amber-400', header: 'bg-amber-50 border-amber-200', badge: 'bg-amber-100 text-amber-700' },
+  { key: 'gata',     label: 'Gata',     emoji: '✅', dot: 'bg-green-400', header: 'bg-green-50 border-green-200', badge: 'bg-green-100 text-green-700' },
+  { key: 'ridicat',  label: 'Ridicat',  emoji: '🏠', dot: 'bg-gray-400',  header: 'bg-gray-50 border-gray-200',   badge: 'bg-gray-100 text-gray-600' },
 ]
-
 const STATUS_MAP = Object.fromEntries(STATUSES.map(s => [s.key, s]))
 
 const emptyProdus = () => ({
   produs: '', cantitate: 1, dimensiune: '', culoare: '', modificare_dimensiuni: false,
 })
 
-// ─── Componenta card kanban ───────────────────────────────────────────────────
+// ─── Card kanban ──────────────────────────────────────────────────────────────
 function BonCard({ bon, prevStatus, nextStatus, onMove, onView, onDelete, deleting }) {
   const [pendingMove, setPendingMove] = useState(null)
-  const totalBucati = (bon.produse || []).reduce((s, p) => s + (parseInt(p.cantitate) || 0), 0)
-
-  const handleArrow = (targetStatus) => {
-    setPendingMove(targetStatus)
-  }
-
-  const confirmMove = () => {
-    onMove(bon.id, pendingMove)
-    setPendingMove(null)
-  }
 
   return (
     <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-3 space-y-2 hover:shadow-md transition-shadow">
-      {/* Nr bon + actions */}
       <div className="flex items-center justify-between gap-1">
-        <span className="text-xs font-bold text-primary-600 bg-primary-50 px-2 py-0.5 rounded-full">
-          #{bon.nr_bon}
-        </span>
+        <div className="flex items-center gap-1.5">
+          <span className="text-xs font-bold text-primary-600 bg-primary-50 px-2 py-0.5 rounded-full">
+            #{bon.nr_bon}
+          </span>
+          {bon.newsletter && (
+            <Bell className="w-3 h-3 text-violet-500" title="Newsletter" />
+          )}
+        </div>
         <div className="flex items-center gap-1">
           {prevStatus && (
-            <button
-              onClick={() => handleArrow(prevStatus)}
-              className="p-1 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors"
-              title={`Mută în ${STATUS_MAP[prevStatus]?.label}`}
-            >
+            <button onClick={() => setPendingMove(prevStatus)}
+              className="p-1 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-600"
+              title={`Mută în ${STATUS_MAP[prevStatus]?.label}`}>
               <ChevronLeft className="w-3.5 h-3.5" />
             </button>
           )}
           {nextStatus && (
-            <button
-              onClick={() => handleArrow(nextStatus)}
-              className="p-1 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors"
-              title={`Mută în ${STATUS_MAP[nextStatus]?.label}`}
-            >
+            <button onClick={() => setPendingMove(nextStatus)}
+              className="p-1 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-600"
+              title={`Mută în ${STATUS_MAP[nextStatus]?.label}`}>
               <ChevronRight className="w-3.5 h-3.5" />
             </button>
           )}
-          <button
-            onClick={onView}
-            className="p-1 rounded hover:bg-blue-50 text-gray-400 hover:text-blue-600 transition-colors"
-          >
+          <button onClick={onView} className="p-1 rounded hover:bg-blue-50 text-gray-400 hover:text-blue-600">
             <Eye className="w-3.5 h-3.5" />
           </button>
-          <button
-            onClick={onDelete}
-            disabled={deleting}
-            className="p-1 rounded hover:bg-red-50 text-gray-400 hover:text-red-500 transition-colors"
-          >
+          <button onClick={onDelete} disabled={deleting}
+            className="p-1 rounded hover:bg-red-50 text-gray-400 hover:text-red-500">
             {deleting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
           </button>
         </div>
       </div>
 
-      {/* Client */}
       <div>
         <p className="text-sm font-semibold text-gray-800 truncate">{bon.nume}</p>
         {bon.telefon && (
@@ -89,7 +72,6 @@ function BonCard({ bon, prevStatus, nextStatus, onMove, onView, onDelete, deleti
         )}
       </div>
 
-      {/* Produse summary */}
       {(bon.produse || []).length > 0 && (
         <div className="text-xs text-gray-500 space-y-0.5">
           {(bon.produse || []).slice(0, 3).map((p, i) => (
@@ -109,28 +91,22 @@ function BonCard({ bon, prevStatus, nextStatus, onMove, onView, onDelete, deleti
         </div>
       )}
 
-      {/* Data */}
       <p className="text-[10px] text-gray-300">
         {bon.created_at ? format(new Date(bon.created_at), 'dd.MM.yyyy HH:mm') : '—'}
       </p>
 
-      {/* Confirmare mutare */}
       {pendingMove && (
         <div className="bg-amber-50 border border-amber-200 rounded-lg p-2 text-xs space-y-1.5">
           <p className="text-amber-800 font-medium">
             Muți în <strong>{STATUS_MAP[pendingMove]?.label}</strong>?
           </p>
           <div className="flex gap-2">
-            <button
-              onClick={confirmMove}
-              className="flex-1 bg-amber-500 text-white rounded px-2 py-1 font-medium hover:bg-amber-600"
-            >
+            <button onClick={() => { onMove(bon.id, pendingMove); setPendingMove(null) }}
+              className="flex-1 bg-amber-500 text-white rounded px-2 py-1 font-medium hover:bg-amber-600">
               Da, mută
             </button>
-            <button
-              onClick={() => setPendingMove(null)}
-              className="flex-1 bg-white border border-gray-200 text-gray-600 rounded px-2 py-1 hover:bg-gray-50"
-            >
+            <button onClick={() => setPendingMove(null)}
+              className="flex-1 bg-white border border-gray-200 text-gray-600 rounded px-2 py-1 hover:bg-gray-50">
               Nu
             </button>
           </div>
@@ -153,15 +129,13 @@ function LookupConfigModal({ label, table, items, onClose, onRefresh }) {
     const { error: err } = await supabase.from(table).insert({ nume: newNume.trim(), pozitie: items.length })
     setSaving(false)
     if (err) { setError('Eroare la salvare.'); return }
-    setNewNume('')
-    onRefresh()
+    setNewNume(''); onRefresh()
   }
 
   const handleDelete = async (id) => {
     setDeletingId(id)
     await supabase.from(table).delete().eq('id', id)
-    setDeletingId(null)
-    onRefresh()
+    setDeletingId(null); onRefresh()
   }
 
   return (
@@ -180,13 +154,11 @@ function LookupConfigModal({ label, table, items, onClose, onRefresh }) {
           </div>
           <div className="px-5 py-4 space-y-3">
             <div className="flex gap-2">
-              <input
-                type="text" value={newNume}
+              <input type="text" value={newNume}
                 onChange={e => setNewNume(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && handleAdd()}
                 placeholder="Valoare nouă..."
-                className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary-400"
-              />
+                className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary-400" />
               <button onClick={handleAdd} disabled={!newNume.trim() || saving}
                 className="px-3 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-40">
                 {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
@@ -201,9 +173,7 @@ function LookupConfigModal({ label, table, items, onClose, onRefresh }) {
                     <span className="text-sm text-gray-800 flex-1">{item.nume}</span>
                     <button onClick={() => handleDelete(item.id)} disabled={deletingId === item.id}
                       className="p-1 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-lg">
-                      {deletingId === item.id
-                        ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                        : <Trash2 className="w-3.5 h-3.5" />}
+                      {deletingId === item.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
                     </button>
                   </div>
                 ))}
@@ -221,23 +191,25 @@ function LookupConfigModal({ label, table, items, onClose, onRefresh }) {
   )
 }
 
-// ─── Modal adăugare bon ───────────────────────────────────────────────────────
-function BonModal({ onClose, onSaved, userId, initialData = null, produseOpt = [], dimensiuniOpt = [], culoriOpt = [] }) {
+// ─── Modal bon ────────────────────────────────────────────────────────────────
+function BonModal({ onClose, onSaved, userId, initialData = null, clienti = [], produseOpt = [], dimensiuniOpt = [], culoriOpt = [] }) {
   const isEdit = !!initialData
   const [form, setForm] = useState({
     nume: initialData?.nume || '',
     telefon: initialData?.telefon || '',
+    newsletter: initialData?.newsletter ?? false,
     observatii: initialData?.observatii || '',
   })
   const [produse, setProduse] = useState(
-    initialData?.produse?.length
-      ? initialData.produse
-      : [emptyProdus(), emptyProdus()]
+    initialData?.produse?.length ? initialData.produse : [emptyProdus(), emptyProdus()]
   )
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const [suggestions, setSuggestions] = useState([])
+  const [showSugg, setShowSugg] = useState(false)
+  const [selectedClientId, setSelectedClientId] = useState(initialData?.client_id || null)
+  const suggRef = useRef(null)
 
-  // Mobile back button
   useEffect(() => {
     history.pushState({ bonModal: true }, '')
     const onPop = () => onClose()
@@ -245,15 +217,40 @@ function BonModal({ onClose, onSaved, userId, initialData = null, produseOpt = [
     return () => window.removeEventListener('popstate', onPop)
   }, [onClose])
 
+  // Închide sugestii la click în afară
+  useEffect(() => {
+    const handler = (e) => { if (suggRef.current && !suggRef.current.contains(e.target)) setShowSugg(false) }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [])
+
+  const handleNumeChange = (val) => {
+    setForm(f => ({ ...f, nume: val }))
+    setSelectedClientId(null)
+    if (val.length >= 2) {
+      const q = val.toLowerCase()
+      const matches = clienti.filter(c =>
+        c.nume.toLowerCase().includes(q) || (c.telefon || '').includes(q)
+      ).slice(0, 6)
+      setSuggestions(matches)
+      setShowSugg(matches.length > 0)
+    } else {
+      setShowSugg(false)
+    }
+  }
+
+  const selectClient = (client) => {
+    setForm(f => ({ ...f, nume: client.nume, telefon: client.telefon || '', newsletter: client.newsletter ?? false }))
+    setSelectedClientId(client.id)
+    setShowSugg(false)
+  }
+
   const updateProdus = (idx, field, value) => {
     setProduse(prev => {
       const next = prev.map((p, i) => i === idx ? { ...p, [field]: value } : p)
-      // Auto-adaugă rând dacă ultimul e completat
       const last = next[next.length - 1]
       const lastFilled = last.produs || last.dimensiune || last.culoare || last.cantitate > 1
-      if (idx === next.length - 1 && lastFilled) {
-        return [...next, emptyProdus()]
-      }
+      if (idx === next.length - 1 && lastFilled) return [...next, emptyProdus()]
       return next
     })
   }
@@ -265,22 +262,53 @@ function BonModal({ onClose, onSaved, userId, initialData = null, produseOpt = [
 
   const handleSave = async () => {
     if (!form.nume.trim()) { setError('Numele clientului este obligatoriu.'); return }
-    setSaving(true)
-    setError('')
+    setSaving(true); setError('')
 
     const produseClean = produse.filter(p => p.produs || p.dimensiune || p.culoare || p.cantitate > 1)
 
+    // Upsert client
+    let clientId = selectedClientId
+    if (!isEdit || !clientId) {
+      // Caută client existent după nume+telefon
+      const existing = clienti.find(c =>
+        c.nume.toLowerCase() === form.nume.trim().toLowerCase() &&
+        (c.telefon || '') === (form.telefon || '').trim()
+      )
+      if (existing) {
+        clientId = existing.id
+        // Actualizează newsletter dacă s-a schimbat
+        if (existing.newsletter !== form.newsletter) {
+          await supabase.from('pernador_clean_clienti').update({ newsletter: form.newsletter }).eq('id', existing.id)
+        }
+      } else {
+        const { data: newClient } = await supabase
+          .from('pernador_clean_clienti')
+          .insert({ nume: form.nume.trim(), telefon: form.telefon.trim() || null, newsletter: form.newsletter })
+          .select('id').single()
+        clientId = newClient?.id || null
+      }
+    } else {
+      // Editare — actualizează datele clientului
+      await supabase.from('pernador_clean_clienti')
+        .update({ nume: form.nume.trim(), telefon: form.telefon.trim() || null, newsletter: form.newsletter })
+        .eq('id', clientId)
+    }
+
+    const payload = {
+      nume: form.nume.trim(),
+      telefon: form.telefon.trim() || null,
+      newsletter: form.newsletter,
+      observatii: form.observatii.trim() || null,
+      produse: produseClean,
+      client_id: clientId,
+    }
+
     let err
     if (isEdit) {
-      const { error: e } = await supabase
-        .from('pernador_clean')
-        .update({ ...form, produse: produseClean })
-        .eq('id', initialData.id)
+      const { error: e } = await supabase.from('pernador_clean').update(payload).eq('id', initialData.id)
       err = e
     } else {
-      const { error: e } = await supabase
-        .from('pernador_clean')
-        .insert({ ...form, produse: produseClean, status: 'adus', created_by: userId })
+      const { error: e } = await supabase.from('pernador_clean').insert({ ...payload, status: 'adus', created_by: userId })
       err = e
     }
 
@@ -292,25 +320,20 @@ function BonModal({ onClose, onSaved, userId, initialData = null, produseOpt = [
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col">
-        {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
           <div className="flex items-center gap-2">
             <Sparkles className="w-5 h-5 text-primary-600" />
-            <h2 className="text-lg font-bold text-gray-900">
-              {isEdit ? 'Editează bon' : 'Bon nou'}
-            </h2>
+            <h2 className="text-lg font-bold text-gray-900">{isEdit ? 'Editează bon' : 'Bon nou'}</h2>
           </div>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
-            <X className="w-5 h-5" />
-          </button>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><X className="w-5 h-5" /></button>
         </div>
 
-        {/* Body */}
         <div className="flex-1 overflow-y-auto px-6 py-4 space-y-5">
 
           {/* Client */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
+            {/* Nume cu autocomplete */}
+            <div ref={suggRef} className="relative">
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 <User className="w-3.5 h-3.5 inline mr-1" />
                 Nume client <span className="text-red-500">*</span>
@@ -318,15 +341,39 @@ function BonModal({ onClose, onSaved, userId, initialData = null, produseOpt = [
               <input
                 type="text"
                 value={form.nume}
-                onChange={e => setForm(f => ({ ...f, nume: e.target.value }))}
+                onChange={e => handleNumeChange(e.target.value)}
+                onFocus={() => form.nume.length >= 2 && setShowSugg(suggestions.length > 0)}
                 className="input"
                 placeholder="ex: Ion Popescu"
+                autoComplete="off"
               />
+              {showSugg && (
+                <div className="absolute z-10 top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden">
+                  {suggestions.map(c => (
+                    <button
+                      key={c.id}
+                      onMouseDown={() => selectClient(c)}
+                      className="w-full text-left px-4 py-2.5 hover:bg-primary-50 flex items-center justify-between gap-2 text-sm"
+                    >
+                      <div>
+                        <p className="font-medium text-gray-800">{c.nume}</p>
+                        {c.telefon && <p className="text-xs text-gray-400">{c.telefon}</p>}
+                      </div>
+                      {c.newsletter && <Bell className="w-3.5 h-3.5 text-violet-400 flex-shrink-0" />}
+                    </button>
+                  ))}
+                </div>
+              )}
+              {selectedClientId && (
+                <p className="text-xs text-green-600 mt-1 flex items-center gap-1">
+                  <Check className="w-3 h-3" /> Client existent selectat
+                </p>
+              )}
             </div>
+
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                <Phone className="w-3.5 h-3.5 inline mr-1" />
-                Telefon
+                <Phone className="w-3.5 h-3.5 inline mr-1" />Telefon
               </label>
               <input
                 type="text"
@@ -337,6 +384,20 @@ function BonModal({ onClose, onSaved, userId, initialData = null, produseOpt = [
               />
             </div>
           </div>
+
+          {/* Newsletter */}
+          <label className="flex items-center gap-3 cursor-pointer select-none w-fit">
+            <input
+              type="checkbox"
+              checked={form.newsletter}
+              onChange={e => setForm(f => ({ ...f, newsletter: e.target.checked }))}
+              className="w-4 h-4 rounded accent-violet-600"
+            />
+            <div>
+              <span className="text-sm font-medium text-gray-700">Newsletter</span>
+              <p className="text-xs text-gray-400">Clientul dorește să primească comunicări</p>
+            </div>
+          </label>
 
           {/* Produse */}
           <div>
@@ -357,65 +418,44 @@ function BonModal({ onClose, onSaved, userId, initialData = null, produseOpt = [
                   {produse.map((p, idx) => (
                     <tr key={idx} className="hover:bg-gray-50/50">
                       <td className="px-3 py-1.5">
-                        <input
-                          list={`produs-list-${idx}`}
-                          value={p.produs}
+                        <input list={`produs-list-${idx}`} value={p.produs}
                           onChange={e => updateProdus(idx, 'produs', e.target.value)}
                           className="w-full border-0 bg-transparent outline-none text-sm text-gray-800 placeholder-gray-300 focus:ring-1 focus:ring-primary-300 rounded px-1"
-                          placeholder="ex: Pernă"
-                        />
+                          placeholder="ex: Pernă" />
                         <datalist id={`produs-list-${idx}`}>
                           {produseOpt.map(o => <option key={o.id} value={o.nume} />)}
                         </datalist>
                       </td>
                       <td className="px-2 py-1.5">
-                        <input
-                          type="number"
-                          min="1"
-                          value={p.cantitate}
+                        <input type="number" min="1" value={p.cantitate}
                           onChange={e => updateProdus(idx, 'cantitate', parseInt(e.target.value) || 1)}
-                          className="w-full border-0 bg-transparent outline-none text-sm text-center text-gray-800 focus:ring-1 focus:ring-primary-300 rounded px-1"
-                        />
+                          className="w-full border-0 bg-transparent outline-none text-sm text-center text-gray-800 focus:ring-1 focus:ring-primary-300 rounded px-1" />
                       </td>
                       <td className="px-2 py-1.5">
-                        <input
-                          list={`dim-list-${idx}`}
-                          value={p.dimensiune}
+                        <input list={`dim-list-${idx}`} value={p.dimensiune}
                           onChange={e => updateProdus(idx, 'dimensiune', e.target.value)}
                           className="w-full border-0 bg-transparent outline-none text-sm text-gray-800 placeholder-gray-300 focus:ring-1 focus:ring-primary-300 rounded px-1"
-                          placeholder="50x70"
-                        />
+                          placeholder="50x70" />
                         <datalist id={`dim-list-${idx}`}>
                           {dimensiuniOpt.map(o => <option key={o.id} value={o.nume} />)}
                         </datalist>
                       </td>
                       <td className="px-2 py-1.5">
-                        <input
-                          list={`culoare-list-${idx}`}
-                          value={p.culoare}
+                        <input list={`culoare-list-${idx}`} value={p.culoare}
                           onChange={e => updateProdus(idx, 'culoare', e.target.value)}
                           className="w-full border-0 bg-transparent outline-none text-sm text-gray-800 placeholder-gray-300 focus:ring-1 focus:ring-primary-300 rounded px-1"
-                          placeholder="alb"
-                        />
+                          placeholder="alb" />
                         <datalist id={`culoare-list-${idx}`}>
                           {culoriOpt.map(o => <option key={o.id} value={o.nume} />)}
                         </datalist>
                       </td>
                       <td className="px-2 py-1.5 text-center">
-                        <input
-                          type="checkbox"
-                          checked={p.modificare_dimensiuni}
+                        <input type="checkbox" checked={p.modificare_dimensiuni}
                           onChange={e => updateProdus(idx, 'modificare_dimensiuni', e.target.checked)}
-                          className="w-4 h-4 rounded accent-primary-600 cursor-pointer"
-                          title="Modificare dimensiuni"
-                        />
+                          className="w-4 h-4 rounded accent-primary-600 cursor-pointer" />
                       </td>
                       <td className="px-2 py-1.5">
-                        <button
-                          onClick={() => removeProdus(idx)}
-                          className="text-gray-300 hover:text-red-400 transition-colors"
-                          tabIndex={-1}
-                        >
+                        <button onClick={() => removeProdus(idx)} className="text-gray-300 hover:text-red-400" tabIndex={-1}>
                           <X className="w-3.5 h-3.5" />
                         </button>
                       </td>
@@ -424,10 +464,8 @@ function BonModal({ onClose, onSaved, userId, initialData = null, produseOpt = [
                 </tbody>
               </table>
             </div>
-            <button
-              onClick={() => setProduse(p => [...p, emptyProdus()])}
-              className="mt-2 text-xs text-primary-600 hover:text-primary-800 flex items-center gap-1"
-            >
+            <button onClick={() => setProduse(p => [...p, emptyProdus()])}
+              className="mt-2 text-xs text-primary-600 hover:text-primary-800 flex items-center gap-1">
               <Plus className="w-3 h-3" /> Adaugă produs
             </button>
           </div>
@@ -435,21 +473,14 @@ function BonModal({ onClose, onSaved, userId, initialData = null, produseOpt = [
           {/* Observații */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Observații</label>
-            <textarea
-              value={form.observatii}
+            <textarea value={form.observatii}
               onChange={e => setForm(f => ({ ...f, observatii: e.target.value }))}
-              className="input resize-none"
-              rows={2}
-              placeholder="Observații suplimentare..."
-            />
+              className="input resize-none" rows={2} placeholder="Observații suplimentare..." />
           </div>
 
-          {error && (
-            <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{error}</p>
-          )}
+          {error && <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{error}</p>}
         </div>
 
-        {/* Footer */}
         <div className="px-6 py-4 border-t border-gray-100 flex justify-end gap-3">
           <button onClick={onClose} className="btn-secondary">Anulează</button>
           <button onClick={handleSave} disabled={saving} className="btn-primary flex items-center gap-2">
@@ -479,24 +510,14 @@ function ViewBonModal({ bon, onClose, onEdit }) {
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
           <div className="flex items-center gap-2">
             <span className="text-lg font-bold text-gray-900">Bon #{bon.nr_bon}</span>
-            <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${st.badge}`}>
-              {st.emoji} {st.label}
-            </span>
+            <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${st.badge}`}>{st.emoji} {st.label}</span>
           </div>
           <div className="flex items-center gap-2">
-            {onEdit && (
-              <button onClick={onEdit} className="text-gray-400 hover:text-primary-600">
-                <Pencil className="w-4 h-4" />
-              </button>
-            )}
-            <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
-              <X className="w-5 h-5" />
-            </button>
+            {onEdit && <button onClick={onEdit} className="text-gray-400 hover:text-primary-600"><Pencil className="w-4 h-4" /></button>}
+            <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><X className="w-5 h-5" /></button>
           </div>
         </div>
-
         <div className="flex-1 overflow-y-auto px-6 py-4 space-y-5">
-          {/* Client */}
           <div className="grid grid-cols-2 gap-4">
             <div>
               <p className="text-xs text-gray-400 uppercase tracking-wide mb-1">Nume client</p>
@@ -507,14 +528,16 @@ function ViewBonModal({ bon, onClose, onEdit }) {
               <p className="text-sm text-gray-800">{bon.telefon || '—'}</p>
             </div>
             <div>
+              <p className="text-xs text-gray-400 uppercase tracking-wide mb-1">Newsletter</p>
+              {bon.newsletter
+                ? <span className="inline-flex items-center gap-1 text-xs font-medium text-violet-700 bg-violet-100 px-2 py-0.5 rounded-full"><Bell className="w-3 h-3" /> Da</span>
+                : <span className="text-sm text-gray-400">Nu</span>}
+            </div>
+            <div>
               <p className="text-xs text-gray-400 uppercase tracking-wide mb-1">Data înregistrare</p>
-              <p className="text-sm text-gray-800">
-                {bon.created_at ? format(new Date(bon.created_at), 'dd.MM.yyyy HH:mm') : '—'}
-              </p>
+              <p className="text-sm text-gray-800">{bon.created_at ? format(new Date(bon.created_at), 'dd.MM.yyyy HH:mm') : '—'}</p>
             </div>
           </div>
-
-          {/* Produse */}
           {(bon.produse || []).length > 0 && (
             <div>
               <p className="text-xs text-gray-400 uppercase tracking-wide mb-2">Produse</p>
@@ -537,9 +560,7 @@ function ViewBonModal({ bon, onClose, onEdit }) {
                         <td className="px-2 py-2 text-gray-600">{p.dimensiune || '—'}</td>
                         <td className="px-2 py-2 text-gray-600">{p.culoare || '—'}</td>
                         <td className="px-2 py-2 text-center">
-                          {p.modificare_dimensiuni
-                            ? <Check className="w-4 h-4 text-green-500 mx-auto" />
-                            : <span className="text-gray-300">—</span>}
+                          {p.modificare_dimensiuni ? <Check className="w-4 h-4 text-green-500 mx-auto" /> : <span className="text-gray-300">—</span>}
                         </td>
                       </tr>
                     ))}
@@ -548,8 +569,6 @@ function ViewBonModal({ bon, onClose, onEdit }) {
               </div>
             </div>
           )}
-
-          {/* Observații */}
           {bon.observatii && (
             <div>
               <p className="text-xs text-gray-400 uppercase tracking-wide mb-1">Observații</p>
@@ -557,10 +576,100 @@ function ViewBonModal({ bon, onClose, onEdit }) {
             </div>
           )}
         </div>
-
         <div className="px-6 py-4 border-t border-gray-100 flex justify-end">
           <button onClick={onClose} className="btn-secondary">Închide</button>
         </div>
+      </div>
+    </div>
+  )
+}
+
+// ─── Tab Clienți ──────────────────────────────────────────────────────────────
+function ClientiTab({ clienti, bonuri, isLoading, onToggleNewsletter }) {
+  const [search, setSearch] = useState('')
+  const [filterNewsletter, setFilterNewsletter] = useState('all') // 'all' | 'da' | 'nu'
+
+  const filtered = clienti.filter(c => {
+    const q = search.toLowerCase()
+    const matchSearch = !q || c.nume.toLowerCase().includes(q) || (c.telefon || '').includes(q)
+    const matchFilter = filterNewsletter === 'all' || (filterNewsletter === 'da' ? c.newsletter : !c.newsletter)
+    return matchSearch && matchFilter
+  })
+
+  const bonuriPerClient = (clientId) => bonuri.filter(b => b.client_id === clientId).length
+
+  if (isLoading) return <div className="py-12 text-center text-sm text-gray-400"><Loader2 className="w-5 h-5 animate-spin mx-auto" /></div>
+
+  return (
+    <div className="space-y-4">
+      {/* Filtre */}
+      <div className="flex flex-wrap items-center gap-3">
+        <input
+          type="text"
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          placeholder="Caută după nume sau telefon..."
+          className="input flex-1 min-w-48"
+        />
+        <div className="flex gap-1 bg-gray-100 rounded-lg p-1">
+          {[
+            { key: 'all', label: 'Toți' },
+            { key: 'da',  label: '🔔 Newsletter' },
+            { key: 'nu',  label: 'Fără' },
+          ].map(f => (
+            <button key={f.key} onClick={() => setFilterNewsletter(f.key)}
+              className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+                filterNewsletter === f.key ? 'bg-white shadow text-gray-900' : 'text-gray-500 hover:text-gray-700'
+              }`}>
+              {f.label}
+            </button>
+          ))}
+        </div>
+        <span className="text-sm text-gray-400">{filtered.length} clienți</span>
+      </div>
+
+      {/* Tabel */}
+      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+        {filtered.length === 0 ? (
+          <div className="py-16 text-center">
+            <Users className="w-10 h-10 text-gray-200 mx-auto mb-3" />
+            <p className="text-sm text-gray-400 italic">Niciun client găsit</p>
+          </div>
+        ) : (
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="bg-gray-50 text-xs text-gray-500 uppercase tracking-wide border-b border-gray-100">
+                <th className="px-4 py-3 text-left">Nume</th>
+                <th className="px-4 py-3 text-left">Telefon</th>
+                <th className="px-4 py-3 text-center">Bonuri</th>
+                <th className="px-4 py-3 text-center">Newsletter</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-50">
+              {filtered.map(c => (
+                <tr key={c.id} className="hover:bg-gray-50/60 transition-colors">
+                  <td className="px-4 py-3 font-medium text-gray-800">{c.nume}</td>
+                  <td className="px-4 py-3 text-gray-500">{c.telefon || '—'}</td>
+                  <td className="px-4 py-3 text-center">
+                    <span className="text-xs font-bold bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">
+                      {bonuriPerClient(c.id)}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 text-center">
+                    <button onClick={() => onToggleNewsletter(c)}
+                      className={`inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-full transition-colors ${
+                        c.newsletter
+                          ? 'bg-violet-100 text-violet-700 hover:bg-violet-200'
+                          : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                      }`}>
+                      {c.newsletter ? <><Bell className="w-3 h-3" /> Da</> : <><BellOff className="w-3 h-3" /> Nu</>}
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
       </div>
     </div>
   )
@@ -571,35 +680,33 @@ export default function PernadorClean() {
   const { user } = useAuth()
   const queryClient = useQueryClient()
 
-  const [showModal, setShowModal]   = useState(false)
-  const [editBon, setEditBon]       = useState(null)
-  const [viewBon, setViewBon]       = useState(null)
-  const [deletingId, setDeletingId] = useState(null)
-  const [configModal, setConfigModal] = useState(null) // 'produse' | 'dimensiuni' | 'culori'
+  const [activeTab, setActiveTab]     = useState('bonuri') // 'bonuri' | 'clienti'
+  const [showModal, setShowModal]     = useState(false)
+  const [editBon, setEditBon]         = useState(null)
+  const [viewBon, setViewBon]         = useState(null)
+  const [deletingId, setDeletingId]   = useState(null)
+  const [configModal, setConfigModal] = useState(null)
 
   // ── Opțiuni predefinite ───────────────────────────────────
   const { data: produseOpt = [], refetch: refetchProduse } = useQuery({
     queryKey: ['pc_produse_opt'],
     queryFn: async () => {
       const { data, error } = await supabase.from('pernador_clean_produse_opt').select('*').order('pozitie').order('nume')
-      if (error) throw error
-      return data
+      if (error) throw error; return data
     },
   })
   const { data: dimensiuniOpt = [], refetch: refetchDimensiuni } = useQuery({
     queryKey: ['pc_dimensiuni'],
     queryFn: async () => {
       const { data, error } = await supabase.from('pernador_clean_dimensiuni').select('*').order('pozitie').order('nume')
-      if (error) throw error
-      return data
+      if (error) throw error; return data
     },
   })
   const { data: culoriOpt = [], refetch: refetchCulori } = useQuery({
     queryKey: ['pc_culori'],
     queryFn: async () => {
       const { data, error } = await supabase.from('pernador_clean_culori').select('*').order('pozitie').order('nume')
-      if (error) throw error
-      return data
+      if (error) throw error; return data
     },
   })
 
@@ -609,33 +716,34 @@ export default function PernadorClean() {
     culori:     { label: 'Culori',     table: 'pernador_clean_culori',      items: culoriOpt,     refetch: refetchCulori },
   }
 
+  // ── Bonuri ────────────────────────────────────────────────
   const { data: bonuri = [], isLoading } = useQuery({
     queryKey: ['pernador_clean'],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('pernador_clean')
-        .select('*')
-        .order('created_at', { ascending: false })
-      if (error) throw error
-      return data
+      const { data, error } = await supabase.from('pernador_clean').select('*').order('created_at', { ascending: false })
+      if (error) throw error; return data
+    },
+  })
+
+  // ── Clienți ───────────────────────────────────────────────
+  const { data: clienti = [], isLoading: clientiLoading } = useQuery({
+    queryKey: ['pernador_clean_clienti'],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('pernador_clean_clienti').select('*').order('nume')
+      if (error) throw error; return data
     },
   })
 
   // Move status
   const moveStatus = useMutation({
     mutationFn: async ({ id, newStatus }) => {
-      const { error } = await supabase
-        .from('pernador_clean')
-        .update({ status: newStatus })
-        .eq('id', id)
+      const { error } = await supabase.from('pernador_clean').update({ status: newStatus }).eq('id', id)
       if (error) throw error
     },
     onMutate: async ({ id, newStatus }) => {
       await queryClient.cancelQueries({ queryKey: ['pernador_clean'] })
       const prev = queryClient.getQueryData(['pernador_clean'])
-      queryClient.setQueryData(['pernador_clean'], (old = []) =>
-        old.map(b => b.id === id ? { ...b, status: newStatus } : b)
-      )
+      queryClient.setQueryData(['pernador_clean'], (old = []) => old.map(b => b.id === id ? { ...b, status: newStatus } : b))
       return { prev }
     },
     onError: (_, __, ctx) => queryClient.setQueryData(['pernador_clean'], ctx.prev),
@@ -650,10 +758,16 @@ export default function PernadorClean() {
     queryClient.invalidateQueries({ queryKey: ['pernador_clean'] })
   }
 
+  const handleToggleNewsletter = async (client) => {
+    await supabase.from('pernador_clean_clienti').update({ newsletter: !client.newsletter }).eq('id', client.id)
+    queryClient.invalidateQueries({ queryKey: ['pernador_clean_clienti'] })
+  }
+
   const counts = STATUSES.reduce((acc, s) => {
     acc[s.key] = bonuri.filter(b => b.status === s.key).length
     return acc
   }, {})
+  const newsletterCount = clienti.filter(c => c.newsletter).length
 
   if (isLoading) return (
     <div className="flex items-center justify-center h-64">
@@ -671,7 +785,7 @@ export default function PernadorClean() {
       </div>
 
       {/* Carduri sumar */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
         {STATUSES.map(s => (
           <div key={s.key} className="bg-white rounded-xl border border-gray-200 p-4 flex items-center gap-3">
             <div className={`w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 ${s.badge}`}>
@@ -683,124 +797,125 @@ export default function PernadorClean() {
             </div>
           </div>
         ))}
-      </div>
-
-      {/* Butoane acțiuni */}
-      <div className="flex items-center justify-between gap-3">
-        {/* Settings dropdown */}
-        <div className="flex gap-2 flex-wrap">
-          {['produse', 'dimensiuni', 'culori'].map(key => (
-            <button
-              key={key}
-              onClick={() => setConfigModal(key)}
-              className="flex items-center gap-1.5 px-3 py-2 border border-gray-300 text-gray-600 rounded-lg hover:bg-gray-50 text-sm font-medium transition-colors"
-            >
-              <Settings className="w-3.5 h-3.5" />
-              {CONFIG_MAP[key].label}
-            </button>
-          ))}
+        <div className="bg-white rounded-xl border border-violet-200 p-4 flex items-center gap-3">
+          <div className="w-9 h-9 rounded-full bg-violet-100 flex items-center justify-center flex-shrink-0">
+            <Bell className="w-4 h-4 text-violet-600" />
+          </div>
+          <div>
+            <p className="text-xs text-gray-400 uppercase tracking-wide">Newsletter</p>
+            <p className="text-xl font-bold text-violet-700">{newsletterCount}</p>
+          </div>
         </div>
-        <button
-          onClick={() => setShowModal(true)}
-          className="btn-primary flex items-center gap-2"
-        >
-          <Plus className="w-4 h-4" />
-          Bon nou
-        </button>
       </div>
 
-      {/* Kanban */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-        {STATUSES.map((status, si) => {
-          const cards = bonuri.filter(b => b.status === status.key)
-          const prevStatus = si > 0 ? STATUSES[si - 1].key : null
-          const nextStatus = si < STATUSES.length - 1 ? STATUSES[si + 1].key : null
+      {/* Tab-uri + Acțiuni */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex gap-1 bg-gray-100 rounded-xl p-1 overflow-x-auto">
+          <button onClick={() => setActiveTab('bonuri')}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${
+              activeTab === 'bonuri' ? 'bg-white shadow text-gray-900' : 'text-gray-500 hover:text-gray-700'
+            }`}>
+            <LayoutGrid className="w-4 h-4" /> Bonuri
+            <span className="bg-gray-200 text-gray-600 text-xs px-1.5 py-0.5 rounded-full">{bonuri.length}</span>
+          </button>
+          <button onClick={() => setActiveTab('clienti')}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${
+              activeTab === 'clienti' ? 'bg-white shadow text-gray-900' : 'text-gray-500 hover:text-gray-700'
+            }`}>
+            <Users className="w-4 h-4" /> Clienți
+            <span className="bg-gray-200 text-gray-600 text-xs px-1.5 py-0.5 rounded-full">{clienti.length}</span>
+          </button>
+        </div>
 
-          return (
-            <div key={status.key} className={`rounded-xl border ${status.header} flex flex-col`}>
-              {/* Header coloană */}
-              <div className="px-4 py-3 flex items-center gap-2 border-b border-current border-opacity-10">
-                <div className={`w-2.5 h-2.5 rounded-full ${status.dot}`} />
-                <span className="font-semibold text-sm text-gray-800">{status.label}</span>
-                <span className={`ml-auto text-xs font-bold px-2 py-0.5 rounded-full ${status.badge}`}>
-                  {cards.length}
-                </span>
-              </div>
-
-              {/* Cards */}
-              <div className="flex-1 p-2 space-y-2 min-h-[120px]">
-                {cards.length === 0 && (
-                  <div className="flex items-center justify-center h-20 text-xs text-gray-300 italic">
-                    Niciun bon
-                  </div>
-                )}
-                {cards.map(bon => (
-                  <BonCard
-                    key={bon.id}
-                    bon={bon}
-                    prevStatus={prevStatus}
-                    nextStatus={nextStatus}
-                    onMove={(id, s) => moveStatus.mutate({ id, newStatus: s })}
-                    onView={() => setViewBon(bon)}
-                    onDelete={() => handleDelete(bon.id)}
-                    deleting={deletingId === bon.id}
-                  />
-                ))}
-              </div>
-            </div>
-          )
-        })}
+        <div className="flex items-center gap-2 flex-wrap">
+          {activeTab === 'bonuri' && (
+            <>
+              {['produse', 'dimensiuni', 'culori'].map(key => (
+                <button key={key} onClick={() => setConfigModal(key)}
+                  className="flex items-center gap-1.5 px-3 py-2 border border-gray-300 text-gray-600 rounded-lg hover:bg-gray-50 text-sm font-medium transition-colors">
+                  <Settings className="w-3.5 h-3.5" />
+                  {CONFIG_MAP[key].label}
+                </button>
+              ))}
+              <button onClick={() => setShowModal(true)} className="btn-primary flex items-center gap-2">
+                <Plus className="w-4 h-4" /> Bon nou
+              </button>
+            </>
+          )}
+        </div>
       </div>
 
-      {/* Modal adăugare */}
+      {/* Content */}
+      {activeTab === 'bonuri' && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+          {STATUSES.map((status, si) => {
+            const cards = bonuri.filter(b => b.status === status.key)
+            const prevStatus = si > 0 ? STATUSES[si - 1].key : null
+            const nextStatus = si < STATUSES.length - 1 ? STATUSES[si + 1].key : null
+            return (
+              <div key={status.key} className={`rounded-xl border ${status.header} flex flex-col`}>
+                <div className="px-4 py-3 flex items-center gap-2">
+                  <div className={`w-2.5 h-2.5 rounded-full ${status.dot}`} />
+                  <span className="font-semibold text-sm text-gray-800">{status.label}</span>
+                  <span className={`ml-auto text-xs font-bold px-2 py-0.5 rounded-full ${status.badge}`}>{cards.length}</span>
+                </div>
+                <div className="flex-1 p-2 space-y-2 min-h-[120px]">
+                  {cards.length === 0 && (
+                    <div className="flex items-center justify-center h-20 text-xs text-gray-300 italic">Niciun bon</div>
+                  )}
+                  {cards.map(bon => (
+                    <BonCard key={bon.id} bon={bon}
+                      prevStatus={prevStatus} nextStatus={nextStatus}
+                      onMove={(id, s) => moveStatus.mutate({ id, newStatus: s })}
+                      onView={() => setViewBon(bon)}
+                      onDelete={() => handleDelete(bon.id)}
+                      deleting={deletingId === bon.id} />
+                  ))}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
+
+      {activeTab === 'clienti' && (
+        <ClientiTab
+          clienti={clienti}
+          bonuri={bonuri}
+          isLoading={clientiLoading}
+          onToggleNewsletter={handleToggleNewsletter}
+        />
+      )}
+
+      {/* Modale */}
       {showModal && (
-        <BonModal
-          userId={user?.id}
-          produseOpt={produseOpt}
-          dimensiuniOpt={dimensiuniOpt}
-          culoriOpt={culoriOpt}
+        <BonModal userId={user?.id} clienti={clienti}
+          produseOpt={produseOpt} dimensiuniOpt={dimensiuniOpt} culoriOpt={culoriOpt}
           onClose={() => setShowModal(false)}
           onSaved={() => {
             setShowModal(false)
             queryClient.invalidateQueries({ queryKey: ['pernador_clean'] })
-          }}
-        />
+            queryClient.invalidateQueries({ queryKey: ['pernador_clean_clienti'] })
+          }} />
       )}
-
-      {/* Modal editare */}
       {editBon && (
-        <BonModal
-          userId={user?.id}
-          initialData={editBon}
-          produseOpt={produseOpt}
-          dimensiuniOpt={dimensiuniOpt}
-          culoriOpt={culoriOpt}
+        <BonModal userId={user?.id} initialData={editBon} clienti={clienti}
+          produseOpt={produseOpt} dimensiuniOpt={dimensiuniOpt} culoriOpt={culoriOpt}
           onClose={() => setEditBon(null)}
           onSaved={() => {
             setEditBon(null)
             queryClient.invalidateQueries({ queryKey: ['pernador_clean'] })
-          }}
-        />
+            queryClient.invalidateQueries({ queryKey: ['pernador_clean_clienti'] })
+          }} />
       )}
-
-      {/* Config modal */}
-      {configModal && CONFIG_MAP[configModal] && (
-        <LookupConfigModal
-          label={CONFIG_MAP[configModal].label}
-          table={CONFIG_MAP[configModal].table}
-          items={CONFIG_MAP[configModal].items}
-          onClose={() => setConfigModal(null)}
-          onRefresh={CONFIG_MAP[configModal].refetch}
-        />
-      )}
-
-      {/* Modal view */}
       {viewBon && (
-        <ViewBonModal
-          bon={viewBon}
-          onClose={() => setViewBon(null)}
-          onEdit={() => { setEditBon(viewBon); setViewBon(null) }}
-        />
+        <ViewBonModal bon={viewBon} onClose={() => setViewBon(null)}
+          onEdit={() => { setEditBon(viewBon); setViewBon(null) }} />
+      )}
+      {configModal && CONFIG_MAP[configModal] && (
+        <LookupConfigModal label={CONFIG_MAP[configModal].label} table={CONFIG_MAP[configModal].table}
+          items={CONFIG_MAP[configModal].items} onClose={() => setConfigModal(null)}
+          onRefresh={CONFIG_MAP[configModal].refetch} />
       )}
     </div>
   )
