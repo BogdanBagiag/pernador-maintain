@@ -56,9 +56,10 @@ export default function Retururi() {
   const [showAddModal,    setShowAddModal]    = useState(false)
   const [showSursaConfig, setShowSursaConfig] = useState(false)
   const [deletingId,  setDeletingId]  = useState(null)
-  const [platesteRow, setPlatesteRow] = useState(null)
-  const [editingRow,  setEditingRow]  = useState(null)
-  const [viewRow,     setViewRow]     = useState(null)
+  const [platesteRow,    setPlatesteRow]    = useState(null)
+  const [receptieRow,    setReceptieRow]    = useState(null)
+  const [editingRow,     setEditingRow]     = useState(null)
+  const [viewRow,        setViewRow]        = useState(null)
 
   // ── Queries ───────────────────────────────────────────────
   const { from, to } = getDateRange(filterType, customFrom, customTo)
@@ -206,6 +207,19 @@ export default function Retururi() {
 
     await logActivity('Retur editat', detalii, id)
     return true
+  }
+
+  // ── Marcare recepționat ───────────────────────────────────
+  const handleConfirmReceptie = async (id, dataReceptie) => {
+    const { error } = await supabase
+      .from('retururi')
+      .update({ data_receptie: dataReceptie })
+      .eq('id', id)
+    if (error) { alert(error.message); return }
+    queryClient.invalidateQueries({ queryKey: ['retururi'] })
+    setReceptieRow(null)
+    const row = rows.find(r => r.id === id)
+    await logActivity('Produse recepționate', row?.nume_client ? `Client: ${row.nume_client}, Data: ${dataReceptie}` : `Data: ${dataReceptie}`, id)
   }
 
   // ── Marcare plătit ────────────────────────────────────────
@@ -401,6 +415,7 @@ export default function Retururi() {
                   <th className="px-3 py-3 text-left   text-xs font-semibold text-gray-500 uppercase tracking-wide">Sursă</th>
                   <th className="px-3 py-3 text-left   text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">Data Comenzii</th>
                   <th className="px-3 py-3 text-left   text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">Data Cererii</th>
+                  <th className="px-3 py-3 text-left   text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">Data Recepție</th>
                   <th className="px-3 py-3 text-left   text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">Data Plată</th>
                   <th className="px-3 py-3 text-left   text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">Nume Client</th>
                   <th className="px-3 py-3 text-left   text-xs font-semibold text-gray-500 uppercase tracking-wide">Telefon</th>
@@ -423,6 +438,7 @@ export default function Retururi() {
                 ) : pagedWithNr.map((row) => {
                   const valoare = parseFloat(row.valoare) || 0
                   const achitat = !!row.data_plata
+                  const receptionat = !!row.data_receptie
                   return (
                     <tr key={row.id}
                       className={`border-b transition-colors ${
@@ -444,6 +460,11 @@ export default function Retururi() {
                         {row.data_cerere ? format(new Date(row.data_cerere + 'T00:00:00'), 'dd.MM.yyyy') : <span className="text-gray-300">—</span>}
                       </td>
                       <td className="px-3 py-3 whitespace-nowrap text-xs">
+                        {row.data_receptie
+                          ? <span className="text-blue-600 font-medium">{format(new Date(row.data_receptie + 'T00:00:00'), 'dd.MM.yyyy')}</span>
+                          : <span className="text-gray-300">—</span>}
+                      </td>
+                      <td className="px-3 py-3 whitespace-nowrap text-xs">
                         {row.data_plata
                           ? <span className="text-emerald-600 font-medium">{format(new Date(row.data_plata + 'T00:00:00'), 'dd.MM.yyyy')}</span>
                           : <span className="inline-flex items-center gap-1 text-amber-500 font-medium"><Clock className="w-3 h-3" />Neachitat</span>}
@@ -460,40 +481,53 @@ export default function Retururi() {
                       <td className="px-3 py-3 text-gray-600 text-xs max-w-[180px] truncate" title={row.motiv}>{row.motiv || '—'}</td>
                       <td className="px-3 py-3 text-gray-600 text-xs whitespace-nowrap">{row.responsabil?.full_name || '—'}</td>
                       <td className="px-2 py-3">
-                        <div className="flex items-center justify-center gap-1">
-                          <button
-                            onClick={() => setViewRow(row)}
+                        <div className="flex items-center justify-center gap-1 flex-wrap">
+                          {/* View */}
+                          <button onClick={() => setViewRow(row)}
                             className="p-1 text-gray-300 hover:text-primary-500 hover:bg-primary-50 rounded-lg transition-colors"
-                            title="Vezi detalii"
-                          >
+                            title="Vezi detalii">
                             <Eye className="w-3.5 h-3.5" />
                           </button>
-                          {/* Buton Plătește — doar pentru rânduri neachitate */}
-                          {pEdit && !row.data_plata && (
+                          {/* Receptionat — doar dacă nu e deja recepționat și nu e plătit */}
+                          {pEdit && !receptionat && !achitat && (
                             <button
-                              onClick={() => setPlatesteRow(row)}
-                              className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg hover:bg-emerald-100 transition-colors whitespace-nowrap"
-                              title="Marchează ca plătit"
+                              onClick={() => setReceptieRow(row)}
+                              className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 transition-colors whitespace-nowrap"
+                              title="Marchează ca recepționat"
+                            >
+                              <Package className="w-3.5 h-3.5" />
+                              Recepționat
+                            </button>
+                          )}
+                          {/* Plătește — activ doar după recepție */}
+                          {pEdit && !achitat && (
+                            <button
+                              onClick={() => receptionat && setPlatesteRow(row)}
+                              disabled={!receptionat}
+                              className={`flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-lg border transition-colors whitespace-nowrap ${
+                                receptionat
+                                  ? 'text-emerald-700 bg-emerald-50 border-emerald-200 hover:bg-emerald-100 cursor-pointer'
+                                  : 'text-gray-400 bg-gray-50 border-gray-200 cursor-not-allowed opacity-50'
+                              }`}
+                              title={receptionat ? 'Marchează ca plătit' : 'Necesită recepție înainte de plată'}
                             >
                               <Banknote className="w-3.5 h-3.5" />
                               Plătește
                             </button>
                           )}
-                          {/* Buton Editare */}
+                          {/* Editare */}
                           {pEdit && (
                             <button onClick={() => setEditingRow(row)}
                               className="p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                              title="Editează"
-                            >
+                              title="Editează">
                               <Pencil className="w-3.5 h-3.5" />
                             </button>
                           )}
-                          {/* Buton Șterge */}
+                          {/* Șterge */}
                           {pDelete && (
                             <button onClick={() => handleDelete(row.id)} disabled={deletingId === row.id}
                               className="p-1 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-                              title="Șterge"
-                            >
+                              title="Șterge">
                               {deletingId === row.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
                             </button>
                           )}
@@ -506,7 +540,7 @@ export default function Retururi() {
                 {/* Total perioadă */}
                 {rows.length > 0 && (
                   <tr className="bg-gray-100 border-t-2 border-gray-300 font-semibold">
-                    <td colSpan={8} className="px-3 py-3 text-right text-xs uppercase tracking-wide text-gray-500">
+                    <td colSpan={9} className="px-3 py-3 text-right text-xs uppercase tracking-wide text-gray-500">
                       TOTAL PERIOADĂ
                     </td>
                     <td className="px-3 py-3 text-right font-bold text-red-500 font-mono">
@@ -682,6 +716,15 @@ export default function Retururi() {
           profiles={profiles}
           onClose={() => setEditingRow(null)}
           onSaved={handleUpdate}
+        />
+      )}
+
+      {/* ── Modal Recepție ── */}
+      {receptieRow && (
+        <ReceptieModal
+          row={receptieRow}
+          onClose={() => setReceptieRow(null)}
+          onConfirm={handleConfirmReceptie}
         />
       )}
 
@@ -939,6 +982,80 @@ function ViewReturModal({ row, onClose }) {
 }
 
 // ─── Modal Plătește ──────────────────────────────────────────────────────────
+// ── Modal Recepție ────────────────────────────────────────────────────────────
+function ReceptieModal({ row, onClose, onConfirm }) {
+  const [dataReceptie, setDataReceptie] = useState(format(new Date(), 'yyyy-MM-dd'))
+  const [saving, setSaving] = useState(false)
+
+  const handleConfirm = async () => {
+    if (!dataReceptie) return
+    setSaving(true)
+    await onConfirm(row.id, dataReceptie)
+    setSaving(false)
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-sm">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-blue-50 rounded-lg">
+              <Package className="w-5 h-5 text-blue-600" />
+            </div>
+            <div>
+              <h2 className="text-lg font-semibold text-gray-900">Confirmă recepția</h2>
+              {row.nume_client && <p className="text-xs text-gray-500">{row.nume_client}</p>}
+            </div>
+          </div>
+          <button onClick={onClose} className="p-2 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        <div className="px-6 py-5 space-y-4">
+          <p className="text-sm text-gray-600">
+            Confirmă că produsele au fost primite fizic. După recepție, butonul <strong>Plătește</strong> va deveni activ.
+          </p>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Data recepției</label>
+            <input
+              type="date"
+              value={dataReceptie}
+              onChange={e => setDataReceptie(e.target.value)}
+              className="border border-gray-300 rounded-lg px-3 py-2 text-sm w-full outline-none focus:ring-2 focus:ring-blue-400"
+            />
+          </div>
+
+          {row.sursa && (
+            <div className="bg-gray-50 rounded-lg px-4 py-3 flex justify-between text-sm">
+              <span className="text-gray-500">Sursă</span>
+              <span className="font-medium text-purple-700">{row.sursa}</span>
+            </div>
+          )}
+          {row.valoare && (
+            <div className="bg-gray-50 rounded-lg px-4 py-3 flex justify-between text-sm">
+              <span className="text-gray-500">Valoare retur</span>
+              <span className="font-semibold text-red-500">{parseFloat(row.valoare).toLocaleString('ro-RO', { minimumFractionDigits: 2 })} Lei</span>
+            </div>
+          )}
+        </div>
+
+        <div className="flex gap-3 px-6 pb-6">
+          <button onClick={onClose} className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 text-sm font-medium">
+            Anulează
+          </button>
+          <button onClick={handleConfirm} disabled={saving || !dataReceptie}
+            className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 text-sm font-medium flex items-center justify-center gap-2">
+            {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Package className="w-4 h-4" />}
+            Confirmă recepția
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function PlatesteModal({ row, onClose, onConfirm }) {
   const [dataPlata, setDataPlata] = useState(format(new Date(), 'yyyy-MM-dd'))
   const [saving,    setSaving]    = useState(false)
