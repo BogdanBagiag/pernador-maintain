@@ -17,7 +17,7 @@ import { useRealtimeNotifications } from '../hooks/useRealtimeNotifications'
 const STANDALONE = [
   { name: 'Dashboard',       href: '/dashboard',      icon: LayoutDashboard },
   { name: 'To Do',           href: '/todo',            icon: LayoutGrid,  moduleKey: 'todo' },
-  { name: 'Pernador Clean',  href: '/pernador-clean',  icon: Sparkles },
+  { name: 'Pernador Clean',  href: '/pernador-clean',  icon: Sparkles, moduleKey: 'pernador_clean' },
 ]
 
 const GROUPS = [

@@ -19,6 +19,7 @@ export const MODULES = [
   { key: 'retururi',          label: 'Retururi',               href: '/retururi',          hasDelete: true  },
   { key: 'reclamatii',        label: 'Reclamații',             href: '/reclamatii',        hasDelete: true  },
   { key: 'comenzi',           label: 'Comenzi',                href: '/comenzi',           hasDelete: true  },
+  { key: 'pernador_clean',   label: 'Pernador Clean',         href: '/pernador-clean',    hasDelete: true  },
 ]
 
 const PermissionsContext = createContext({})
