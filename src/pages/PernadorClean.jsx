@@ -128,7 +128,7 @@ function LookupConfigModal({ label, table, items, onClose, onRefresh }) {
     setSaving(true); setError('')
     const { error: err } = await supabase.from(table).insert({ nume: newNume.trim(), pozitie: items.length })
     setSaving(false)
-    if (err) { setError('Eroare la salvare.'); return }
+    if (err) { setError(err.message || 'Eroare la salvare.'); return }
     setNewNume(''); onRefresh()
   }
 
