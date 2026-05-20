@@ -6,8 +6,8 @@ import { format } from 'date-fns'
 import {
   Plus, X, Trash2, Loader2, Sparkles,
   User, Phone, Eye, ChevronRight, ChevronLeft,
-  Package, Check, Pencil, Settings, Mail, Users,
-  LayoutGrid, Bell, BellOff,
+  Package, Check, Pencil, Settings, Users,
+  LayoutGrid, Bell, BellOff, Printer,
 } from 'lucide-react'
 
 // ─── Configurare statusuri ────────────────────────────────────────────────────
@@ -24,7 +24,7 @@ const emptyProdus = () => ({
 })
 
 // ─── Card kanban ──────────────────────────────────────────────────────────────
-function BonCard({ bon, prevStatus, nextStatus, onMove, onView, onDelete, deleting }) {
+function BonCard({ bon, prevStatus, nextStatus, onMove, onView, onDelete, onPrint, deleting }) {
   const [pendingMove, setPendingMove] = useState(null)
 
   return (
@@ -53,8 +53,11 @@ function BonCard({ bon, prevStatus, nextStatus, onMove, onView, onDelete, deleti
               <ChevronRight className="w-3.5 h-3.5" />
             </button>
           )}
-          <button onClick={onView} className="p-1 rounded hover:bg-blue-50 text-gray-400 hover:text-blue-600">
+          <button onClick={onView} className="p-1 rounded hover:bg-blue-50 text-gray-400 hover:text-blue-600" title="Vizualizează">
             <Eye className="w-3.5 h-3.5" />
+          </button>
+          <button onClick={onPrint} className="p-1 rounded hover:bg-amber-50 text-gray-400 hover:text-amber-600" title="Printează bon">
+            <Printer className="w-3.5 h-3.5" />
           </button>
           <button onClick={onDelete} disabled={deleting}
             className="p-1 rounded hover:bg-red-50 text-gray-400 hover:text-red-500">
@@ -496,8 +499,188 @@ function BonModal({ onClose, onSaved, userId, initialData = null, clienti = [], 
   )
 }
 
+// ─── Print bon A5 ────────────────────────────────────────────────────────────
+function PrintBonModal({ bon, onClose }) {
+  const handlePrint = () => window.print()
+
+  const produseFilled = (bon.produse || []).filter(p => p.produs || p.cantitate > 1)
+
+  return (
+    <>
+      {/* Stiluri print */}
+      <style>{`
+        @media print {
+          body > * { display: none !important; }
+          #print-bon-area { display: block !important; }
+          @page { size: A5 portrait; margin: 8mm; }
+        }
+        #print-bon-area { display: none; }
+      `}</style>
+
+      {/* Zona de print (ascunsă normal, vizibilă la print) */}
+      <div id="print-bon-area">
+        <div style={{ fontFamily: 'Arial, sans-serif', fontSize: '11pt', color: '#111' }}>
+          {/* Header */}
+          <div style={{ borderBottom: '2px solid #111', paddingBottom: '6px', marginBottom: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
+            <div>
+              <div style={{ fontSize: '16pt', fontWeight: 'bold', letterSpacing: '1px' }}>✨ Pernador Clean</div>
+              <div style={{ fontSize: '9pt', color: '#555', marginTop: '2px' }}>Servicii curățătorie perne și pilote</div>
+            </div>
+            <div style={{ textAlign: 'right' }}>
+              <div style={{ fontSize: '20pt', fontWeight: 'bold', color: '#1d4ed8' }}>#{bon.nr_bon}</div>
+              <div style={{ fontSize: '8pt', color: '#555' }}>
+                {bon.created_at ? format(new Date(bon.created_at), 'dd.MM.yyyy HH:mm') : '—'}
+              </div>
+            </div>
+          </div>
+
+          {/* Client */}
+          <div style={{ marginBottom: '10px', background: '#f8f8f8', border: '1px solid #ddd', borderRadius: '6px', padding: '8px 12px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
+              <div>
+                <div style={{ fontSize: '7pt', color: '#888', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Nume client</div>
+                <div style={{ fontWeight: 'bold', fontSize: '12pt' }}>{bon.nume || '—'}</div>
+              </div>
+              <div>
+                <div style={{ fontSize: '7pt', color: '#888', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Telefon</div>
+                <div style={{ fontWeight: 'bold', fontSize: '12pt' }}>{bon.telefon || '—'}</div>
+              </div>
+            </div>
+          </div>
+
+          {/* Produse */}
+          <div style={{ marginBottom: '10px' }}>
+            <div style={{ fontSize: '8pt', color: '#888', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '4px' }}>Produse</div>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '10pt' }}>
+              <thead>
+                <tr style={{ background: '#f0f0f0', borderBottom: '1px solid #ccc' }}>
+                  <th style={{ textAlign: 'left', padding: '4px 6px', fontSize: '8pt', fontWeight: '600' }}>Produs</th>
+                  <th style={{ textAlign: 'center', padding: '4px 6px', fontSize: '8pt', fontWeight: '600', width: '40px' }}>Cant.</th>
+                  <th style={{ textAlign: 'left', padding: '4px 6px', fontSize: '8pt', fontWeight: '600' }}>Dimensiune</th>
+                  <th style={{ textAlign: 'left', padding: '4px 6px', fontSize: '8pt', fontWeight: '600' }}>Culoare</th>
+                  <th style={{ textAlign: 'center', padding: '4px 6px', fontSize: '8pt', fontWeight: '600', width: '30px' }}>✂️</th>
+                </tr>
+              </thead>
+              <tbody>
+                {produseFilled.length > 0 ? produseFilled.map((p, i) => (
+                  <tr key={i} style={{ borderBottom: '1px solid #eee' }}>
+                    <td style={{ padding: '5px 6px', fontWeight: '500' }}>{p.produs || '—'}</td>
+                    <td style={{ padding: '5px 6px', textAlign: 'center' }}>{p.cantitate}</td>
+                    <td style={{ padding: '5px 6px' }}>{p.dimensiune || '—'}</td>
+                    <td style={{ padding: '5px 6px' }}>{p.culoare || '—'}</td>
+                    <td style={{ padding: '5px 6px', textAlign: 'center' }}>{p.modificare_dimensiuni ? '✓' : ''}</td>
+                  </tr>
+                )) : (
+                  <tr><td colSpan={5} style={{ padding: '8px 6px', color: '#aaa', fontStyle: 'italic', textAlign: 'center' }}>Niciun produs</td></tr>
+                )}
+                {/* Rânduri goale extra pentru completare manuală */}
+                {Array.from({ length: Math.max(0, 4 - produseFilled.length) }).map((_, i) => (
+                  <tr key={`empty-${i}`} style={{ borderBottom: '1px solid #eee' }}>
+                    <td style={{ padding: '8px 6px' }}>&nbsp;</td>
+                    <td style={{ padding: '8px 6px' }}></td>
+                    <td style={{ padding: '8px 6px' }}></td>
+                    <td style={{ padding: '8px 6px' }}></td>
+                    <td style={{ padding: '8px 6px' }}></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Observații */}
+          {bon.observatii && (
+            <div style={{ marginBottom: '10px', border: '1px solid #ddd', borderRadius: '4px', padding: '6px 10px' }}>
+              <div style={{ fontSize: '7pt', color: '#888', textTransform: 'uppercase', marginBottom: '2px' }}>Observații</div>
+              <div style={{ fontSize: '10pt' }}>{bon.observatii}</div>
+            </div>
+          )}
+
+          {/* Date status */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '12px', fontSize: '9pt' }}>
+            <div style={{ border: '1px solid #ddd', borderRadius: '4px', padding: '6px 10px' }}>
+              <div style={{ color: '#888', fontSize: '7pt', textTransform: 'uppercase' }}>Data aducerii</div>
+              <div style={{ fontWeight: '600' }}>{bon.created_at ? format(new Date(bon.created_at), 'dd.MM.yyyy') : '—'}</div>
+            </div>
+            <div style={{ border: '1px solid #ddd', borderRadius: '4px', padding: '6px 10px' }}>
+              <div style={{ color: '#888', fontSize: '7pt', textTransform: 'uppercase' }}>Data ridicării</div>
+              <div style={{ fontWeight: '600', color: bon.data_gata ? '#16a34a' : '#aaa' }}>
+                {bon.data_gata ? format(new Date(bon.data_gata), 'dd.MM.yyyy') : '...............'}
+              </div>
+            </div>
+          </div>
+
+          {/* Semnături */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginTop: '8px' }}>
+            <div style={{ borderTop: '1px solid #111', paddingTop: '4px', fontSize: '8pt', color: '#555', textAlign: 'center' }}>
+              Semnătură client
+            </div>
+            <div style={{ borderTop: '1px solid #111', paddingTop: '4px', fontSize: '8pt', color: '#555', textAlign: 'center' }}>
+              Semnătură operator
+            </div>
+          </div>
+
+          {/* Footer */}
+          <div style={{ marginTop: '10px', borderTop: '1px solid #eee', paddingTop: '4px', fontSize: '7pt', color: '#aaa', textAlign: 'center' }}>
+            Pernador Clean · Bon #{bon.nr_bon} · {bon.created_at ? format(new Date(bon.created_at), 'dd.MM.yyyy') : ''}
+          </div>
+        </div>
+      </div>
+
+      {/* UI Modal preview */}
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
+        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md flex flex-col">
+          <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+            <div className="flex items-center gap-2">
+              <Printer className="w-5 h-5 text-primary-600" />
+              <h2 className="text-lg font-bold text-gray-900">Printează bon #{bon.nr_bon}</h2>
+            </div>
+            <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><X className="w-5 h-5" /></button>
+          </div>
+
+          <div className="px-6 py-5 space-y-3">
+            <p className="text-sm text-gray-600">
+              Bonul va fi tipărit în format <strong>A5</strong> cu toate detaliile clientului și produsele.
+            </p>
+            <div className="bg-gray-50 rounded-xl border border-gray-200 p-4 space-y-2 text-sm">
+              <div className="flex justify-between">
+                <span className="text-gray-500">Client</span>
+                <span className="font-medium">{bon.nume}</span>
+              </div>
+              {bon.telefon && (
+                <div className="flex justify-between">
+                  <span className="text-gray-500">Telefon</span>
+                  <span className="font-medium">{bon.telefon}</span>
+                </div>
+              )}
+              <div className="flex justify-between">
+                <span className="text-gray-500">Produse</span>
+                <span className="font-medium">{produseFilled.length} articole</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-500">Data</span>
+                <span className="font-medium">{bon.created_at ? format(new Date(bon.created_at), 'dd.MM.yyyy') : '—'}</span>
+              </div>
+            </div>
+            <p className="text-xs text-gray-400">
+              Se vor include și rânduri goale pentru completare manuală, plus linii de semnătură.
+            </p>
+          </div>
+
+          <div className="px-6 py-4 border-t border-gray-100 flex justify-end gap-3">
+            <button onClick={onClose} className="btn-secondary">Anulează</button>
+            <button onClick={handlePrint} className="btn-primary flex items-center gap-2">
+              <Printer className="w-4 h-4" />
+              Printează A5
+            </button>
+          </div>
+        </div>
+      </div>
+    </>
+  )
+}
+
 // ─── Modal view bon ───────────────────────────────────────────────────────────
-function ViewBonModal({ bon, onClose, onEdit }) {
+function ViewBonModal({ bon, onClose, onEdit, onPrint }) {
   const st = STATUS_MAP[bon.status] || {}
 
   useEffect(() => {
@@ -516,7 +699,8 @@ function ViewBonModal({ bon, onClose, onEdit }) {
             <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${st.badge}`}>{st.emoji} {st.label}</span>
           </div>
           <div className="flex items-center gap-2">
-            {onEdit && <button onClick={onEdit} className="text-gray-400 hover:text-primary-600"><Pencil className="w-4 h-4" /></button>}
+            {onEdit && <button onClick={onEdit} className="text-gray-400 hover:text-primary-600" title="Editează"><Pencil className="w-4 h-4" /></button>}
+            {onPrint && <button onClick={onPrint} className="text-gray-400 hover:text-amber-600" title="Printează bon"><Printer className="w-4 h-4" /></button>}
             <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><X className="w-5 h-5" /></button>
           </div>
         </div>
@@ -693,6 +877,7 @@ export default function PernadorClean() {
   const [showModal, setShowModal]     = useState(false)
   const [editBon, setEditBon]         = useState(null)
   const [viewBon, setViewBon]         = useState(null)
+  const [printBon, setPrintBon]       = useState(null)
   const [deletingId, setDeletingId]   = useState(null)
   const [configModal, setConfigModal] = useState(null)
 
@@ -881,6 +1066,7 @@ export default function PernadorClean() {
                       prevStatus={prevStatus} nextStatus={nextStatus}
                       onMove={(id, s) => moveStatus.mutate({ id, newStatus: s })}
                       onView={() => setViewBon(bon)}
+                      onPrint={() => setPrintBon(bon)}
                       onDelete={() => handleDelete(bon.id)}
                       deleting={deletingId === bon.id} />
                   ))}
@@ -923,7 +1109,11 @@ export default function PernadorClean() {
       )}
       {viewBon && (
         <ViewBonModal bon={viewBon} onClose={() => setViewBon(null)}
-          onEdit={() => { setEditBon(viewBon); setViewBon(null) }} />
+          onEdit={() => { setEditBon(viewBon); setViewBon(null) }}
+          onPrint={() => { setPrintBon(viewBon); setViewBon(null) }} />
+      )}
+      {printBon && (
+        <PrintBonModal bon={printBon} onClose={() => setPrintBon(null)} />
       )}
       {configModal && CONFIG_MAP[configModal] && (
         <LookupConfigModal label={CONFIG_MAP[configModal].label} table={CONFIG_MAP[configModal].table}
