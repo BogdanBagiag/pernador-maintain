@@ -183,20 +183,47 @@ export default function KanbanBoard() {
     const dayOfWeek = now.getDay()
     const dayOfMonth = now.getDate()
 
-    const toSpawn = tplList.filter((tpl) => {
-      if (tpl.last_spawned_date === todayStr) return false
-      if (tpl.recurrence_time) {
-        const [h, m] = tpl.recurrence_time.split(':').map(Number)
-        if (now.getHours() < h || (now.getHours() === h && now.getMinutes() < m)) return false
-      }
+    // Helper: verifică dacă template-ul ar trebui să ruleze într-o anumită dată
+    const shouldRunOnDay = (tpl, date) => {
+      const dow = date.getDay()
+      const dom = date.getDate()
       if (tpl.recurrence_type === 'daily') return true
       if (tpl.recurrence_type === 'weekly') {
         const days = Array.isArray(tpl.recurrence_days) && tpl.recurrence_days.length > 0
           ? tpl.recurrence_days
           : (tpl.recurrence_day != null ? [tpl.recurrence_day] : [])
-        return days.includes(dayOfWeek)
+        return days.includes(dow)
       }
-      if (tpl.recurrence_type === 'monthly') return tpl.recurrence_day === dayOfMonth
+      if (tpl.recurrence_type === 'monthly') return tpl.recurrence_day === dom
+      return false
+    }
+
+    const toSpawn = tplList.filter((tpl) => {
+      if (tpl.last_spawned_date === todayStr) return false
+
+      // Verifică dacă trebuie să ruleze azi (cu verificarea orei)
+      const timeOk = !tpl.recurrence_time || (() => {
+        const [h, m] = tpl.recurrence_time.split(':').map(Number)
+        return now.getHours() > h || (now.getHours() === h && now.getMinutes() >= m)
+      })()
+      if (timeOk && shouldRunOnDay(tpl, now)) return true
+
+      // Catch-up: dacă last_spawned_date < ieri, verifică zilele ratate (max 14 zile)
+      if (!tpl.last_spawned_date) return false
+      const lastSpawnedDate = new Date(tpl.last_spawned_date + 'T00:00:00')
+      const todayDate = new Date(todayStr + 'T00:00:00')
+      const daysSince = Math.round((todayDate - lastSpawnedDate) / (1000 * 60 * 60 * 24))
+      if (daysSince <= 1) return false
+
+      // Verifică dacă oricare zi ratată (de la last_spawned+1 până la ieri) e un day match
+      for (let d = 1; d < daysSince; d++) {
+        const missedDate = new Date(todayDate)
+        missedDate.setDate(todayDate.getDate() - d)
+        const missedStr = format(missedDate, 'yyyy-MM-dd')
+        // Sari zilele nelucratoare
+        if (nonWorkingList.some((nd) => nd.date === missedStr)) continue
+        if (shouldRunOnDay(tpl, missedDate)) return true
+      }
       return false
     })
 
