@@ -116,6 +116,7 @@ export default function Layout({ children }) {
 
   // ── Badges navigație ─────────────────────────────────────
   const today = new Date().toISOString().split('T')[0]
+  const in30days = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
 
   const { data: retururiNeachitate = 0 } = useQuery({
     queryKey: ['badge_retururi'],
@@ -152,10 +153,11 @@ export default function Layout({ children }) {
   const { data: vehiclesExpired = 0 } = useQuery({
     queryKey: ['badge_vehicles'],
     queryFn: async () => {
+      // Include expirate SAU care expiră în 30 de zile (warning), la fel ca dashboard-ul
       const [itp, ins, vig] = await Promise.all([
-        supabase.from('vehicle_itp').select('vehicle_id').eq('is_active', true).lt('expiry_date', today),
-        supabase.from('vehicle_insurances').select('vehicle_id').eq('is_active', true).lt('end_date', today),
-        supabase.from('vehicle_vignettes').select('vehicle_id').eq('is_active', true).lt('end_date', today),
+        supabase.from('vehicle_itp').select('vehicle_id').eq('is_active', true).lte('expiry_date', in30days),
+        supabase.from('vehicle_insurances').select('vehicle_id').eq('is_active', true).lte('end_date', in30days),
+        supabase.from('vehicle_vignettes').select('vehicle_id').eq('is_active', true).lte('end_date', in30days),
       ])
       const ids = new Set([
         ...(itp.data  || []).map(r => r.vehicle_id),
