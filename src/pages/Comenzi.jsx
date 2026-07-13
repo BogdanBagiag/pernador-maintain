@@ -493,8 +493,14 @@ function ComandaModal({ comanda, onClose, onSaved, pEdit }) {
         const { error } = await supabase.from('com_comenzi').update(payload).eq('id', comandaId)
         if (error) throw error
       } else {
+        // Noua comanda - seteaza data_livrare cu termenul default
+        const termenDefault = parseInt(localStorage.getItem('com_termen_livrare_default') || '14')
+        const livrareDate = new Date(data + 'T00:00:00')
+        livrareDate.setDate(livrareDate.getDate() + termenDefault)
+        const dataLivrare = livrareDate.toISOString().split('T')[0]
+
         const { data: nd, error } = await supabase.from('com_comenzi')
-          .insert({ ...payload, created_by: user.id, status: 'noi' })
+          .insert({ ...payload, data_livrare: dataLivrare, created_by: user.id, status: 'noi' })
           .select().single()
         if (error) throw error
         comandaId = nd.id
@@ -1723,6 +1729,10 @@ function SetariTab({ pEdit, pDelete }) {
   const [newLabel, setNewLabel] = useState('')
   const [adding, setAdding] = useState(false)
   const [editingId, setEditingId] = useState(null)
+  const [termenDefault, setTermenDefault] = useState(() => {
+    return parseInt(localStorage.getItem('com_termen_livrare_default') || '14')
+  })
+  const [savingTermen, setSavingTermen] = useState(false)
 
   const { data: optiuni = [], isLoading } = useQuery({
     queryKey: ['com_optiuni_all'],
@@ -1765,8 +1775,53 @@ function SetariTab({ pEdit, pDelete }) {
     queryClient.invalidateQueries({ queryKey: ['com_optiuni'] })
   }
 
+  const handleSaveTermen = async () => {
+    if (termenDefault < 1 || termenDefault > 365) {
+      alert('Termenul trebuie să fie între 1 și 365 zile.')
+      return
+    }
+    setSavingTermen(true)
+    localStorage.setItem('com_termen_livrare_default', termenDefault.toString())
+    await new Promise(resolve => setTimeout(resolve, 300))
+    setSavingTermen(false)
+  }
+
   return (
-    <div className="max-w-lg space-y-4">
+    <div className="max-w-lg space-y-6">
+      {/* Termen default de livrare */}
+      {pEdit && (
+        <div className="bg-white rounded-xl border border-gray-200 p-4 space-y-3">
+          <div>
+            <h3 className="text-sm font-semibold text-gray-700">Termen default de livrare</h3>
+            <p className="text-xs text-gray-400 mt-0.5">Numărul de zile prestabilite pentru noile comenzi.</p>
+          </div>
+          <div className="flex gap-2 items-end">
+            <div className="flex-1">
+              <label className="block text-xs text-gray-600 font-medium mb-1">Zile</label>
+              <input
+                type="number"
+                min="1"
+                max="365"
+                value={termenDefault}
+                onChange={e => setTermenDefault(Math.max(1, Math.min(365, parseInt(e.target.value) || 1)))}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary-400"
+              />
+            </div>
+            <button
+              onClick={handleSaveTermen}
+              disabled={savingTermen}
+              className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 text-sm font-medium disabled:opacity-50 flex items-center gap-2"
+            >
+              {savingTermen ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+              Salvează
+            </button>
+          </div>
+          <p className="text-xs text-gray-500 bg-gray-50 rounded px-2 py-1.5">
+            Când creezi o comandă nouă, data de livrare va fi setată automat la <strong>{termenDefault} zile</strong> de la data comenzii.
+          </p>
+        </div>
+      )}
+
       <div>
         <h3 className="text-sm font-semibold text-gray-700">Opțiuni comandă</h3>
         <p className="text-xs text-gray-400 mt-0.5">Bifele care apar la fiecare comandă (ex: etichete, ambalaje).</p>
