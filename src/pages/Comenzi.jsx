@@ -2047,9 +2047,10 @@ function RapoarteTab() {
               let zileClass = 'text-gray-600'
 
               if (c.data && c.data_livrare) {
-                zileTotal = Math.round((new Date(c.data_livrare) - new Date(c.data)) / (1000 * 60 * 60 * 24))
-                const livrareDate = new Date(c.data_livrare)
-                livrareDate.setHours(0, 0, 0, 0)
+                // Parse dates correctly in UTC to avoid timezone issues
+                const dataDate = new Date(c.data.split('T')[0] + 'T00:00:00Z')
+                const livrareDate = new Date(c.data_livrare.split('T')[0] + 'T00:00:00Z')
+                zileTotal = Math.round((livrareDate - dataDate) / (1000 * 60 * 60 * 24))
                 zileRamase = Math.round((livrareDate - today) / (1000 * 60 * 60 * 24))
 
                 // Color code based on urgency
