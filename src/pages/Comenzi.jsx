@@ -1955,9 +1955,31 @@ function RapoarteTab() {
               <tr><td colSpan={6} className="px-4 py-8 text-center text-sm text-gray-400">Nicio comandă înregistrată.</td></tr>
             ) : comenzi.map(c => {
               const clientName = c.com_clienti?.denumire || 'Necunoscut'
-              const zile = c.data && c.data_livrare
-                ? Math.round((new Date(c.data_livrare) - new Date(c.data)) / (1000 * 60 * 60 * 24))
-                : null
+              const today = new Date()
+              today.setHours(0, 0, 0, 0)
+
+              let zileTotal = null
+              let zileRamase = null
+              let zileClass = 'text-gray-600'
+
+              if (c.data && c.data_livrare) {
+                zileTotal = Math.round((new Date(c.data_livrare) - new Date(c.data)) / (1000 * 60 * 60 * 24))
+                const livrareDate = new Date(c.data_livrare)
+                livrareDate.setHours(0, 0, 0, 0)
+                zileRamase = Math.round((livrareDate - today) / (1000 * 60 * 60 * 24))
+
+                // Color code based on urgency
+                if (c.status === 'livrate') {
+                  zileClass = 'text-green-600 font-medium'
+                } else if (zileRamase < 0) {
+                  zileClass = 'text-red-600 font-bold' // Depășit termenul
+                } else if (zileRamase <= 3) {
+                  zileClass = 'text-orange-600 font-bold' // Urgent
+                } else if (zileRamase <= 7) {
+                  zileClass = 'text-orange-500 font-medium' // Apropiat
+                }
+              }
+
               const statusConfig = STATUSES.find(s => s.key === c.status) || {}
               return (
                 <tr key={c.id} className="hover:bg-gray-50">
@@ -1975,8 +1997,8 @@ function RapoarteTab() {
                   <td className="px-4 py-2.5 text-sm text-center font-medium text-gray-900">
                     {c.data_livrare ? format(new Date(c.data_livrare), 'dd.MM.yyyy') : '—'}
                   </td>
-                  <td className="px-4 py-2.5 text-sm text-center text-gray-600">
-                    {zile !== null ? `${zile} zile` : '—'}
+                  <td className={`px-4 py-2.5 text-sm text-center ${zileClass}`}>
+                    {c.status === 'livrate' && zileTotal !== null ? `${zileTotal} zile` : zileRamase !== null ? `${zileRamase} zile` : '—'}
                   </td>
                 </tr>
               )
