@@ -19,6 +19,25 @@ const STATUSES = [
 ]
 const ROWS_PER_PAGE = 13
 
+// Helper: calculate delivery date with business days (skip weekends + non-working days)
+const calculateDeliveryDate = (startDate, businessDays, nonWorkingDays = []) => {
+  const start = new Date(startDate + 'T00:00:00')
+  let count = 0
+  let current = new Date(start)
+  const nonWorkingSet = new Set(nonWorkingDays.map(d => d.date))
+
+  while (count < businessDays) {
+    current.setDate(current.getDate() + 1)
+    const dayOfWeek = current.getDay()
+    const dateStr = current.toISOString().split('T')[0]
+    // Count if it's a weekday (Mon-Fri) and not a non-working day
+    if (dayOfWeek !== 0 && dayOfWeek !== 6 && !nonWorkingSet.has(dateStr)) {
+      count++
+    }
+  }
+  return current.toISOString().split('T')[0]
+}
+
 // ═════════════════════════════════════════════════════════════
 // Main page
 // ═════════════════════════════════════════════════════════════
@@ -101,6 +120,18 @@ function ComenziTab({ pEdit, pDelete }) {
         .select('*, com_clienti(denumire), com_linii(id, produs_text, dimensiune, cantitate, model, pozitie)')
         .not('status', 'in', '("anulat","arhivat")')
         .order('created_at', { ascending: false })
+      if (error) throw error
+      return data
+    },
+  })
+
+  const { data: nonWorkingDays = [] } = useQuery({
+    queryKey: ['kan_non_working_days'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('kan_non_working_days')
+        .select('date')
+        .order('date')
       if (error) throw error
       return data
     },
@@ -493,11 +524,9 @@ function ComandaModal({ comanda, onClose, onSaved, pEdit }) {
         const { error } = await supabase.from('com_comenzi').update(payload).eq('id', comandaId)
         if (error) throw error
       } else {
-        // Noua comanda - seteaza data_livrare cu termenul default
+        // Noua comanda - seteaza data_livrare cu termenul default (zile lucratoare)
         const termenDefault = parseInt(localStorage.getItem('com_termen_livrare_default') || '14')
-        const livrareDate = new Date(data + 'T00:00:00')
-        livrareDate.setDate(livrareDate.getDate() + termenDefault)
-        const dataLivrare = livrareDate.toISOString().split('T')[0]
+        const dataLivrare = calculateDeliveryDate(data, termenDefault, nonWorkingDays)
 
         const { data: nd, error } = await supabase.from('com_comenzi')
           .insert({ ...payload, data_livrare: dataLivrare, created_by: user.id, status: 'noi' })
@@ -1793,11 +1822,11 @@ function SetariTab({ pEdit, pDelete }) {
         <div className="bg-white rounded-xl border border-gray-200 p-4 space-y-3">
           <div>
             <h3 className="text-sm font-semibold text-gray-700">Termen default de livrare</h3>
-            <p className="text-xs text-gray-400 mt-0.5">Numărul de zile prestabilite pentru noile comenzi.</p>
+            <p className="text-xs text-gray-400 mt-0.5">Numărul de zile lucratoare prestabilite pentru noile comenzi (luni-vineri).</p>
           </div>
           <div className="flex gap-2 items-end">
             <div className="flex-1">
-              <label className="block text-xs text-gray-600 font-medium mb-1">Zile</label>
+              <label className="block text-xs text-gray-600 font-medium mb-1">Zile lucratoare</label>
               <input
                 type="number"
                 min="1"
@@ -1817,7 +1846,7 @@ function SetariTab({ pEdit, pDelete }) {
             </button>
           </div>
           <p className="text-xs text-gray-500 bg-gray-50 rounded px-2 py-1.5">
-            Când creezi o comandă nouă, data de livrare va fi setată automat la <strong>{termenDefault} zile</strong> de la data comenzii.
+            Când creezi o comandă nouă, data de livrare va fi calculată automat la <strong>{termenDefault} zile lucratoare</strong> de la data comenzii (weekenduri și sărbători excludente).
           </p>
         </div>
       )}
