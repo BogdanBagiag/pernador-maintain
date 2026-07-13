@@ -2057,8 +2057,9 @@ function RapoarteTab() {
                 zileRamase = Math.round((livrareDate - today) / (1000 * 60 * 60 * 24))
 
                 // Color code based on urgency
-                if (c.status === 'livrate') {
-                  zileClass = 'text-green-600 font-medium'
+                if (c.status === 'livrate' || c.status === 'arhivat') {
+                  // For completed orders, show total days (green if executed quickly)
+                  zileClass = zileTotal <= 14 ? 'text-green-600 font-medium' : 'text-gray-600'
                 } else if (zileRamase < 0) {
                   zileClass = 'text-red-600 font-bold' // Depășit termenul
                 } else if (zileRamase <= 3) {
@@ -2086,7 +2087,7 @@ function RapoarteTab() {
                     {c.data_livrare ? format(new Date(c.data_livrare), 'dd.MM.yyyy') : '—'}
                   </td>
                   <td className={`px-4 py-2.5 text-sm text-center ${zileClass}`}>
-                    {c.status === 'livrate' && zileTotal !== null ? `${zileTotal} zile` : zileRamase !== null ? `${zileRamase} zile` : '—'}
+                    {(c.status === 'livrate' || c.status === 'arhivat') && zileTotal !== null ? `${zileTotal} zile` : zileRamase !== null ? `${zileRamase} zile` : '—'}
                   </td>
                 </tr>
               )
