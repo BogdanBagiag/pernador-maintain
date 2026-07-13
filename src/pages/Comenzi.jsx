@@ -1937,30 +1937,50 @@ function RapoarteTab() {
 
       <div className="bg-white rounded-xl border border-gray-200">
         <div className="px-4 py-3 border-b border-gray-100">
-          <h3 className="font-semibold text-gray-800 text-sm">Comenzi pe client</h3>
+          <h3 className="font-semibold text-gray-800 text-sm">Comenzi detaliate pe client</h3>
         </div>
         <table className="min-w-full divide-y divide-gray-100">
           <thead className="bg-gray-50">
             <tr>
               <th className="px-4 py-2 text-left text-xs font-semibold text-gray-500 uppercase">Client</th>
-              <th className="px-4 py-2 text-center text-xs font-semibold text-gray-500 uppercase">Total</th>
-              <th className="px-4 py-2 text-center text-xs font-semibold text-gray-500 uppercase">Livrate</th>
+              <th className="px-4 py-2 text-left text-xs font-semibold text-gray-500 uppercase">Nr. Comandă</th>
+              <th className="px-4 py-2 text-left text-xs font-semibold text-gray-500 uppercase">Status</th>
+              <th className="px-4 py-2 text-center text-xs font-semibold text-gray-500 uppercase">Data Comenzii</th>
+              <th className="px-4 py-2 text-center text-xs font-semibold text-gray-500 uppercase">Termen Livrare</th>
+              <th className="px-4 py-2 text-center text-xs font-semibold text-gray-500 uppercase">Zile</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
-            {clientStats.length === 0 ? (
-              <tr><td colSpan={3} className="px-4 py-8 text-center text-sm text-gray-400">Nicio comandă înregistrată.</td></tr>
-            ) : clientStats.map(([name, s]) => (
-              <tr key={name} className="hover:bg-gray-50">
-                <td className="px-4 py-2.5 text-sm font-medium text-gray-900">{name}</td>
-                <td className="px-4 py-2.5 text-sm text-center text-gray-600">{s.total}</td>
-                <td className="px-4 py-2.5 text-sm text-center">
-                  <span className="inline-flex items-center gap-1 text-green-700 font-medium">
-                    <Check className="w-3.5 h-3.5" /> {s.livrate}
-                  </span>
-                </td>
-              </tr>
-            ))}
+            {comenzi.length === 0 ? (
+              <tr><td colSpan={6} className="px-4 py-8 text-center text-sm text-gray-400">Nicio comandă înregistrată.</td></tr>
+            ) : comenzi.map(c => {
+              const clientName = c.com_clienti?.denumire || 'Necunoscut'
+              const zile = c.data && c.data_livrare
+                ? Math.round((new Date(c.data_livrare) - new Date(c.data)) / (1000 * 60 * 60 * 24))
+                : null
+              const statusConfig = STATUSES.find(s => s.key === c.status) || {}
+              return (
+                <tr key={c.id} className="hover:bg-gray-50">
+                  <td className="px-4 py-2.5 text-sm font-medium text-gray-900">{clientName}</td>
+                  <td className="px-4 py-2.5 text-sm text-gray-600">{c.id?.slice(0, 8) || '—'}</td>
+                  <td className="px-4 py-2.5 text-sm">
+                    <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${statusConfig.bg || 'bg-gray-50'} ${statusConfig.text || 'text-gray-600'}`}>
+                      <span className={`w-1.5 h-1.5 rounded-full ${statusConfig.dot || 'bg-gray-400'}`} />
+                      {statusConfig.label || c.status}
+                    </span>
+                  </td>
+                  <td className="px-4 py-2.5 text-sm text-center text-gray-600">
+                    {c.data ? format(new Date(c.data), 'dd.MM.yyyy') : '—'}
+                  </td>
+                  <td className="px-4 py-2.5 text-sm text-center font-medium text-gray-900">
+                    {c.data_livrare ? format(new Date(c.data_livrare), 'dd.MM.yyyy') : '—'}
+                  </td>
+                  <td className="px-4 py-2.5 text-sm text-center text-gray-600">
+                    {zile !== null ? `${zile} zile` : '—'}
+                  </td>
+                </tr>
+              )
+            })}
           </tbody>
         </table>
       </div>
