@@ -2039,8 +2039,6 @@ function RapoarteTab() {
               <tr><td colSpan={6} className="px-4 py-8 text-center text-sm text-gray-400">Nicio comandă înregistrată.</td></tr>
             ) : comenzi.map(c => {
               const clientName = c.com_clienti?.denumire || 'Necunoscut'
-              const today = new Date()
-              today.setHours(0, 0, 0, 0)
 
               let zileTotal = null
               let zileRamase = null
@@ -2050,6 +2048,11 @@ function RapoarteTab() {
                 // Parse dates correctly in UTC to avoid timezone issues
                 const dataDate = new Date(c.data.split('T')[0] + 'T00:00:00Z')
                 const livrareDate = new Date(c.data_livrare.split('T')[0] + 'T00:00:00Z')
+
+                // Today in UTC
+                const todayStr = new Date().toISOString().split('T')[0]
+                const today = new Date(todayStr + 'T00:00:00Z')
+
                 zileTotal = Math.round((livrareDate - dataDate) / (1000 * 60 * 60 * 24))
                 zileRamase = Math.round((livrareDate - today) / (1000 * 60 * 60 * 24))
 
