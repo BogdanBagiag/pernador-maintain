@@ -2044,17 +2044,29 @@ function RapoarteTab() {
               let zileRamase = null
               let zileClass = 'text-gray-600'
 
-              if (c.data && c.data_livrare) {
+              if (c.data) {
                 // Parse dates correctly in UTC to avoid timezone issues
                 const dataDate = new Date(c.data.split('T')[0] + 'T00:00:00Z')
-                const livrareDate = new Date(c.data_livrare.split('T')[0] + 'T00:00:00Z')
 
                 // Today in UTC
                 const todayStr = new Date().toISOString().split('T')[0]
                 const today = new Date(todayStr + 'T00:00:00Z')
 
-                zileTotal = Math.round((livrareDate - dataDate) / (1000 * 60 * 60 * 24))
-                zileRamase = Math.round((livrareDate - today) / (1000 * 60 * 60 * 24))
+                // If data_livrare exists, use it; otherwise calculate from default term
+                let livrareDate = null
+                if (c.data_livrare) {
+                  livrareDate = new Date(c.data_livrare.split('T')[0] + 'T00:00:00Z')
+                } else if (c.status !== 'livrate' && c.status !== 'arhivat') {
+                  // For new/in-progress orders without delivery date, calculate from default term
+                  const termenDefault = parseInt(localStorage.getItem('com_termen_livrare_default') || '14')
+                  livrareDate = calculateDeliveryDate(c.data, termenDefault, nonWorkingDays)
+                  livrareDate = new Date(livrareDate + 'T00:00:00Z')
+                }
+
+                if (livrareDate) {
+                  zileTotal = Math.round((livrareDate - dataDate) / (1000 * 60 * 60 * 24))
+                  zileRamase = Math.round((livrareDate - today) / (1000 * 60 * 60 * 24))
+                }
 
                 // Color code based on urgency
                 if (c.status === 'livrate' || c.status === 'arhivat') {
