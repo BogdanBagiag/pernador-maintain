@@ -1954,6 +1954,9 @@ function EditLabelInline({ initial, onSave, onCancel }) {
 // RapoarteTab
 // ═════════════════════════════════════════════════════════════
 function RapoarteTab() {
+  const [searchClient, setSearchClient] = useState('')
+  const [filterStatus, setFilterStatus] = useState('all') // 'all' | 'noi' | 'in_lucru' | 'livrate' | 'arhivat'
+
   const { data: comenzi = [] } = useQuery({
     queryKey: ['com_comenzi'],
     queryFn: async () => {
@@ -1966,62 +1969,66 @@ function RapoarteTab() {
     },
   })
 
+  // Filter by search and status
+  const filtered = comenzi.filter(c => {
+    const clientName = c.com_clienti?.denumire || 'Necunoscut'
+    const matchSearch = !searchClient || clientName.toLowerCase().includes(searchClient.toLowerCase())
+    const matchStatus = filterStatus === 'all' || c.status === filterStatus
+    return matchSearch && matchStatus
+  })
+
   const stats = {
     total:    comenzi.length,
     noi:      comenzi.filter(c => c.status === 'noi').length,
     inLucru:  comenzi.filter(c => c.status === 'in_lucru').length,
     livrate:  comenzi.filter(c => c.status === 'livrate').length,
+    arhivat:  comenzi.filter(c => c.status === 'arhivat').length,
   }
 
-  // Media zilelor de la primire la livrare
-  const livrateWithDays = comenzi
-    .filter(c => c.status === 'livrate' && c.data && c.data_livrare)
-    .map(c => {
-      const zile = Math.round((new Date(c.data_livrare) - new Date(c.data)) / (1000 * 60 * 60 * 24))
-      return Math.max(0, zile)
-    })
-  const mediaZile = livrateWithDays.length > 0
-    ? Math.round(livrateWithDays.reduce((a, b) => a + b, 0) / livrateWithDays.length)
-    : null
-
-  const byClient = {}
-  comenzi.forEach(c => {
-    const name = c.com_clienti?.denumire || 'Necunoscut'
-    if (!byClient[name]) byClient[name] = { total: 0, livrate: 0 }
-    byClient[name].total++
-    if (c.status === 'livrate') byClient[name].livrate++
-  })
-  const clientStats = Object.entries(byClient).sort((a, b) => b[1].total - a[1].total).slice(0, 15)
-
   return (
-    <div className="space-y-6">
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        {[
-          { label: 'Total comenzi', value: stats.total,   bg: 'bg-gray-50',   border: 'border-gray-200',   text: 'text-gray-600',   bold: 'text-gray-900' },
-          { label: 'Noi',           value: stats.noi,     bg: 'bg-blue-50',   border: 'border-blue-200',   text: 'text-blue-600',   bold: 'text-blue-900' },
-          { label: 'În lucru',      value: stats.inLucru, bg: 'bg-yellow-50', border: 'border-yellow-200', text: 'text-yellow-600', bold: 'text-yellow-900' },
-          { label: 'Livrate',       value: stats.livrate, bg: 'bg-green-50',  border: 'border-green-200',  text: 'text-green-600',  bold: 'text-green-900' },
-        ].map(({ label, value, bg, border, text, bold }) => (
-          <div key={label} className={`${bg} border ${border} rounded-xl p-4`}>
-            <p className={`text-sm ${text} font-medium`}>{label}</p>
-            <p className={`text-3xl font-bold ${bold} mt-1`}>{value}</p>
-          </div>
-        ))}
+    <div className="space-y-4">
+      {/* Search și Tab-uri */}
+      <div className="space-y-3">
+        <input
+          type="text"
+          placeholder="Caută după client..."
+          value={searchClient}
+          onChange={e => setSearchClient(e.target.value)}
+          className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary-400"
+        />
+
+        {/* Tab-uri status */}
+        <div className="flex gap-2 overflow-x-auto scrollbar-none">
+          {[
+            { key: 'all', label: `Toate (${stats.total})`, count: stats.total },
+            { key: 'noi', label: `Noi (${stats.noi})`, count: stats.noi },
+            { key: 'in_lucru', label: `În lucru (${stats.inLucru})`, count: stats.inLucru },
+            { key: 'livrate', label: `Livrate (${stats.livrate})`, count: stats.livrate },
+            { key: 'arhivat', label: `Arhivat (${stats.arhivat})`, count: stats.arhivat },
+          ].map(f => (
+            <button
+              key={f.key}
+              onClick={() => setFilterStatus(f.key)}
+              className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors flex-shrink-0 ${
+                filterStatus === f.key
+                  ? 'bg-primary-600 text-white'
+                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+              }`}
+            >
+              {f.label}
+            </button>
+          ))}
+        </div>
+
+        <p className="text-sm text-gray-500">
+          {filtered.length} comenzi găsite
+        </p>
       </div>
 
-      {mediaZile !== null && (
-        <div className="bg-purple-50 border border-purple-200 rounded-xl p-4 flex items-center gap-4">
-          <div>
-            <p className="text-sm text-purple-600 font-medium">Timp mediu de livrare</p>
-            <p className="text-3xl font-bold text-purple-900 mt-1">{mediaZile} <span className="text-lg font-medium">zile</span></p>
-          </div>
-          <p className="text-xs text-purple-400 ml-auto">de la data primirii până la livrare<br/>({livrateWithDays.length} comenzi livrate)</p>
-        </div>
-      )}
-
+      {/* Rezultate căutare */}
       <div className="bg-white rounded-xl border border-gray-200">
         <div className="px-4 py-3 border-b border-gray-100">
-          <h3 className="font-semibold text-gray-800 text-sm">Comenzi detaliate pe client</h3>
+          <h3 className="font-semibold text-gray-800 text-sm">Rezultate</h3>
         </div>
         <table className="min-w-full divide-y divide-gray-100">
           <thead className="bg-gray-50">
@@ -2035,9 +2042,11 @@ function RapoarteTab() {
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
-            {comenzi.length === 0 ? (
-              <tr><td colSpan={6} className="px-4 py-8 text-center text-sm text-gray-400">Nicio comandă înregistrată.</td></tr>
-            ) : comenzi.map(c => {
+            {filtered.length === 0 ? (
+              <tr><td colSpan={6} className="px-4 py-8 text-center text-sm text-gray-400">
+                {searchClient ? 'Nicio comandă găsită pentru acest client.' : 'Nicio comandă înregistrată.'}
+              </td></tr>
+            ) : filtered.map(c => {
               const clientName = c.com_clienti?.denumire || 'Necunoscut'
 
               let zileTotal = null
