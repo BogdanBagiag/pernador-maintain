@@ -1969,6 +1969,18 @@ function RapoarteTab() {
     },
   })
 
+  const { data: nonWorkingDays = [] } = useQuery({
+    queryKey: ['kan_non_working_days'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('kan_non_working_days')
+        .select('date')
+        .order('date')
+      if (error) throw error
+      return data
+    },
+  })
+
   // Filter by search and status
   const filtered = comenzi.filter(c => {
     const clientName = c.com_clienti?.denumire || 'Necunoscut'
