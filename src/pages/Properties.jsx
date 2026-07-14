@@ -25,6 +25,7 @@ export default function Properties() {
   const [showAddProperty, setShowAddProperty] = useState(false)
   const [expandedProperty, setExpandedProperty] = useState(null)
   const [expandedReadings, setExpandedReadings] = useState(new Set())
+  const [editingContract, setEditingContract] = useState(null)
   const [searchTerm, setSearchTerm] = useState('')
 
   const toggleReadings = (utilityId) => {
@@ -538,27 +539,7 @@ export default function Properties() {
                                 {pEdit && (
                                   <div className="flex gap-2 pt-2 border-t border-gray-200">
                                     <button
-                                      onClick={() => {
-                                        const contractNumber = prompt('Nr. contract:', tenant.contract_number || '')
-                                        if (contractNumber === null) return
-                                        const contractStart = prompt('Data început (YYYY-MM-DD):', tenant.contract_start_date || '')
-                                        if (contractStart === null) return
-                                        const contractEnd = prompt('Data expirare (YYYY-MM-DD):', tenant.contract_end_date || '')
-                                        if (contractEnd === null) return
-                                        const contractAmount = prompt('Suma contract:', tenant.contract_amount || '')
-                                        if (contractAmount === null) return
-                                        const currency = prompt('Valuta (LEI/EUR):', tenant.contract_currency || 'LEI')
-                                        if (currency === null) return
-
-                                        updateTenantContract.mutate({
-                                          id: tenant.id,
-                                          contract_number: contractNumber || null,
-                                          contract_start_date: contractStart || null,
-                                          contract_end_date: contractEnd || null,
-                                          contract_amount: contractAmount ? parseFloat(contractAmount) : null,
-                                          contract_currency: currency.toUpperCase() || 'LEI',
-                                        })
-                                      }}
+                                      onClick={() => setEditingContract(tenant)}
                                       disabled={updateTenantContract.isPending}
                                       className="text-xs text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1"
                                     >
@@ -796,6 +777,22 @@ export default function Properties() {
           isLoading={addProperty.isPending}
         />
       )}
+
+      {/* Modal adauga/editeza contract */}
+      {editingContract && (
+        <ContractModal
+          tenant={editingContract}
+          onClose={() => setEditingContract(null)}
+          onSave={(data) => {
+            updateTenantContract.mutate({
+              id: editingContract.id,
+              ...data,
+            })
+            setEditingContract(null)
+          }}
+          isLoading={updateTenantContract.isPending}
+        />
+      )}
     </div>
   )
 }
@@ -998,5 +995,106 @@ function AddReadingForm({ utilityId, onAdd }) {
       </button>
       <button onClick={() => setShow(false)} className="px-2 py-1 text-xs text-gray-500">Anulează</button>
     </div>
+  )
+}
+
+function ContractModal({ tenant, onClose, onSave, isLoading }) {
+  const [contractNumber, setContractNumber] = useState(tenant?.contract_number || '')
+  const [startDate, setStartDate] = useState(tenant?.contract_start_date || '')
+  const [endDate, setEndDate] = useState(tenant?.contract_end_date || '')
+  const [amount, setAmount] = useState(tenant?.contract_amount || '')
+  const [currency, setCurrency] = useState(tenant?.contract_currency || 'LEI')
+
+  return (
+    <>
+      <div className="fixed inset-0 bg-black/50 z-40" onClick={onClose} />
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-bold text-gray-900">{tenant?.contract_number ? 'Editează' : 'Adaugă'} contract</h2>
+            <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+
+          <div className="space-y-3">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Nr. contract *</label>
+              <input
+                type="text"
+                placeholder="ex: CT-2024-001"
+                value={contractNumber}
+                onChange={e => setContractNumber(e.target.value)}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary-400"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Data început *</label>
+                <input
+                  type="date"
+                  value={startDate}
+                  onChange={e => setStartDate(e.target.value)}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary-400"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Data expirare *</label>
+                <input
+                  type="date"
+                  value={endDate}
+                  onChange={e => setEndDate(e.target.value)}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary-400"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Suma *</label>
+                <input
+                  type="number"
+                  placeholder="0.00"
+                  value={amount}
+                  onChange={e => setAmount(e.target.value)}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary-400"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Valuta</label>
+                <select
+                  value={currency}
+                  onChange={e => setCurrency(e.target.value)}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary-400"
+                >
+                  <option value="LEI">LEI</option>
+                  <option value="EUR">EUR</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex gap-3 pt-4 border-t border-gray-100">
+            <button onClick={onClose} className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium">
+              Anulează
+            </button>
+            <button
+              onClick={() => onSave({
+                contract_number: contractNumber.trim() || null,
+                contract_start_date: startDate || null,
+                contract_end_date: endDate || null,
+                contract_amount: amount ? parseFloat(amount) : null,
+                contract_currency: currency,
+              })}
+              disabled={!contractNumber.trim() || !startDate || !endDate || !amount || isLoading}
+              className="flex-1 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 font-medium disabled:opacity-50"
+            >
+              {isLoading ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : 'Salvează'}
+            </button>
+          </div>
+        </div>
+      </div>
+    </>
   )
 }
