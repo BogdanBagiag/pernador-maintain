@@ -526,7 +526,7 @@ function ComandaModal({ comanda, onClose, onSaved, pEdit }) {
       } else {
         // Noua comanda - seteaza data_livrare cu termenul default (zile lucratoare)
         const termenDefault = parseInt(localStorage.getItem('com_termen_livrare_default') || '14')
-        const dataLivrare = calculateDeliveryDate(data, termenDefault, nonWorkingDays)
+        const dataLivrare = calculateDeliveryDate(data, termenDefault, nonWorkingDays || [])
 
         const { data: nd, error } = await supabase.from('com_comenzi')
           .insert({ ...payload, data_livrare: dataLivrare, created_by: user.id, status: 'noi' })
@@ -2080,7 +2080,7 @@ function RapoarteTab() {
                 } else if (c.status !== 'livrate' && c.status !== 'arhivat') {
                   // For new/in-progress orders without delivery date, calculate from default term
                   const termenDefault = parseInt(localStorage.getItem('com_termen_livrare_default') || '14')
-                  livrareDate = calculateDeliveryDate(c.data, termenDefault, nonWorkingDays)
+                  livrareDate = calculateDeliveryDate(c.data, termenDefault, nonWorkingDays || [])
                   livrareDate = new Date(livrareDate + 'T00:00:00Z')
                 }
 
