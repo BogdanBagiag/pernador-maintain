@@ -567,91 +567,161 @@ export default function Properties() {
                       ) : (
                         <div className="space-y-2 mb-3">
                           {propTenants.map(tenant => {
-                            const contractExpired = tenant.contract_end_date && new Date(tenant.contract_end_date) < new Date()
                             const isTenantExpanded = expandedTenants.has(tenant.id)
                             return (
                               <div key={tenant.id} className="bg-white rounded-lg overflow-hidden border border-gray-200">
+                                {/* Header - Expandable */}
                                 <button
                                   onClick={() => toggleTenant(tenant.id)}
                                   className="w-full px-4 py-3 flex items-center justify-between hover:bg-gray-50 transition-colors"
                                 >
-                                  <div className="flex items-center gap-3 flex-1 text-left">
-                                    <div>
-                                      <p className="font-medium text-sm text-gray-800">
-                                        {tenant.name}
-                                        <span className={`ml-2 px-2 py-0.5 rounded-full text-xs font-medium ${
-                                          tenant.is_active
-                                            ? 'bg-green-100 text-green-700'
-                                            : 'bg-gray-100 text-gray-600'
-                                        }`}>
-                                          {tenant.is_active ? 'Activ' : 'Inactiv'}
-                                        </span>
-                                      </p>
-                                      {tenant.contract_number && (
-                                        <p className="text-xs text-gray-500 mt-1">Contract: {tenant.contract_number}</p>
-                                      )}
-                                    </div>
-                                  </div>
-                                  {isTenantExpanded ? <ChevronUp className="w-4 h-4 text-gray-400" /> : <ChevronDown className="w-4 h-4 text-gray-400" />}
-                                </button>
-
-                                {isTenantExpanded && (
-                                  <div className="border-t border-gray-200 bg-gray-50 p-4 space-y-3">
-                                <div className="flex items-start justify-between">
-                                  <div className="flex-1">
+                                  <div className="flex-1 text-left">
                                     <p className="font-medium text-sm text-gray-800">
                                       {tenant.name}
                                       <span className={`ml-2 px-2 py-0.5 rounded-full text-xs font-medium ${
-                                        tenant.is_active
-                                          ? 'bg-green-100 text-green-700'
-                                          : 'bg-gray-100 text-gray-600'
+                                        tenant.is_active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'
                                       }`}>
                                         {tenant.is_active ? 'Activ' : 'Inactiv'}
                                       </span>
                                     </p>
-                                    {tenant.phone && <p className="text-xs text-gray-600 mt-1">{tenant.phone}</p>}
-                                    <p className="text-xs text-gray-500 mt-1">
-                                      Din {format(new Date(tenant.start_date), 'dd.MM.yyyy')}
-                                      {tenant.end_date && ` - ${format(new Date(tenant.end_date), 'dd.MM.yyyy')}`}
-                                    </p>
+                                    {tenant.contract_number && <p className="text-xs text-gray-500 mt-1">Contract: {tenant.contract_number}</p>}
                                   </div>
-                                  {pEdit && (
-                                    <div className="flex gap-2">
-                                      {!tenant.is_active && (
-                                        <button
-                                          onClick={() => updateTenantStatus.mutate({ id: tenant.id, is_active: true })}
-                                          disabled={updateTenantStatus.isPending}
-                                          className="p-1.5 text-green-600 hover:bg-green-50 rounded-lg"
-                                          title="Marcheaza ca activ"
-                                        >
-                                          <Check className="w-4 h-4" />
-                                        </button>
-                                      )}
-                                      {tenant.is_active && (
-                                        <button
-                                          onClick={() => updateTenantStatus.mutate({ id: tenant.id, is_active: false })}
-                                          disabled={updateTenantStatus.isPending}
-                                          className="p-1.5 text-amber-600 hover:bg-amber-50 rounded-lg"
-                                          title="Marcheza ca inactiv"
-                                        >
-                                          <X className="w-4 h-4" />
-                                        </button>
-                                      )}
-                                      {pDelete && (
-                                        <button
-                                          onClick={() => deleteTenant.mutate(tenant.id)}
-                                          disabled={deleteTenant.isPending}
-                                          className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg"
-                                        >
-                                          <Trash2 className="w-4 h-4" />
-                                        </button>
-                                      )}
-                                    </div>
-                                  )}
-                                </div>
+                                  {isTenantExpanded ? <ChevronUp className="w-4 h-4 text-gray-400" /> : <ChevronDown className="w-4 h-4 text-gray-400" />}
+                                </button>
 
-                                {/* Contract info */}
-                                <div className="border-t border-gray-200 pt-3 space-y-3">
+                                {/* Expanded Content */}
+                                {isTenantExpanded && (
+                                  <div className="border-t border-gray-200 bg-gray-50 p-4 space-y-3">
+                                    {/* Tenant Details */}
+                                    <div className="text-xs space-y-1">
+                                      {tenant.phone && <p className="text-gray-600"><span className="font-medium">Telefon:</span> {tenant.phone}</p>}
+                                      <p className="text-gray-500">
+                                        <span className="font-medium">Membru din:</span> {format(new Date(tenant.start_date), 'dd.MM.yyyy')}
+                                        {tenant.end_date && ` - ${format(new Date(tenant.end_date), 'dd.MM.yyyy')}`}
+                                      </p>
+                                    </div>
+
+                                    {/* Status Buttons */}
+                                    {pEdit && (
+                                      <div className="flex gap-2 pt-2 border-t border-gray-200">
+                                        {!tenant.is_active && (
+                                          <button onClick={() => updateTenantStatus.mutate({ id: tenant.id, is_active: true })} disabled={updateTenantStatus.isPending} className="text-xs px-2 py-1 text-green-600 hover:bg-green-50 rounded font-medium">
+                                            ✓ Activează
+                                          </button>
+                                        )}
+                                        {tenant.is_active && (
+                                          <button onClick={() => updateTenantStatus.mutate({ id: tenant.id, is_active: false })} disabled={updateTenantStatus.isPending} className="text-xs px-2 py-1 text-amber-600 hover:bg-amber-50 rounded font-medium">
+                                            Dezactivează
+                                          </button>
+                                        )}
+                                        {pDelete && (
+                                          <button onClick={() => { if (confirm('Ștergi chiriaș?')) deleteTenant.mutate(tenant.id) }} disabled={deleteTenant.isPending} className="text-xs px-2 py-1 text-red-600 hover:bg-red-50 rounded font-medium">
+                                            🗑️ Șterge
+                                          </button>
+                                        )}
+                                      </div>
+                                    )}
+
+                                    {/* Contract Info */}
+                                    {tenant.contract_number && (
+                                      <div className="border-t border-gray-200 pt-3 space-y-2">
+                                        <div className="text-xs space-y-1">
+                                          <p className="text-gray-600"><span className="font-medium">Contract:</span> {tenant.contract_number}</p>
+                                          {tenant.contract_start_date && (
+                                            <p className="text-gray-600">
+                                              <span className="font-medium">Perioada:</span> {format(new Date(tenant.contract_start_date), 'dd.MM.yyyy')}
+                                              {tenant.contract_end_date && ` - ${format(new Date(tenant.contract_end_date), 'dd.MM.yyyy')}`}
+                                            </p>
+                                          )}
+                                          {tenant.contract_amount && <p className="text-gray-600"><span className="font-medium">Valoare:</span> {tenant.contract_amount} {tenant.contract_currency || 'LEI'}</p>}
+                                        </div>
+
+                                        {/* Contract File */}
+                                        {tenant.contract_file_path && (
+                                          <div className="flex gap-1 text-xs">
+                                            <a href={supabase.storage.from('contract-files').getPublicUrl(tenant.contract_file_path).data.publicUrl} target="_blank" rel="noreferrer" className="px-2 py-1 bg-blue-100 text-blue-600 hover:bg-blue-200 rounded font-medium">
+                                              👁️ View
+                                            </a>
+                                            {pDelete && (
+                                              <button onClick={() => { if (confirm('Ștergi fișierul?')) deleteContractFile.mutate({ tenantId: tenant.id, filePath: tenant.contract_file_path }) }} disabled={deleteContractFile.isPending} className="px-2 py-1 bg-red-100 text-red-600 hover:bg-red-200 rounded font-medium">
+                                                🗑️
+                                              </button>
+                                            )}
+                                          </div>
+                                        )}
+
+                                        {/* Contract Actions */}
+                                        {pEdit && (
+                                          <div className="flex gap-2">
+                                            <button onClick={() => setEditingContract(tenant)} className="text-xs flex-1 px-2 py-1 text-blue-600 hover:text-blue-700 font-medium">
+                                              ✏️ Editează
+                                            </button>
+                                            <label className="text-xs flex-1 px-2 py-1 text-blue-600 hover:text-blue-700 font-medium cursor-pointer">
+                                              📁 Upload
+                                              <input type="file" className="hidden" onChange={(e) => { if (e.target.files?.[0]) uploadContractFile.mutate({ tenantId: tenant.id, file: e.target.files[0] }) }} disabled={uploadContractFile.isPending} />
+                                            </label>
+                                          </div>
+                                        )}
+                                      </div>
+                                    )}
+
+                                    {/* Attachments */}
+                                    {tenant.contract_number && attachments.filter(a => a.tenant_id === tenant.id).length > 0 && (
+                                      <div className="border-t border-gray-200 pt-3">
+                                        <p className="text-xs font-medium text-gray-700 mb-2">Anexe:</p>
+                                        <div className="space-y-1">
+                                          {attachments.filter(a => a.tenant_id === tenant.id).map(att => (
+                                            <div key={att.id} className="bg-white p-2 rounded text-xs space-y-1">
+                                              <div className="flex items-center justify-between">
+                                                <div>
+                                                  <p className="font-medium">{att.attachment_number}</p>
+                                                  <p className="text-gray-600">📅 {format(new Date(att.expiry_date), 'dd.MM.yyyy')} • 💰 {att.rental_price} {tenant.contract_currency || 'LEI'}</p>
+                                                </div>
+                                                {pEdit && <button onClick={() => setEditingAttachment(att)} className="text-blue-600 hover:text-blue-700">✏️</button>}
+                                                {pDelete && <button onClick={() => { if (confirm('Ștergi anexa?')) deleteAttachment.mutate(att.id) }} className="text-red-600 hover:text-red-700">🗑️</button>}
+                                              </div>
+                                              {att.file_path && (
+                                                <div className="flex gap-1">
+                                                  <a href={supabase.storage.from('contract-files').getPublicUrl(att.file_path).data.publicUrl} target="_blank" rel="noreferrer" className="px-2 py-1 bg-blue-100 text-blue-600 hover:bg-blue-200 rounded">
+                                                    👁️ View
+                                                  </a>
+                                                  {pDelete && <button onClick={() => { if (confirm('Ștergi fișierul?')) deleteAttachmentFile.mutate({ attachmentId: att.id, filePath: att.file_path }) }} className="px-2 py-1 bg-red-100 text-red-600 hover:bg-red-200 rounded">🗑️</button>}
+                                                </div>
+                                              )}
+                                              {pEdit && (
+                                                <label className="text-blue-600 hover:text-blue-700 cursor-pointer font-medium block">
+                                                  📁 Upload fișier
+                                                  <input type="file" className="hidden" onChange={(e) => { if (e.target.files?.[0]) uploadAttachmentFile.mutate({ attachmentId: att.id, file: e.target.files[0] }) }} disabled={uploadAttachmentFile.isPending} />
+                                                </label>
+                                              )}
+                                            </div>
+                                          ))}
+                                        </div>
+                                        {pEdit && (
+                                          <button onClick={() => setAddingAttachment(tenant.id)} className="text-xs text-blue-600 hover:text-blue-700 font-medium mt-2">
+                                            + Adaugă anexă
+                                          </button>
+                                        )}
+                                      </div>
+                                    )}
+
+                                    {/* Add Attachment Button */}
+                                    {pEdit && tenant.contract_number && attachments.filter(a => a.tenant_id === tenant.id).length === 0 && (
+                                      <div className="border-t border-gray-200 pt-2">
+                                        <button onClick={() => setAddingAttachment(tenant.id)} className="text-xs text-blue-600 hover:text-blue-700 font-medium">
+                                          + Adaugă anexă
+                                        </button>
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            )
+                          })}
+                        </div>
+                      )}
+
+                      {/* Add Tenant */}
                                   {tenant.contract_number ? (
                                     <div className="text-xs space-y-1">
                                       <p className="text-gray-600">
