@@ -28,7 +28,18 @@ export default function Properties() {
   const [editingContract, setEditingContract] = useState(null)
   const [addingAttachment, setAddingAttachment] = useState(null)
   const [editingAttachment, setEditingAttachment] = useState(null)
+  const [expandedTenants, setExpandedTenants] = useState(new Set())
   const [searchTerm, setSearchTerm] = useState('')
+
+  const toggleTenant = (tenantId) => {
+    const newSet = new Set(expandedTenants)
+    if (newSet.has(tenantId)) {
+      newSet.delete(tenantId)
+    } else {
+      newSet.add(tenantId)
+    }
+    setExpandedTenants(newSet)
+  }
 
   const toggleReadings = (utilityId) => {
     const newSet = new Set(expandedReadings)
@@ -541,8 +552,35 @@ export default function Properties() {
                         <div className="space-y-2 mb-3">
                           {propTenants.map(tenant => {
                             const contractExpired = tenant.contract_end_date && new Date(tenant.contract_end_date) < new Date()
+                            const isTenantExpanded = expandedTenants.has(tenant.id)
                             return (
-                              <div key={tenant.id} className="bg-white rounded-lg p-4 space-y-3">
+                              <div key={tenant.id} className="bg-white rounded-lg overflow-hidden border border-gray-200">
+                                <button
+                                  onClick={() => toggleTenant(tenant.id)}
+                                  className="w-full px-4 py-3 flex items-center justify-between hover:bg-gray-50 transition-colors"
+                                >
+                                  <div className="flex items-center gap-3 flex-1 text-left">
+                                    <div>
+                                      <p className="font-medium text-sm text-gray-800">
+                                        {tenant.name}
+                                        <span className={`ml-2 px-2 py-0.5 rounded-full text-xs font-medium ${
+                                          tenant.is_active
+                                            ? 'bg-green-100 text-green-700'
+                                            : 'bg-gray-100 text-gray-600'
+                                        }`}>
+                                          {tenant.is_active ? 'Activ' : 'Inactiv'}
+                                        </span>
+                                      </p>
+                                      {tenant.contract_number && (
+                                        <p className="text-xs text-gray-500 mt-1">Contract: {tenant.contract_number}</p>
+                                      )}
+                                    </div>
+                                  </div>
+                                  {isTenantExpanded ? <ChevronUp className="w-4 h-4 text-gray-400" /> : <ChevronDown className="w-4 h-4 text-gray-400" />}
+                                </button>
+
+                                {isTenantExpanded && (
+                                  <div className="border-t border-gray-200 bg-gray-50 p-4 space-y-3">
                                 <div className="flex items-start justify-between">
                                   <div className="flex-1">
                                     <p className="font-medium text-sm text-gray-800">
