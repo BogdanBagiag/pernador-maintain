@@ -427,6 +427,18 @@ function ComandaModal({ comanda, onClose, onSaved, pEdit }) {
     },
   })
 
+  const { data: nonWorkingDays = [] } = useQuery({
+    queryKey: ['kan_non_working_days'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('kan_non_working_days')
+        .select('date')
+        .order('date')
+      if (error) throw error
+      return data
+    },
+  })
+
   // Populate client name when editing existing order
   useEffect(() => {
     if (comanda?.client_id && clienti.length > 0) {
