@@ -216,6 +216,11 @@ export default function Properties() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['contract_attachments'] })
+      setAddingAttachment(null)
+    },
+    onError: (error) => {
+      console.error('Attachment error:', error)
+      alert('Eroare la adăugarea anexei: ' + error.message)
     },
   })
 
@@ -805,17 +810,10 @@ export default function Properties() {
           tenant={tenants.find(t => t.id === addingAttachment)}
           onClose={() => setAddingAttachment(null)}
           onSave={(data) => {
-            addAttachment.mutate(
-              {
-                tenantId: addingAttachment,
-                ...data,
-              },
-              {
-                onSuccess: () => {
-                  setAddingAttachment(null)
-                },
-              }
-            )
+            addAttachment.mutate({
+              tenantId: addingAttachment,
+              ...data,
+            })
           }}
           isLoading={addAttachment.isPending}
         />
