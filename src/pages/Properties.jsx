@@ -575,18 +575,20 @@ export default function Properties() {
                                   onClick={() => toggleTenant(tenant.id)}
                                   className="w-full px-4 py-3 flex items-center justify-between hover:bg-gray-50 transition-colors"
                                 >
-                                  <div className="flex-1 text-left">
-                                    <p className="font-medium text-sm text-gray-800">
-                                      {tenant.name}
-                                      <span className={`ml-2 px-2 py-0.5 rounded-full text-xs font-medium ${
-                                        tenant.is_active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'
-                                      }`}>
-                                        {tenant.is_active ? 'Activ' : 'Inactiv'}
-                                      </span>
-                                    </p>
-                                    {tenant.contract_number && <p className="text-xs text-gray-500 mt-1">Contract: {tenant.contract_number}</p>}
+                                  <div className="flex items-center gap-2 flex-1">
+                                    {isTenantExpanded ? <ChevronUp className="w-5 h-5 text-gray-400 flex-shrink-0" /> : <ChevronDown className="w-5 h-5 text-gray-400 flex-shrink-0" />}
+                                    <div className="text-left">
+                                      <p className="font-medium text-sm text-gray-800">
+                                        {tenant.name}
+                                        <span className={`ml-2 px-2 py-0.5 rounded-full text-xs font-medium ${
+                                          tenant.is_active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'
+                                        }`}>
+                                          {tenant.is_active ? 'Activ' : 'Inactiv'}
+                                        </span>
+                                      </p>
+                                      {tenant.contract_number && <p className="text-xs text-gray-500 mt-1">Contract: {tenant.contract_number}</p>}
+                                    </div>
                                   </div>
-                                  {isTenantExpanded ? <ChevronUp className="w-4 h-4 text-gray-400" /> : <ChevronDown className="w-4 h-4 text-gray-400" />}
                                 </button>
 
                                 {/* Expanded Content */}
