@@ -239,18 +239,24 @@ export default function Properties() {
   // Update contract attachment
   const updateAttachment = useMutation({
     mutationFn: async ({ id, attachment_number, expiry_date, rental_price }) => {
-      const { error } = await supabase.from('contract_attachments').update({
+      const { data, error } = await supabase.from('contract_attachments').update({
         attachment_number,
         expiry_date,
         rental_price: parseFloat(rental_price),
-      }).eq('id', id)
-      if (error) throw error
+      }).eq('id', id).select()
+      if (error) {
+        console.error('Error updating attachment:', error)
+        throw error
+      }
+      console.log('Attachment updated successfully:', data)
+      return data
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['contract_attachments'] })
       setEditingAttachment(null)
     },
     onError: (error) => {
+      console.error('Update error:', error)
       alert('Eroare la editarea anexei: ' + error.message)
     },
   })
@@ -270,19 +276,34 @@ export default function Properties() {
   const uploadContractFile = useMutation({
     mutationFn: async ({ tenantId, file }) => {
       const fileName = `contracts/${tenantId}/${Date.now()}_${file.name}`
-      const { error: uploadError } = await supabase.storage
+      console.log('Uploading contract file:', fileName)
+      const { data: uploadData, error: uploadError } = await supabase.storage
         .from('contract-files')
-        .upload(fileName, file)
-      if (uploadError) throw uploadError
+        .upload(fileName, file, { upsert: true })
+      if (uploadError) {
+        console.error('Upload error:', uploadError)
+        throw uploadError
+      }
+      console.log('File uploaded successfully:', uploadData)
 
-      const { error: updateError } = await supabase
+      const { data: updateData, error: updateError } = await supabase
         .from('property_tenants')
         .update({ contract_file_path: fileName })
         .eq('id', tenantId)
-      if (updateError) throw updateError
+        .select()
+      if (updateError) {
+        console.error('DB update error:', updateError)
+        throw updateError
+      }
+      console.log('DB updated successfully:', updateData)
+      return updateData
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['property_tenants'] })
+    },
+    onError: (error) => {
+      console.error('Upload contract file error:', error)
+      alert('Eroare la upload-ul fișierului: ' + error.message)
     },
   })
 
@@ -290,19 +311,34 @@ export default function Properties() {
   const uploadAttachmentFile = useMutation({
     mutationFn: async ({ attachmentId, file }) => {
       const fileName = `attachments/${attachmentId}/${Date.now()}_${file.name}`
-      const { error: uploadError } = await supabase.storage
+      console.log('Uploading attachment file:', fileName)
+      const { data: uploadData, error: uploadError } = await supabase.storage
         .from('contract-files')
-        .upload(fileName, file)
-      if (uploadError) throw uploadError
+        .upload(fileName, file, { upsert: true })
+      if (uploadError) {
+        console.error('Upload error:', uploadError)
+        throw uploadError
+      }
+      console.log('File uploaded successfully:', uploadData)
 
-      const { error: updateError } = await supabase
+      const { data: updateData, error: updateError } = await supabase
         .from('contract_attachments')
         .update({ file_path: fileName })
         .eq('id', attachmentId)
-      if (updateError) throw updateError
+        .select()
+      if (updateError) {
+        console.error('DB update error:', updateError)
+        throw updateError
+      }
+      console.log('DB updated successfully:', updateData)
+      return updateData
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['contract_attachments'] })
+    },
+    onError: (error) => {
+      console.error('Upload attachment file error:', error)
+      alert('Eroare la upload-ul fișierului anexei: ' + error.message)
     },
   })
 
