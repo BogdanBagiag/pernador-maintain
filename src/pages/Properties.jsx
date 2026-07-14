@@ -146,6 +146,20 @@ export default function Properties() {
     },
   })
 
+  // Update tenant contract
+  const updateTenantContract = useMutation({
+    mutationFn: async ({ id, contract_number, contract_start_date, contract_end_date, contract_amount }) => {
+      const { error } = await supabase
+        .from('property_tenants')
+        .update({ contract_number, contract_start_date, contract_end_date, contract_amount })
+        .eq('id', id)
+      if (error) throw error
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['property_tenants'] })
+    },
+  })
+
   // Delete tenant
   const deleteTenant = useMutation({
     mutationFn: async (id) => {
@@ -347,60 +361,120 @@ export default function Properties() {
                         <p className="text-sm text-gray-400 italic mb-3">Niciun chiriaș adăugat.</p>
                       ) : (
                         <div className="space-y-2 mb-3">
-                          {propTenants.map(tenant => (
-                            <div key={tenant.id} className="bg-white rounded-lg p-3 flex items-center justify-between">
-                              <div>
-                                <p className="font-medium text-sm text-gray-800">
-                                  {tenant.name}
-                                  <span className={`ml-2 px-2 py-0.5 rounded-full text-xs font-medium ${
-                                    tenant.is_active
-                                      ? 'bg-green-100 text-green-700'
-                                      : 'bg-gray-100 text-gray-600'
-                                  }`}>
-                                    {tenant.is_active ? 'Activ' : 'Inactiv'}
-                                  </span>
-                                </p>
-                                {tenant.phone && <p className="text-xs text-gray-600 mt-1">{tenant.phone}</p>}
-                                <p className="text-xs text-gray-500 mt-1">
-                                  Din {format(new Date(tenant.start_date), 'dd.MM.yyyy')}
-                                  {tenant.end_date && ` - ${format(new Date(tenant.end_date), 'dd.MM.yyyy')}`}
-                                </p>
-                              </div>
-                              {pEdit && (
-                                <div className="flex gap-2">
-                                  {!tenant.is_active && (
-                                    <button
-                                      onClick={() => updateTenantStatus.mutate({ id: tenant.id, is_active: true })}
-                                      disabled={updateTenantStatus.isPending}
-                                      className="p-1.5 text-green-600 hover:bg-green-50 rounded-lg"
-                                      title="Marcheaza ca activ"
-                                    >
-                                      <Check className="w-4 h-4" />
-                                    </button>
-                                  )}
-                                  {tenant.is_active && (
-                                    <button
-                                      onClick={() => updateTenantStatus.mutate({ id: tenant.id, is_active: false })}
-                                      disabled={updateTenantStatus.isPending}
-                                      className="p-1.5 text-amber-600 hover:bg-amber-50 rounded-lg"
-                                      title="Marcheza ca inactiv"
-                                    >
-                                      <X className="w-4 h-4" />
-                                    </button>
-                                  )}
-                                  {pDelete && (
-                                    <button
-                                      onClick={() => deleteTenant.mutate(tenant.id)}
-                                      disabled={deleteTenant.isPending}
-                                      className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg"
-                                    >
-                                      <Trash2 className="w-4 h-4" />
-                                    </button>
+                          {propTenants.map(tenant => {
+                            const contractExpired = tenant.contract_end_date && new Date(tenant.contract_end_date) < new Date()
+                            return (
+                              <div key={tenant.id} className="bg-white rounded-lg p-4 space-y-3">
+                                <div className="flex items-start justify-between">
+                                  <div className="flex-1">
+                                    <p className="font-medium text-sm text-gray-800">
+                                      {tenant.name}
+                                      <span className={`ml-2 px-2 py-0.5 rounded-full text-xs font-medium ${
+                                        tenant.is_active
+                                          ? 'bg-green-100 text-green-700'
+                                          : 'bg-gray-100 text-gray-600'
+                                      }`}>
+                                        {tenant.is_active ? 'Activ' : 'Inactiv'}
+                                      </span>
+                                    </p>
+                                    {tenant.phone && <p className="text-xs text-gray-600 mt-1">{tenant.phone}</p>}
+                                    <p className="text-xs text-gray-500 mt-1">
+                                      Din {format(new Date(tenant.start_date), 'dd.MM.yyyy')}
+                                      {tenant.end_date && ` - ${format(new Date(tenant.end_date), 'dd.MM.yyyy')}`}
+                                    </p>
+                                  </div>
+                                  {pEdit && (
+                                    <div className="flex gap-2">
+                                      {!tenant.is_active && (
+                                        <button
+                                          onClick={() => updateTenantStatus.mutate({ id: tenant.id, is_active: true })}
+                                          disabled={updateTenantStatus.isPending}
+                                          className="p-1.5 text-green-600 hover:bg-green-50 rounded-lg"
+                                          title="Marcheaza ca activ"
+                                        >
+                                          <Check className="w-4 h-4" />
+                                        </button>
+                                      )}
+                                      {tenant.is_active && (
+                                        <button
+                                          onClick={() => updateTenantStatus.mutate({ id: tenant.id, is_active: false })}
+                                          disabled={updateTenantStatus.isPending}
+                                          className="p-1.5 text-amber-600 hover:bg-amber-50 rounded-lg"
+                                          title="Marcheza ca inactiv"
+                                        >
+                                          <X className="w-4 h-4" />
+                                        </button>
+                                      )}
+                                      {pDelete && (
+                                        <button
+                                          onClick={() => deleteTenant.mutate(tenant.id)}
+                                          disabled={deleteTenant.isPending}
+                                          className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg"
+                                        >
+                                          <Trash2 className="w-4 h-4" />
+                                        </button>
+                                      )}
+                                    </div>
                                   )}
                                 </div>
-                              )}
-                            </div>
-                          ))}
+
+                                {/* Contract info */}
+                                <div className="border-t border-gray-200 pt-3">
+                                  {tenant.contract_number ? (
+                                    <div className="text-xs space-y-1">
+                                      <p className="text-gray-600">
+                                        <span className="font-medium">Contract:</span> {tenant.contract_number}
+                                      </p>
+                                      {tenant.contract_start_date && (
+                                        <p className="text-gray-600">
+                                          <span className="font-medium">Perioada:</span> {format(new Date(tenant.contract_start_date), 'dd.MM.yyyy')}
+                                          {tenant.contract_end_date && ` - ${format(new Date(tenant.contract_end_date), 'dd.MM.yyyy')}`}
+                                        </p>
+                                      )}
+                                      {tenant.contract_amount && (
+                                        <p className="text-gray-600">
+                                          <span className="font-medium">Valoare:</span> {tenant.contract_amount} lei
+                                        </p>
+                                      )}
+                                      {contractExpired && (
+                                        <p className="text-red-600 font-medium">⚠️ Contract expirat!</p>
+                                      )}
+                                    </div>
+                                  ) : (
+                                    <p className="text-xs text-gray-400 italic">Niciun contract adăugat.</p>
+                                  )}
+                                </div>
+
+                                {/* Edit contract button */}
+                                {pEdit && (
+                                  <button
+                                    onClick={() => {
+                                      const contractNumber = prompt('Nr. contract:', tenant.contract_number || '')
+                                      if (contractNumber === null) return
+                                      const contractStart = prompt('Data început (YYYY-MM-DD):', tenant.contract_start_date || '')
+                                      if (contractStart === null) return
+                                      const contractEnd = prompt('Data expirare (YYYY-MM-DD):', tenant.contract_end_date || '')
+                                      if (contractEnd === null) return
+                                      const contractAmount = prompt('Suma contract (lei):', tenant.contract_amount || '')
+                                      if (contractAmount === null) return
+
+                                      updateTenantContract.mutate({
+                                        id: tenant.id,
+                                        contract_number: contractNumber || null,
+                                        contract_start_date: contractStart || null,
+                                        contract_end_date: contractEnd || null,
+                                        contract_amount: contractAmount ? parseFloat(contractAmount) : null,
+                                      })
+                                    }}
+                                    disabled={updateTenantContract.isPending}
+                                    className="text-xs text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1"
+                                  >
+                                    <Edit2 className="w-3 h-3" /> Editează contract
+                                  </button>
+                                )}
+                              </div>
+                            )
+                          })}
                         </div>
                       )}
 
