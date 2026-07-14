@@ -24,7 +24,18 @@ export default function Properties() {
 
   const [showAddProperty, setShowAddProperty] = useState(false)
   const [expandedProperty, setExpandedProperty] = useState(null)
+  const [expandedReadings, setExpandedReadings] = useState(new Set())
   const [searchTerm, setSearchTerm] = useState('')
+
+  const toggleReadings = (utilityId) => {
+    const newSet = new Set(expandedReadings)
+    if (newSet.has(utilityId)) {
+      newSet.delete(utilityId)
+    } else {
+      newSet.add(utilityId)
+    }
+    setExpandedReadings(newSet)
+  }
 
   if (!canView('properties')) {
     return (
@@ -456,8 +467,8 @@ export default function Properties() {
                                   <p className="text-xs text-gray-400">Nicio citire.</p>
                                 ) : (
                                   <div className="space-y-1">
-                                    {utilReadings.slice(0, 3).map((reading, idx) => {
-                                      const nextReading = idx < utilReadings.length - 1 ? utilReadings[idx + 1] : null
+                                    {(expandedReadings.has(util.id) ? utilReadings : utilReadings.slice(0, 3)).map((reading, idx) => {
+                                      const nextReading = utilReadings[utilReadings.indexOf(reading) + 1]
                                       const consumption = nextReading ? reading.reading_value - nextReading.reading_value : null
                                       return (
                                         <div key={reading.id} className="flex items-center justify-between text-xs bg-gray-50 p-2 rounded">
@@ -526,8 +537,21 @@ export default function Properties() {
                                         </div>
                                       )
                                     })}
-                                    {utilReadings.length > 3 && (
-                                      <p className="text-xs text-gray-400">+{utilReadings.length - 3} mai multe</p>
+                                    {utilReadings.length > 3 && !expandedReadings.has(util.id) && (
+                                      <button
+                                        onClick={() => toggleReadings(util.id)}
+                                        className="text-xs text-primary-600 hover:text-primary-700 font-medium"
+                                      >
+                                        +{utilReadings.length - 3} mai multe
+                                      </button>
+                                    )}
+                                    {expandedReadings.has(util.id) && utilReadings.length > 3 && (
+                                      <button
+                                        onClick={() => toggleReadings(util.id)}
+                                        className="text-xs text-primary-600 hover:text-primary-700 font-medium"
+                                      >
+                                        - Arată mai puțin
+                                      </button>
                                     )}
                                   </div>
                                 )}
