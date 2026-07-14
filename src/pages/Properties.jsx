@@ -228,18 +228,23 @@ export default function Properties() {
   // Update contract attachment
   const updateAttachment = useMutation({
     mutationFn: async ({ id, attachment_number, expiry_date, rental_price }) => {
-      const { error } = await supabase.from('contract_attachments').update({
+      const { data, error } = await supabase.from('contract_attachments').update({
         attachment_number,
         expiry_date,
         rental_price: parseFloat(rental_price),
-      }).eq('id', id)
-      if (error) throw error
+      }).eq('id', id).select()
+      if (error) {
+        console.error('Error updating attachment:', error)
+        throw error
+      }
+      return data
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['contract_attachments'] })
       setEditingAttachment(null)
     },
     onError: (error) => {
+      console.error('Update error:', error)
       alert('Eroare la editarea anexei: ' + error.message)
     },
   })
@@ -1061,6 +1066,7 @@ export default function Properties() {
             })
           }}
           isLoading={updateAttachment.isPending}
+          isEditing={true}
         />
       )}
     </div>
