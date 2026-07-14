@@ -28,7 +28,18 @@ export default function Properties() {
   const [editingContract, setEditingContract] = useState(null)
   const [addingAttachment, setAddingAttachment] = useState(null)
   const [editingAttachment, setEditingAttachment] = useState(null)
+  const [expandedTenants, setExpandedTenants] = useState(new Set())
   const [searchTerm, setSearchTerm] = useState('')
+
+  const toggleTenant = (tenantId) => {
+    const newSet = new Set(expandedTenants)
+    if (newSet.has(tenantId)) {
+      newSet.delete(tenantId)
+    } else {
+      newSet.add(tenantId)
+    }
+    setExpandedTenants(newSet)
+  }
 
   const toggleReadings = (utilityId) => {
     const newSet = new Set(expandedReadings)
@@ -535,11 +546,15 @@ export default function Properties() {
                       ) : (
                         <div className="space-y-2 mb-3">
                           {propTenants.map(tenant => {
+                            const isTenantExpanded = expandedTenants.has(tenant.id)
                             const contractExpired = tenant.contract_end_date && new Date(tenant.contract_end_date) < new Date()
                             return (
-                              <div key={tenant.id} className="bg-white rounded-lg p-4 space-y-3">
-                                <div className="flex items-start justify-between">
-                                  <div className="flex-1">
+                              <div key={tenant.id} className="bg-white rounded-lg overflow-hidden border border-gray-200">
+                                <button
+                                  onClick={() => toggleTenant(tenant.id)}
+                                  className="w-full px-4 py-3 flex items-center justify-between hover:bg-gray-50 transition-colors"
+                                >
+                                  <div className="flex-1 text-left">
                                     <p className="font-medium text-sm text-gray-800">
                                       {tenant.name}
                                       <span className={`ml-2 px-2 py-0.5 rounded-full text-xs font-medium ${
@@ -550,46 +565,61 @@ export default function Properties() {
                                         {tenant.is_active ? 'Activ' : 'Inactiv'}
                                       </span>
                                     </p>
-                                    {tenant.phone && <p className="text-xs text-gray-600 mt-1">{tenant.phone}</p>}
-                                    <p className="text-xs text-gray-500 mt-1">
-                                      Din {format(new Date(tenant.start_date), 'dd.MM.yyyy')}
-                                      {tenant.end_date && ` - ${format(new Date(tenant.end_date), 'dd.MM.yyyy')}`}
-                                    </p>
+                                    {tenant.contract_number && (
+                                      <p className="text-xs text-gray-500 mt-1">Contract: {tenant.contract_number}</p>
+                                    )}
                                   </div>
-                                  {pEdit && (
-                                    <div className="flex gap-2">
-                                      {!tenant.is_active && (
-                                        <button
-                                          onClick={() => updateTenantStatus.mutate({ id: tenant.id, is_active: true })}
-                                          disabled={updateTenantStatus.isPending}
-                                          className="p-1.5 text-green-600 hover:bg-green-50 rounded-lg"
-                                          title="Marcheaza ca activ"
-                                        >
-                                          <Check className="w-4 h-4" />
-                                        </button>
-                                      )}
-                                      {tenant.is_active && (
-                                        <button
-                                          onClick={() => updateTenantStatus.mutate({ id: tenant.id, is_active: false })}
-                                          disabled={updateTenantStatus.isPending}
-                                          className="p-1.5 text-amber-600 hover:bg-amber-50 rounded-lg"
-                                          title="Marcheza ca inactiv"
-                                        >
-                                          <X className="w-4 h-4" />
-                                        </button>
-                                      )}
-                                      {pDelete && (
-                                        <button
-                                          onClick={() => deleteTenant.mutate(tenant.id)}
-                                          disabled={deleteTenant.isPending}
-                                          className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg"
-                                        >
-                                          <Trash2 className="w-4 h-4" />
-                                        </button>
+                                  {isTenantExpanded ? (
+                                    <ChevronUp className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                                  ) : (
+                                    <ChevronDown className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                                  )}
+                                </button>
+
+                                {isTenantExpanded && (
+                                  <div className="border-t border-gray-200 bg-gray-50 p-4 space-y-3">
+                                    <div className="flex items-start justify-between">
+                                      <div className="flex-1">
+                                        {tenant.phone && <p className="text-xs text-gray-600">{tenant.phone}</p>}
+                                        <p className="text-xs text-gray-500">
+                                          Din {format(new Date(tenant.start_date), 'dd.MM.yyyy')}
+                                          {tenant.end_date && ` - ${format(new Date(tenant.end_date), 'dd.MM.yyyy')}`}
+                                        </p>
+                                      </div>
+                                      {pEdit && (
+                                        <div className="flex gap-2">
+                                          {!tenant.is_active && (
+                                            <button
+                                              onClick={() => updateTenantStatus.mutate({ id: tenant.id, is_active: true })}
+                                              disabled={updateTenantStatus.isPending}
+                                              className="p-1.5 text-green-600 hover:bg-green-50 rounded-lg"
+                                              title="Marcheaza ca activ"
+                                            >
+                                              <Check className="w-4 h-4" />
+                                            </button>
+                                          )}
+                                          {tenant.is_active && (
+                                            <button
+                                              onClick={() => updateTenantStatus.mutate({ id: tenant.id, is_active: false })}
+                                              disabled={updateTenantStatus.isPending}
+                                              className="p-1.5 text-amber-600 hover:bg-amber-50 rounded-lg"
+                                              title="Marcheza ca inactiv"
+                                            >
+                                              <X className="w-4 h-4" />
+                                            </button>
+                                          )}
+                                          {pDelete && (
+                                            <button
+                                              onClick={() => deleteTenant.mutate(tenant.id)}
+                                              disabled={deleteTenant.isPending}
+                                              className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg"
+                                            >
+                                              <Trash2 className="w-4 h-4" />
+                                            </button>
+                                          )}
+                                        </div>
                                       )}
                                     </div>
-                                  )}
-                                </div>
 
                                 {/* Contract info */}
                                 <div className="border-t border-gray-200 pt-3 space-y-3">
@@ -803,6 +833,8 @@ export default function Properties() {
                                         </label>
                                       )}
                                     </div>
+                                  </div>
+                                )}
                                   </div>
                                 )}
                               </div>
