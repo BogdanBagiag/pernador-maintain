@@ -804,11 +804,17 @@ export default function Properties() {
           tenant={tenants.find(t => t.id === addingAttachment)}
           onClose={() => setAddingAttachment(null)}
           onSave={(data) => {
-            addAttachment.mutate({
-              tenantId: addingAttachment,
-              ...data,
-            })
-            setAddingAttachment(null)
+            addAttachment.mutate(
+              {
+                tenantId: addingAttachment,
+                ...data,
+              },
+              {
+                onSuccess: () => {
+                  setAddingAttachment(null)
+                },
+              }
+            )
           }}
           isLoading={addAttachment.isPending}
         />
