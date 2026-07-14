@@ -157,10 +157,57 @@ export default function Properties() {
     },
   })
 
+  // Update utility
+  const updateUtility = useMutation({
+    mutationFn: async ({ id, type, name }) => {
+      const { error } = await supabase.from('property_utilities').update({ type, name }).eq('id', id)
+      if (error) throw error
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['property_utilities'] })
+    },
+  })
+
+  // Delete utility
+  const deleteUtility = useMutation({
+    mutationFn: async (id) => {
+      const { error } = await supabase.from('property_utilities').delete().eq('id', id)
+      if (error) throw error
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['property_utilities'] })
+    },
+  })
+
   // Add reading
   const addReading = useMutation({
     mutationFn: async (payload) => {
       const { error } = await supabase.from('utility_readings').insert([payload])
+      if (error) throw error
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['utility_readings'] })
+    },
+  })
+
+  // Update reading
+  const updateReading = useMutation({
+    mutationFn: async ({ id, reading_date, reading_value, amount }) => {
+      const { error } = await supabase
+        .from('utility_readings')
+        .update({ reading_date, reading_value, amount })
+        .eq('id', id)
+      if (error) throw error
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['utility_readings'] })
+    },
+  })
+
+  // Delete reading
+  const deleteReading = useMutation({
+    mutationFn: async (id) => {
+      const { error } = await supabase.from('utility_readings').delete().eq('id', id)
       if (error) throw error
     },
     onSuccess: () => {
@@ -367,20 +414,55 @@ export default function Properties() {
 
                             return (
                               <div key={util.id} className="bg-white rounded-lg p-3 space-y-2">
-                                <p className="font-medium text-sm text-gray-800">
-                                  {typeInfo?.icon} {util.name}
-                                </p>
+                                <div className="flex items-center justify-between">
+                                  <p className="font-medium text-sm text-gray-800">
+                                    {typeInfo?.icon} {util.name}
+                                  </p>
+                                  {pEdit && (
+                                    <div className="flex gap-1">
+                                      <button
+                                        onClick={() => {
+                                          const newType = prompt('Tip utilitate:', util.type)
+                                          const newName = prompt('Nume:', util.name)
+                                          if (newType && newName) {
+                                            updateUtility.mutate({ id: util.id, type: newType, name: newName })
+                                          }
+                                        }}
+                                        disabled={updateUtility.isPending}
+                                        className="p-1 text-blue-600 hover:bg-blue-50 rounded"
+                                        title="Editează"
+                                      >
+                                        <Edit2 className="w-3.5 h-3.5" />
+                                      </button>
+                                      {pDelete && (
+                                        <button
+                                          onClick={() => {
+                                            if (confirm('Ștergi utilitatea și toate citirile ei?')) {
+                                              deleteUtility.mutate(util.id)
+                                            }
+                                          }}
+                                          disabled={deleteUtility.isPending}
+                                          className="p-1 text-red-600 hover:bg-red-50 rounded"
+                                          title="Șterge"
+                                        >
+                                          <Trash2 className="w-3.5 h-3.5" />
+                                        </button>
+                                      )}
+                                    </div>
+                                  )}
+                                </div>
+
                                 {utilReadings.length === 0 ? (
                                   <p className="text-xs text-gray-400">Nicio citire.</p>
                                 ) : (
                                   <div className="space-y-1">
                                     {utilReadings.slice(0, 3).map(reading => (
-                                      <div key={reading.id} className="flex items-center justify-between text-xs">
-                                        <span className="text-gray-600">
+                                      <div key={reading.id} className="flex items-center justify-between text-xs bg-gray-50 p-2 rounded">
+                                        <span className="text-gray-600 flex-1">
                                           {format(new Date(reading.reading_date), 'dd.MM.yyyy')} - {reading.reading_value}
                                           {reading.amount && ` (${reading.amount} lei)`}
                                         </span>
-                                        <div className="flex items-center gap-2">
+                                        <div className="flex items-center gap-1">
                                           <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
                                             reading.paid
                                               ? 'bg-green-100 text-green-700'
@@ -388,11 +470,50 @@ export default function Properties() {
                                           }`}>
                                             {reading.paid ? 'Plătit' : 'Neplătit'}
                                           </span>
+                                          {pEdit && (
+                                            <>
+                                              <button
+                                                onClick={() => {
+                                                  const newDate = prompt('Dată (YYYY-MM-DD):', reading.reading_date)
+                                                  const newValue = prompt('Citire:', reading.reading_value)
+                                                  const newAmount = prompt('Sumă (lei):', reading.amount || '')
+                                                  if (newDate && newValue) {
+                                                    updateReading.mutate({
+                                                      id: reading.id,
+                                                      reading_date: newDate,
+                                                      reading_value: newValue,
+                                                      amount: newAmount || null,
+                                                    })
+                                                  }
+                                                }}
+                                                disabled={updateReading.isPending}
+                                                className="p-1 text-blue-600 hover:bg-blue-50 rounded"
+                                                title="Editează"
+                                              >
+                                                <Edit2 className="w-3 h-3" />
+                                              </button>
+                                              {pDelete && (
+                                                <button
+                                                  onClick={() => {
+                                                    if (confirm('Ștergi citirea?')) {
+                                                      deleteReading.mutate(reading.id)
+                                                    }
+                                                  }}
+                                                  disabled={deleteReading.isPending}
+                                                  className="p-1 text-red-600 hover:bg-red-50 rounded"
+                                                  title="Șterge"
+                                                >
+                                                  <Trash2 className="w-3 h-3" />
+                                                </button>
+                                              )}
+                                            </>
+                                          )}
                                           {!reading.paid && pEdit && (
                                             <button
                                               onClick={() => markAsPaid.mutate(reading.id)}
                                               disabled={markAsPaid.isPending}
                                               className="p-1 text-green-600 hover:bg-green-50 rounded"
+                                              title="Marcheaza ca plătit"
                                             >
                                               <Check className="w-3.5 h-3.5" />
                                             </button>
