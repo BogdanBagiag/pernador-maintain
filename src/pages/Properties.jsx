@@ -940,7 +940,6 @@ export default function Properties() {
                         </div>
                       )}
 
-                      {/* Adauga chiriaș */}
                       {pEdit && (
                         <AddTenantForm propertyId={prop.id} onAdd={(name, phone) => addTenant.mutate({ property_id: prop.id, name, phone, is_active: true, start_date: new Date().toISOString().split('T')[0] })} />
                       )}
