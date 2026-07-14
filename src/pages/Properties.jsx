@@ -104,16 +104,17 @@ export default function Properties() {
   })
 
   // Fetch contract attachments
-  const { data: attachments = [] } = useQuery({
+  const { data: attachments = [], refetch: refetchAttachments } = useQuery({
     queryKey: ['contract_attachments'],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('contract_attachments')
         .select('*')
-        .order('uploaded_at', { ascending: false })
+        .order('created_at', { ascending: false })
       if (error) throw error
       return data
     },
+    refetchInterval: 1000,
   })
 
   // Add property
