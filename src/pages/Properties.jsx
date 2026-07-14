@@ -26,7 +26,7 @@ export default function Properties() {
   const [expandedProperty, setExpandedProperty] = useState(null)
   const [expandedReadings, setExpandedReadings] = useState(new Set())
   const [editingContract, setEditingContract] = useState(null)
-  const [uploadingAttachment, setUploadingAttachment] = useState(null)
+  const [addingAttachment, setAddingAttachment] = useState(null)
   const [searchTerm, setSearchTerm] = useState('')
 
   const toggleReadings = (utilityId) => {
@@ -198,19 +198,27 @@ export default function Properties() {
     },
   })
 
+  // Add contract attachment
+  const addAttachment = useMutation({
+    mutationFn: async ({ tenantId, attachment_number, expiry_date, rental_price }) => {
+      const { error } = await supabase.from('contract_attachments').insert([{
+        tenant_id: tenantId,
+        attachment_number,
+        expiry_date,
+        rental_price,
+      }])
+      if (error) throw error
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['contract_attachments'] })
+    },
+  })
+
   // Delete attachment
   const deleteAttachment = useMutation({
-    mutationFn: async ({ id, file_path }) => {
-      const { error: deleteError } = await supabase.storage
-        .from('contract-attachments')
-        .remove([file_path])
-      if (deleteError) throw deleteError
-
-      const { error: dbError } = await supabase
-        .from('contract_attachments')
-        .delete()
-        .eq('id', id)
-      if (dbError) throw dbError
+    mutationFn: async (id) => {
+      const { error } = await supabase.from('contract_attachments').delete().eq('id', id)
+      if (error) throw error
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['contract_attachments'] })
@@ -504,26 +512,34 @@ export default function Properties() {
                                   {/* Attachments */}
                                   {tenant.contract_number && (
                                     <div className="mt-2 pt-2 border-t border-gray-200">
-                                      <p className="text-xs font-medium text-gray-700 mb-2">Anexe:</p>
+                                      <div className="flex items-center justify-between mb-2">
+                                        <p className="text-xs font-medium text-gray-700">Anexe:</p>
+                                        {pEdit && (
+                                          <button
+                                            onClick={() => setAddingAttachment(tenant.id)}
+                                            className="text-xs text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1"
+                                          >
+                                            <Plus className="w-3 h-3" /> Adaugă anexă
+                                          </button>
+                                        )}
+                                      </div>
                                       {attachments.filter(a => a.tenant_id === tenant.id).length === 0 ? (
                                         <p className="text-xs text-gray-400 italic">Nicio anexă.</p>
                                       ) : (
                                         <div className="space-y-1">
                                           {attachments.filter(a => a.tenant_id === tenant.id).map(att => (
                                             <div key={att.id} className="flex items-center justify-between text-xs bg-gray-50 p-2 rounded">
-                                              <a
-                                                href={supabase.storage.from('contract-attachments').getPublicUrl(att.file_path).data.publicUrl}
-                                                target="_blank"
-                                                rel="noreferrer"
-                                                className="text-blue-600 hover:text-blue-700 underline"
-                                              >
-                                                📎 {att.file_name}
-                                              </a>
+                                              <div className="flex-1">
+                                                <p className="font-medium text-gray-800">{att.attachment_number}</p>
+                                                <p className="text-gray-600">
+                                                  📅 {format(new Date(att.expiry_date), 'dd.MM.yyyy')} • 💰 {att.rental_price} {tenant.contract_currency || 'LEI'}
+                                                </p>
+                                              </div>
                                               {pDelete && (
                                                 <button
                                                   onClick={() => {
                                                     if (confirm('Ștergi anexa?')) {
-                                                      deleteAttachment.mutate({ id: att.id, file_path: att.file_path })
+                                                      deleteAttachment.mutate(att.id)
                                                     }
                                                   }}
                                                   disabled={deleteAttachment.isPending}
@@ -542,40 +558,13 @@ export default function Properties() {
 
                                 {/* Edit contract button */}
                                 {pEdit && (
-                                  <div className="flex gap-2 pt-2 border-t border-gray-200">
-                                    <button
-                                      onClick={() => setEditingContract(tenant)}
-                                      disabled={updateTenantContract.isPending}
-                                      className="text-xs text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1"
-                                    >
-                                      <Edit2 className="w-3 h-3" /> {tenant.contract_number ? 'Editează' : 'Adaugă'} contract
-                                    </button>
-
-                                    {tenant.contract_number && (
-                                      <label className="text-xs text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1 cursor-pointer">
-                                        {uploadAttachment === tenant.id ? (
-                                          <Loader2 className="w-3 h-3 animate-spin" />
-                                        ) : (
-                                          <Plus className="w-3 h-3" />
-                                        )}
-                                        Anexă
-                                        <input
-                                          type="file"
-                                          className="hidden"
-                                          onChange={(e) => {
-                                            if (e.target.files?.[0]) {
-                                              setUploadingAttachment(tenant.id)
-                                              uploadAttachment.mutate({
-                                                tenantId: tenant.id,
-                                                file: e.target.files[0],
-                                              })
-                                            }
-                                          }}
-                                          disabled={uploadAttachment.isPending || uploadingAttachment === tenant.id}
-                                        />
-                                      </label>
-                                    )}
-                                  </div>
+                                  <button
+                                    onClick={() => setEditingContract(tenant)}
+                                    disabled={updateTenantContract.isPending}
+                                    className="text-xs text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1 pt-2 border-t border-gray-200 w-full py-2"
+                                  >
+                                    <Edit2 className="w-3 h-3" /> {tenant.contract_number ? 'Editează' : 'Adaugă'} contract
+                                  </button>
                                 )}
                               </div>
                             )
@@ -802,6 +791,22 @@ export default function Properties() {
             setEditingContract(null)
           }}
           isLoading={updateTenantContract.isPending}
+        />
+      )}
+
+      {/* Modal adauga anexa contract */}
+      {addingAttachment && (
+        <AttachmentModal
+          tenant={tenants.find(t => t.id === addingAttachment)}
+          onClose={() => setAddingAttachment(null)}
+          onSave={(data) => {
+            addAttachment.mutate({
+              tenantId: addingAttachment,
+              ...data,
+            })
+            setAddingAttachment(null)
+          }}
+          isLoading={addAttachment.isPending}
         />
       )}
     </div>
@@ -1102,6 +1107,79 @@ function ContractModal({ tenant, onClose, onSave, isLoading }) {
               className="flex-1 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 font-medium disabled:opacity-50"
             >
               {isLoading ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : 'Salvează'}
+            </button>
+          </div>
+        </div>
+      </div>
+    </>
+  )
+}
+
+function AttachmentModal({ tenant, onClose, onSave, isLoading }) {
+  const [attachmentNumber, setAttachmentNumber] = useState('')
+  const [expiryDate, setExpiryDate] = useState('')
+  const [rentalPrice, setRentalPrice] = useState('')
+
+  return (
+    <>
+      <div className="fixed inset-0 bg-black/50 z-40" onClick={onClose} />
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-bold text-gray-900">Adaugă anexă contract</h2>
+            <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+
+          <div className="space-y-3">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Nr. anexă *</label>
+              <input
+                type="text"
+                placeholder="ex: Anexa 1"
+                value={attachmentNumber}
+                onChange={e => setAttachmentNumber(e.target.value)}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary-400"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Data expirare *</label>
+              <input
+                type="date"
+                value={expiryDate}
+                onChange={e => setExpiryDate(e.target.value)}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary-400"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Preț chirie ({tenant?.contract_currency || 'LEI'}) *</label>
+              <input
+                type="number"
+                placeholder="0.00"
+                value={rentalPrice}
+                onChange={e => setRentalPrice(e.target.value)}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary-400"
+              />
+            </div>
+          </div>
+
+          <div className="flex gap-3 pt-4 border-t border-gray-100">
+            <button onClick={onClose} className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium">
+              Anulează
+            </button>
+            <button
+              onClick={() => onSave({
+                attachment_number: attachmentNumber.trim() || null,
+                expiry_date: expiryDate || null,
+                rental_price: rentalPrice ? parseFloat(rentalPrice) : null,
+              })}
+              disabled={!attachmentNumber.trim() || !expiryDate || !rentalPrice || isLoading}
+              className="flex-1 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 font-medium disabled:opacity-50"
+            >
+              {isLoading ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : 'Adaugă'}
             </button>
           </div>
         </div>
