@@ -101,6 +101,19 @@ export default function Properties() {
     },
   })
 
+  // Fetch contract attachments
+  const { data: attachments = [] } = useQuery({
+    queryKey: ['contract_attachments'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('contract_attachments')
+        .select('*')
+        .order('uploaded_at', { ascending: false })
+      if (error) throw error
+      return data
+    },
+  })
+
   // Add property
   const addProperty = useMutation({
     mutationFn: async (payload) => {
@@ -148,15 +161,53 @@ export default function Properties() {
 
   // Update tenant contract
   const updateTenantContract = useMutation({
-    mutationFn: async ({ id, contract_number, contract_start_date, contract_end_date, contract_amount }) => {
+    mutationFn: async ({ id, contract_number, contract_start_date, contract_end_date, contract_amount, contract_currency }) => {
       const { error } = await supabase
         .from('property_tenants')
-        .update({ contract_number, contract_start_date, contract_end_date, contract_amount })
+        .update({ contract_number, contract_start_date, contract_end_date, contract_amount, contract_currency })
         .eq('id', id)
       if (error) throw error
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['property_tenants'] })
+    },
+  })
+
+  // Upload contract attachment
+  const uploadAttachment = useMutation({
+    mutationFn: async ({ tenantId, file }) => {
+      const fileName = `${tenantId}/${Date.now()}_${file.name}`
+      const { error: uploadError } = await supabase.storage
+        .from('contract-attachments')
+        .upload(fileName, file)
+      if (uploadError) throw uploadError
+
+      const { error: insertError } = await supabase
+        .from('contract_attachments')
+        .insert([{ tenant_id: tenantId, file_name: file.name, file_path: fileName }])
+      if (insertError) throw insertError
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['contract_attachments'] })
+    },
+  })
+
+  // Delete attachment
+  const deleteAttachment = useMutation({
+    mutationFn: async ({ id, file_path }) => {
+      const { error: deleteError } = await supabase.storage
+        .from('contract-attachments')
+        .remove([file_path])
+      if (deleteError) throw deleteError
+
+      const { error: dbError } = await supabase
+        .from('contract_attachments')
+        .delete()
+        .eq('id', id)
+      if (dbError) throw dbError
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['contract_attachments'] })
     },
   })
 
@@ -419,7 +470,7 @@ export default function Properties() {
                                 </div>
 
                                 {/* Contract info */}
-                                <div className="border-t border-gray-200 pt-3">
+                                <div className="border-t border-gray-200 pt-3 space-y-3">
                                   {tenant.contract_number ? (
                                     <div className="text-xs space-y-1">
                                       <p className="text-gray-600">
@@ -433,7 +484,7 @@ export default function Properties() {
                                       )}
                                       {tenant.contract_amount && (
                                         <p className="text-gray-600">
-                                          <span className="font-medium">Valoare:</span> {tenant.contract_amount} lei
+                                          <span className="font-medium">Valoare:</span> {tenant.contract_amount} {tenant.contract_currency || 'LEI'}
                                         </p>
                                       )}
                                       {contractExpired && (
@@ -443,34 +494,96 @@ export default function Properties() {
                                   ) : (
                                     <p className="text-xs text-gray-400 italic">Niciun contract adăugat.</p>
                                   )}
+
+                                  {/* Attachments */}
+                                  {tenant.contract_number && (
+                                    <div className="mt-2 pt-2 border-t border-gray-200">
+                                      <p className="text-xs font-medium text-gray-700 mb-2">Anexe:</p>
+                                      {attachments.filter(a => a.tenant_id === tenant.id).length === 0 ? (
+                                        <p className="text-xs text-gray-400 italic">Nicio anexă.</p>
+                                      ) : (
+                                        <div className="space-y-1">
+                                          {attachments.filter(a => a.tenant_id === tenant.id).map(att => (
+                                            <div key={att.id} className="flex items-center justify-between text-xs bg-gray-50 p-2 rounded">
+                                              <a
+                                                href={supabase.storage.from('contract-attachments').getPublicUrl(att.file_path).data.publicUrl}
+                                                target="_blank"
+                                                rel="noreferrer"
+                                                className="text-blue-600 hover:text-blue-700 underline"
+                                              >
+                                                📎 {att.file_name}
+                                              </a>
+                                              {pDelete && (
+                                                <button
+                                                  onClick={() => {
+                                                    if (confirm('Ștergi anexa?')) {
+                                                      deleteAttachment.mutate({ id: att.id, file_path: att.file_path })
+                                                    }
+                                                  }}
+                                                  disabled={deleteAttachment.isPending}
+                                                  className="p-1 text-red-600 hover:bg-red-50 rounded"
+                                                >
+                                                  <Trash2 className="w-3 h-3" />
+                                                </button>
+                                              )}
+                                            </div>
+                                          ))}
+                                        </div>
+                                      )}
+                                    </div>
+                                  )}
                                 </div>
 
                                 {/* Edit contract button */}
                                 {pEdit && (
-                                  <button
-                                    onClick={() => {
-                                      const contractNumber = prompt('Nr. contract:', tenant.contract_number || '')
-                                      if (contractNumber === null) return
-                                      const contractStart = prompt('Data început (YYYY-MM-DD):', tenant.contract_start_date || '')
-                                      if (contractStart === null) return
-                                      const contractEnd = prompt('Data expirare (YYYY-MM-DD):', tenant.contract_end_date || '')
-                                      if (contractEnd === null) return
-                                      const contractAmount = prompt('Suma contract (lei):', tenant.contract_amount || '')
-                                      if (contractAmount === null) return
+                                  <div className="flex gap-2 pt-2 border-t border-gray-200">
+                                    <button
+                                      onClick={() => {
+                                        const contractNumber = prompt('Nr. contract:', tenant.contract_number || '')
+                                        if (contractNumber === null) return
+                                        const contractStart = prompt('Data început (YYYY-MM-DD):', tenant.contract_start_date || '')
+                                        if (contractStart === null) return
+                                        const contractEnd = prompt('Data expirare (YYYY-MM-DD):', tenant.contract_end_date || '')
+                                        if (contractEnd === null) return
+                                        const contractAmount = prompt('Suma contract:', tenant.contract_amount || '')
+                                        if (contractAmount === null) return
+                                        const currency = prompt('Valuta (LEI/EUR):', tenant.contract_currency || 'LEI')
+                                        if (currency === null) return
 
-                                      updateTenantContract.mutate({
-                                        id: tenant.id,
-                                        contract_number: contractNumber || null,
-                                        contract_start_date: contractStart || null,
-                                        contract_end_date: contractEnd || null,
-                                        contract_amount: contractAmount ? parseFloat(contractAmount) : null,
-                                      })
-                                    }}
-                                    disabled={updateTenantContract.isPending}
-                                    className="text-xs text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1"
-                                  >
-                                    <Edit2 className="w-3 h-3" /> Editează contract
-                                  </button>
+                                        updateTenantContract.mutate({
+                                          id: tenant.id,
+                                          contract_number: contractNumber || null,
+                                          contract_start_date: contractStart || null,
+                                          contract_end_date: contractEnd || null,
+                                          contract_amount: contractAmount ? parseFloat(contractAmount) : null,
+                                          contract_currency: currency.toUpperCase() || 'LEI',
+                                        })
+                                      }}
+                                      disabled={updateTenantContract.isPending}
+                                      className="text-xs text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1"
+                                    >
+                                      <Edit2 className="w-3 h-3" /> {tenant.contract_number ? 'Editează' : 'Adaugă'} contract
+                                    </button>
+
+                                    {tenant.contract_number && (
+                                      <label className="text-xs text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1 cursor-pointer">
+                                        <Plus className="w-3 h-3" /> Anexă
+                                        <input
+                                          type="file"
+                                          className="hidden"
+                                          onChange={(e) => {
+                                            if (e.target.files?.[0]) {
+                                              uploadAttachment.mutate({
+                                                tenantId: tenant.id,
+                                                file: e.target.files[0],
+                                              })
+                                            }
+                                          }}
+                                          disabled={uploadAttachment.isPending}
+                                        />
+                                      </label>
+                                    )}
+                                  </div>
                                 )}
                               </div>
                             )
