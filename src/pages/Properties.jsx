@@ -26,6 +26,7 @@ export default function Properties() {
   const [expandedProperty, setExpandedProperty] = useState(null)
   const [expandedReadings, setExpandedReadings] = useState(new Set())
   const [editingContract, setEditingContract] = useState(null)
+  const [uploadingAttachment, setUploadingAttachment] = useState(null)
   const [searchTerm, setSearchTerm] = useState('')
 
   const toggleReadings = (utilityId) => {
@@ -190,6 +191,10 @@ export default function Properties() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['contract_attachments'] })
+      setUploadingAttachment(null)
+    },
+    onError: () => {
+      setUploadingAttachment(null)
     },
   })
 
@@ -548,19 +553,25 @@ export default function Properties() {
 
                                     {tenant.contract_number && (
                                       <label className="text-xs text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1 cursor-pointer">
-                                        <Plus className="w-3 h-3" /> Anexă
+                                        {uploadAttachment === tenant.id ? (
+                                          <Loader2 className="w-3 h-3 animate-spin" />
+                                        ) : (
+                                          <Plus className="w-3 h-3" />
+                                        )}
+                                        Anexă
                                         <input
                                           type="file"
                                           className="hidden"
                                           onChange={(e) => {
                                             if (e.target.files?.[0]) {
+                                              setUploadingAttachment(tenant.id)
                                               uploadAttachment.mutate({
                                                 tenantId: tenant.id,
                                                 file: e.target.files[0],
                                               })
                                             }
                                           }}
-                                          disabled={uploadAttachment.isPending}
+                                          disabled={uploadAttachment.isPending || uploadingAttachment === tenant.id}
                                         />
                                       </label>
                                     )}
