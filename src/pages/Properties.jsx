@@ -6,7 +6,7 @@ import { usePermissions } from '../contexts/PermissionsContext'
 import { format } from 'date-fns'
 import {
   Plus, X, Trash2, Loader2, Home, Phone, Zap, AlertCircle,
-  Check, Edit2, ChevronDown, ChevronUp, ShieldOff, Search,
+  Check, Edit2, ChevronDown, ChevronUp, ShieldOff, Search, MapPin, Users,
 } from 'lucide-react'
 
 const UTILITY_TYPES = [
@@ -46,6 +46,19 @@ export default function Properties() {
         .from('rental_properties')
         .select('*')
         .order('name')
+      if (error) throw error
+      return data
+    },
+  })
+
+  // Fetch tenants for all properties
+  const { data: tenants = [] } = useQuery({
+    queryKey: ['property_tenants'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('property_tenants')
+        .select('*')
+        .order('created_at')
       if (error) throw error
       return data
     },
@@ -100,6 +113,39 @@ export default function Properties() {
     },
   })
 
+  // Add tenant
+  const addTenant = useMutation({
+    mutationFn: async (payload) => {
+      const { error } = await supabase.from('property_tenants').insert([payload])
+      if (error) throw error
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['property_tenants'] })
+    },
+  })
+
+  // Update tenant status
+  const updateTenantStatus = useMutation({
+    mutationFn: async ({ id, is_active }) => {
+      const { error } = await supabase.from('property_tenants').update({ is_active }).eq('id', id)
+      if (error) throw error
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['property_tenants'] })
+    },
+  })
+
+  // Delete tenant
+  const deleteTenant = useMutation({
+    mutationFn: async (id) => {
+      const { error } = await supabase.from('property_tenants').delete().eq('id', id)
+      if (error) throw error
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['property_tenants'] })
+    },
+  })
+
   // Add utility
   const addUtility = useMutation({
     mutationFn: async ({ propertyId, type, name }) => {
@@ -136,9 +182,16 @@ export default function Properties() {
     },
   })
 
-  const filtered = properties.filter(p =>
-    !searchTerm || p.name.toLowerCase().includes(searchTerm.toLowerCase()) || p.tenant_name?.toLowerCase().includes(searchTerm.toLowerCase())
-  )
+  const filtered = properties.filter(p => {
+    if (!searchTerm) return true
+    const search = searchTerm.toLowerCase()
+    const propTenants = tenants.filter(t => t.property_id === p.id)
+    return (
+      p.name.toLowerCase().includes(search) ||
+      p.address?.toLowerCase().includes(search) ||
+      propTenants.some(t => t.name.toLowerCase().includes(search))
+    )
+  })
 
   return (
     <div className="space-y-6">
@@ -147,14 +200,14 @@ export default function Properties() {
           <Home className="w-6 h-6 text-primary-600" />
           Proprietăți în chirie
         </h1>
-        <p className="text-sm text-gray-500 mt-1">Gestionare utilități și citiri</p>
+        <p className="text-sm text-gray-500 mt-1">Gestionare proprietăți, chiriași și utilități</p>
       </div>
 
       {/* Search și buton adăugare */}
       <div className="flex gap-3">
         <input
           type="text"
-          placeholder="Caută proprietate sau chiriaș..."
+          placeholder="Caută proprietate, adresă sau chiriaș..."
           value={searchTerm}
           onChange={e => setSearchTerm(e.target.value)}
           className="flex-1 border border-gray-300 rounded-lg px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary-400"
@@ -181,6 +234,8 @@ export default function Properties() {
           </div>
         ) : (
           filtered.map(prop => {
+            const propTenants = tenants.filter(t => t.property_id === prop.id)
+            const activeTenant = propTenants.find(t => t.is_active)
             const propUtilities = utilities.filter(u => u.property_id === prop.id)
             const isExpanded = expandedProperty === prop.id
 
@@ -194,18 +249,24 @@ export default function Properties() {
                   <div className="flex items-center gap-4 flex-1 text-left">
                     <div>
                       <h3 className="font-semibold text-gray-900">{prop.name}</h3>
-                      {prop.tenant_name && (
-                        <div className="flex items-center gap-4 mt-1">
-                          <p className="text-sm text-gray-600 flex items-center gap-1">
-                            👤 {prop.tenant_name}
+                      <div className="space-y-1 mt-1">
+                        {prop.address && (
+                          <p className="text-sm text-gray-600 flex items-center gap-2">
+                            <MapPin className="w-3.5 h-3.5" /> {prop.address}
                           </p>
-                          {prop.tenant_phone && (
-                            <p className="text-sm text-gray-600 flex items-center gap-1">
-                              <Phone className="w-3 h-3" /> {prop.tenant_phone}
-                            </p>
-                          )}
-                        </div>
-                      )}
+                        )}
+                        {activeTenant && (
+                          <p className="text-sm text-gray-600 flex items-center gap-2">
+                            <Users className="w-3.5 h-3.5" /> {activeTenant.name}
+                            {activeTenant.phone && <span className="text-gray-500">• {activeTenant.phone}</span>}
+                          </p>
+                        )}
+                        {!activeTenant && propTenants.length > 0 && (
+                          <p className="text-sm text-amber-600 flex items-center gap-2">
+                            <Users className="w-3.5 h-3.5" /> Niciun chiriaș activ
+                          </p>
+                        )}
+                      </div>
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
@@ -218,14 +279,88 @@ export default function Properties() {
 
                 {/* Detalii expandate */}
                 {isExpanded && (
-                  <div className="border-t border-gray-100 bg-gray-50 p-6 space-y-4">
+                  <div className="border-t border-gray-100 bg-gray-50 p-6 space-y-6">
+                    {/* Chiriași */}
+                    <div>
+                      <h4 className="font-medium text-gray-800 mb-3 flex items-center gap-2">
+                        <Users className="w-4 h-4" /> Chiriași
+                      </h4>
+                      {propTenants.length === 0 ? (
+                        <p className="text-sm text-gray-400 italic mb-3">Niciun chiriaș adăugat.</p>
+                      ) : (
+                        <div className="space-y-2 mb-3">
+                          {propTenants.map(tenant => (
+                            <div key={tenant.id} className="bg-white rounded-lg p-3 flex items-center justify-between">
+                              <div>
+                                <p className="font-medium text-sm text-gray-800">
+                                  {tenant.name}
+                                  <span className={`ml-2 px-2 py-0.5 rounded-full text-xs font-medium ${
+                                    tenant.is_active
+                                      ? 'bg-green-100 text-green-700'
+                                      : 'bg-gray-100 text-gray-600'
+                                  }`}>
+                                    {tenant.is_active ? 'Activ' : 'Inactiv'}
+                                  </span>
+                                </p>
+                                {tenant.phone && <p className="text-xs text-gray-600 mt-1">{tenant.phone}</p>}
+                                <p className="text-xs text-gray-500 mt-1">
+                                  Din {format(new Date(tenant.start_date), 'dd.MM.yyyy')}
+                                  {tenant.end_date && ` - ${format(new Date(tenant.end_date), 'dd.MM.yyyy')}`}
+                                </p>
+                              </div>
+                              {pEdit && (
+                                <div className="flex gap-2">
+                                  {!tenant.is_active && (
+                                    <button
+                                      onClick={() => updateTenantStatus.mutate({ id: tenant.id, is_active: true })}
+                                      disabled={updateTenantStatus.isPending}
+                                      className="p-1.5 text-green-600 hover:bg-green-50 rounded-lg"
+                                      title="Marcheaza ca activ"
+                                    >
+                                      <Check className="w-4 h-4" />
+                                    </button>
+                                  )}
+                                  {tenant.is_active && (
+                                    <button
+                                      onClick={() => updateTenantStatus.mutate({ id: tenant.id, is_active: false })}
+                                      disabled={updateTenantStatus.isPending}
+                                      className="p-1.5 text-amber-600 hover:bg-amber-50 rounded-lg"
+                                      title="Marcheza ca inactiv"
+                                    >
+                                      <X className="w-4 h-4" />
+                                    </button>
+                                  )}
+                                  {pDelete && (
+                                    <button
+                                      onClick={() => deleteTenant.mutate(tenant.id)}
+                                      disabled={deleteTenant.isPending}
+                                      className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg"
+                                    >
+                                      <Trash2 className="w-4 h-4" />
+                                    </button>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Adauga chiriaș */}
+                      {pEdit && (
+                        <AddTenantForm propertyId={prop.id} onAdd={(name, phone) => addTenant.mutate({ property_id: prop.id, name, phone, is_active: true, start_date: new Date().toISOString().split('T')[0] })} />
+                      )}
+                    </div>
+
                     {/* Utilități */}
                     <div>
-                      <h4 className="font-medium text-gray-800 mb-3">Utilități</h4>
+                      <h4 className="font-medium text-gray-800 mb-3 flex items-center gap-2">
+                        <Zap className="w-4 h-4" /> Utilități
+                      </h4>
                       {propUtilities.length === 0 ? (
-                        <p className="text-sm text-gray-400 italic">Nicio utilitate adăugată.</p>
+                        <p className="text-sm text-gray-400 italic mb-3">Nicio utilitate adăugată.</p>
                       ) : (
-                        <div className="space-y-2">
+                        <div className="space-y-2 mb-3">
                           {propUtilities.map(util => {
                             const utilReadings = readings.filter(r => r.utility_id === util.id)
                             const typeInfo = UTILITY_TYPES.find(t => t.key === util.type)
@@ -273,7 +408,15 @@ export default function Properties() {
 
                                 {/* Adauga citire */}
                                 {pEdit && (
-                                  <AddReadingForm utilityId={util.id} onAdd={() => addReading.mutate({ utility_id: util.id, reading_date: new Date().toISOString().split('T')[0] })} />
+                                  <AddReadingForm
+                                    utilityId={util.id}
+                                    onAdd={(date, value, amount) => addReading.mutate({
+                                      utility_id: util.id,
+                                      reading_date: date,
+                                      reading_value: value,
+                                      amount: amount || null,
+                                    })}
+                                  />
                                 )}
                               </div>
                             )
@@ -296,7 +439,7 @@ export default function Properties() {
                           className="flex items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg"
                         >
                           {deleteProperty.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
-                          Șterge
+                          Șterge proprietate
                         </button>
                       </div>
                     )}
@@ -322,8 +465,7 @@ export default function Properties() {
 
 function AddPropertyModal({ onClose, onAdd, isLoading }) {
   const [name, setName] = useState('')
-  const [tenantName, setTenantName] = useState('')
-  const [tenantPhone, setTenantPhone] = useState('')
+  const [address, setAddress] = useState('')
 
   return (
     <>
@@ -350,23 +492,12 @@ function AddPropertyModal({ onClose, onAdd, isLoading }) {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Nume chiriaș</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Adresă</label>
               <input
                 type="text"
-                placeholder="ex: Ion Popescu"
-                value={tenantName}
-                onChange={e => setTenantName(e.target.value)}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary-400"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Telefon chiriaș</label>
-              <input
-                type="tel"
-                placeholder="ex: 0722 123 456"
-                value={tenantPhone}
-                onChange={e => setTenantPhone(e.target.value)}
+                placeholder="ex: Str. Prichinei 123, Brașov"
+                value={address}
+                onChange={e => setAddress(e.target.value)}
                 className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary-400"
               />
             </div>
@@ -377,7 +508,7 @@ function AddPropertyModal({ onClose, onAdd, isLoading }) {
               Anulează
             </button>
             <button
-              onClick={() => onAdd({ name: name.trim(), tenant_name: tenantName.trim() || null, tenant_phone: tenantPhone.trim() || null })}
+              onClick={() => onAdd({ name: name.trim(), address: address.trim() || null })}
               disabled={!name.trim() || isLoading}
               className="flex-1 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 font-medium disabled:opacity-50"
             >
@@ -390,6 +521,54 @@ function AddPropertyModal({ onClose, onAdd, isLoading }) {
   )
 }
 
+function AddTenantForm({ propertyId, onAdd }) {
+  const [show, setShow] = useState(false)
+  const [name, setName] = useState('')
+  const [phone, setPhone] = useState('')
+
+  if (!show) {
+    return (
+      <button
+        onClick={() => setShow(true)}
+        className="text-xs text-primary-600 hover:text-primary-700 font-medium"
+      >
+        + Adaugă chiriaș
+      </button>
+    )
+  }
+
+  return (
+    <div className="bg-gray-100 p-3 rounded-lg space-y-2">
+      <input
+        type="text"
+        placeholder="Nume chiriaș"
+        value={name}
+        onChange={e => setName(e.target.value)}
+        className="w-full px-2 py-1.5 text-xs border border-gray-300 rounded outline-none"
+      />
+      <input
+        type="tel"
+        placeholder="Telefon (opțional)"
+        value={phone}
+        onChange={e => setPhone(e.target.value)}
+        className="w-full px-2 py-1.5 text-xs border border-gray-300 rounded outline-none"
+      />
+      <div className="flex gap-2">
+        <button
+          onClick={() => { onAdd(name.trim(), phone.trim() || null); setShow(false); setName(''); setPhone('') }}
+          disabled={!name.trim()}
+          className="flex-1 px-2 py-1.5 text-xs bg-primary-600 text-white rounded hover:bg-primary-700 disabled:opacity-50"
+        >
+          Adaugă
+        </button>
+        <button onClick={() => setShow(false)} className="px-2 py-1.5 text-xs border border-gray-300 text-gray-600 rounded hover:bg-gray-200">
+          Anulează
+        </button>
+      </div>
+    </div>
+  )
+}
+
 function AddUtilityForm({ propertyId, onAdd }) {
   const [type, setType] = useState('energie')
   const [name, setName] = useState('')
@@ -399,7 +578,7 @@ function AddUtilityForm({ propertyId, onAdd }) {
     return (
       <button
         onClick={() => setShow(true)}
-        className="text-xs text-primary-600 hover:text-primary-700 font-medium mt-2"
+        className="text-xs text-primary-600 hover:text-primary-700 font-medium"
       >
         + Adaugă utilitate
       </button>
@@ -407,7 +586,7 @@ function AddUtilityForm({ propertyId, onAdd }) {
   }
 
   return (
-    <div className="flex gap-2 mt-3 bg-gray-100 p-2 rounded-lg">
+    <div className="flex gap-2 bg-gray-100 p-2 rounded-lg">
       <select
         value={type}
         onChange={e => setType(e.target.value)}
@@ -475,7 +654,7 @@ function AddReadingForm({ utilityId, onAdd }) {
         className="px-2 py-1 text-xs border border-gray-300 rounded outline-none w-24"
       />
       <button
-        onClick={() => { onAdd(); setShow(false); setDate(new Date().toISOString().split('T')[0]); setValue(''); setAmount('') }}
+        onClick={() => { onAdd(date, value, amount); setShow(false); setDate(new Date().toISOString().split('T')[0]); setValue(''); setAmount('') }}
         className="px-2 py-1 text-xs bg-primary-600 text-white rounded hover:bg-primary-700"
       >
         OK
