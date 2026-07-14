@@ -201,13 +201,17 @@ export default function Properties() {
   // Add contract attachment
   const addAttachment = useMutation({
     mutationFn: async ({ tenantId, attachment_number, expiry_date, rental_price }) => {
-      const { error } = await supabase.from('contract_attachments').insert([{
+      const { data, error } = await supabase.from('contract_attachments').insert([{
         tenant_id: tenantId,
         attachment_number,
         expiry_date,
-        rental_price,
-      }])
-      if (error) throw error
+        rental_price: parseFloat(rental_price),
+      }]).select()
+      if (error) {
+        console.error('Error adding attachment:', error)
+        throw error
+      }
+      return data
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['contract_attachments'] })
