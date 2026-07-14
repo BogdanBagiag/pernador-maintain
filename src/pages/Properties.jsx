@@ -27,6 +27,7 @@ export default function Properties() {
   const [expandedReadings, setExpandedReadings] = useState(new Set())
   const [editingContract, setEditingContract] = useState(null)
   const [addingAttachment, setAddingAttachment] = useState(null)
+  const [editingAttachment, setEditingAttachment] = useState(null)
   const [searchTerm, setSearchTerm] = useState('')
 
   const toggleReadings = (utilityId) => {
@@ -221,6 +222,25 @@ export default function Properties() {
     onError: (error) => {
       console.error('Attachment error:', error)
       alert('Eroare la adăugarea anexei: ' + error.message)
+    },
+  })
+
+  // Update contract attachment
+  const updateAttachment = useMutation({
+    mutationFn: async ({ id, attachment_number, expiry_date, rental_price }) => {
+      const { error } = await supabase.from('contract_attachments').update({
+        attachment_number,
+        expiry_date,
+        rental_price: parseFloat(rental_price),
+      }).eq('id', id)
+      if (error) throw error
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['contract_attachments'] })
+      setEditingAttachment(null)
+    },
+    onError: (error) => {
+      alert('Eroare la editarea anexei: ' + error.message)
     },
   })
 
@@ -642,6 +662,16 @@ export default function Properties() {
                                                     📅 {format(new Date(att.expiry_date), 'dd.MM.yyyy')} • 💰 {att.rental_price} {tenant.contract_currency || 'LEI'}
                                                   </p>
                                                 </div>
+                                                {pEdit && (
+                                                  <button
+                                                    onClick={() => setEditingAttachment(att)}
+                                                    disabled={updateAttachment.isPending}
+                                                    className="p-1 text-blue-600 hover:bg-blue-50 rounded"
+                                                    title="Editează"
+                                                  >
+                                                    <Edit2 className="w-3 h-3" />
+                                                  </button>
+                                                )}
                                                 {pDelete && (
                                                   <button
                                                     onClick={() => {
@@ -1017,6 +1047,22 @@ export default function Properties() {
           isLoading={addAttachment.isPending}
         />
       )}
+
+      {/* Modal editeza anexa contract */}
+      {editingAttachment && (
+        <AttachmentModal
+          tenant={tenants.find(t => t.id === editingAttachment.tenant_id)}
+          attachment={editingAttachment}
+          onClose={() => setEditingAttachment(null)}
+          onSave={(data) => {
+            updateAttachment.mutate({
+              id: editingAttachment.id,
+              ...data,
+            })
+          }}
+          isLoading={updateAttachment.isPending}
+        />
+      )}
     </div>
   )
 }
@@ -1323,10 +1369,11 @@ function ContractModal({ tenant, onClose, onSave, isLoading }) {
   )
 }
 
-function AttachmentModal({ tenant, onClose, onSave, isLoading }) {
-  const [attachmentNumber, setAttachmentNumber] = useState('')
-  const [expiryDate, setExpiryDate] = useState('')
-  const [rentalPrice, setRentalPrice] = useState('')
+function AttachmentModal({ tenant, attachment, onClose, onSave, isLoading }) {
+  const [attachmentNumber, setAttachmentNumber] = useState(attachment?.attachment_number || '')
+  const [expiryDate, setExpiryDate] = useState(attachment?.expiry_date || '')
+  const [rentalPrice, setRentalPrice] = useState(attachment?.rental_price || '')
+  const isEditing = !!attachment
 
   return (
     <>
@@ -1334,7 +1381,7 @@ function AttachmentModal({ tenant, onClose, onSave, isLoading }) {
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
         <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 space-y-4">
           <div className="flex items-center justify-between">
-            <h2 className="text-lg font-bold text-gray-900">Adaugă anexă contract</h2>
+            <h2 className="text-lg font-bold text-gray-900">{isEditing ? 'Editează anexă' : 'Adaugă anexă contract'}</h2>
             <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
               <X className="w-5 h-5" />
             </button>
@@ -1387,7 +1434,7 @@ function AttachmentModal({ tenant, onClose, onSave, isLoading }) {
               disabled={!attachmentNumber.trim() || !expiryDate || !rentalPrice || isLoading}
               className="flex-1 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 font-medium disabled:opacity-50"
             >
-              {isLoading ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : 'Adaugă'}
+              {isLoading ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : isEditing ? 'Salvează' : 'Adaugă'}
             </button>
           </div>
         </div>
