@@ -500,20 +500,38 @@ export default function Properties() {
                                       <p className="text-gray-600">
                                         <span className="font-medium">Contract:</span> {tenant.contract_number}
                                       </p>
-                                      {tenant.contract_start_date && (
-                                        <p className="text-gray-600">
-                                          <span className="font-medium">Perioada:</span> {format(new Date(tenant.contract_start_date), 'dd.MM.yyyy')}
-                                          {tenant.contract_end_date && ` - ${format(new Date(tenant.contract_end_date), 'dd.MM.yyyy')}`}
-                                        </p>
-                                      )}
-                                      {tenant.contract_amount && (
-                                        <p className="text-gray-600">
-                                          <span className="font-medium">Valoare:</span> {tenant.contract_amount} {tenant.contract_currency || 'LEI'}
-                                        </p>
-                                      )}
-                                      {contractExpired && (
-                                        <p className="text-red-600 font-medium">⚠️ Contract expirat!</p>
-                                      )}
+                                      {(() => {
+                                        const tenantAttachments = attachments.filter(a => a.tenant_id === tenant.id)
+                                        const latestAttachment = tenantAttachments.length > 0
+                                          ? tenantAttachments.reduce((prev, current) => new Date(current.expiry_date) > new Date(prev.expiry_date) ? current : prev)
+                                          : null
+                                        const effectiveEndDate = latestAttachment?.expiry_date || tenant.contract_end_date
+                                        const isExpired = effectiveEndDate && new Date(effectiveEndDate) < new Date()
+
+                                        return (
+                                          <>
+                                            {tenant.contract_start_date && (
+                                              <p className="text-gray-600">
+                                                <span className="font-medium">Perioada:</span> {format(new Date(tenant.contract_start_date), 'dd.MM.yyyy')}
+                                                {effectiveEndDate && ` - ${format(new Date(effectiveEndDate), 'dd.MM.yyyy')}`}
+                                              </p>
+                                            )}
+                                            {latestAttachment && (
+                                              <p className="text-blue-600 text-xs">
+                                                (Din Anexa {latestAttachment.attachment_number})
+                                              </p>
+                                            )}
+                                            {tenant.contract_amount && (
+                                              <p className="text-gray-600">
+                                                <span className="font-medium">Valoare:</span> {tenant.contract_amount} {tenant.contract_currency || 'LEI'}
+                                              </p>
+                                            )}
+                                            {isExpired && (
+                                              <p className="text-red-600 font-medium">⚠️ Contract expirat!</p>
+                                            )}
+                                          </>
+                                        )
+                                      })()}
                                     </div>
                                   ) : (
                                     <p className="text-xs text-gray-400 italic">Niciun contract adăugat.</p>
