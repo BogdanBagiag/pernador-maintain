@@ -8,7 +8,7 @@ import {
   LayoutDashboard, Wrench, ClipboardList, Calendar, BarChart3,
   Settings, LogOut, Menu, X, MapPin, QrCode, CheckSquare,
   FileText, Users, Car, Package, BookOpen, LayoutGrid,
-  ScrollText, ChevronDown, BookMarked, RotateCcw, Megaphone, ShoppingCart, Sparkles,
+  ScrollText, ChevronDown, BookMarked, RotateCcw, Megaphone, ShoppingCart, Sparkles, Home,
 } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { useRealtimeNotifications } from '../hooks/useRealtimeNotifications'
@@ -38,9 +38,10 @@ const GROUPS = [
     key: 'assets',
     label: 'Active',
     items: [
-      { name: 'Echipamente', href: '/equipment', icon: Wrench, moduleKey: 'equipment' },
-      { name: 'Locații',     href: '/locations', icon: MapPin,  moduleKey: 'locations' },
-      { name: 'Mașini',      href: '/vehicles',  icon: Car,     moduleKey: 'vehicles' },
+      { name: 'Echipamente',              href: '/equipment',   icon: Wrench,      moduleKey: 'equipment' },
+      { name: 'Locații',                  href: '/locations',   icon: MapPin,      moduleKey: 'locations' },
+      { name: 'Mașini',                   href: '/vehicles',    icon: Car,         moduleKey: 'vehicles' },
+      { name: 'Proprietăți în chirie',    href: '/properties',  icon: Home,        moduleKey: 'properties' },
     ],
   },
   {

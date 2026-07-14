@@ -44,6 +44,7 @@ import Retururi from './pages/Retururi'
 import Reclamatii from './pages/Reclamatii'
 import Comenzi from './pages/Comenzi'
 import PernadorClean from './pages/PernadorClean'
+import Properties from './pages/Properties'
 
 // Components
 import Layout from './components/Layout'
@@ -168,6 +169,9 @@ function App() {
                       <Route path="/vehicles/new" element={<VehicleForm />} />
                       <Route path="/vehicles/:id" element={<VehicleDetail />} />
                       <Route path="/vehicles/:id/edit" element={<VehicleForm />} />
+
+                      {/* Properties Routes */}
+                      <Route path="/properties" element={<Properties />} />
 
                       {/* Other Routes */}
                       <Route path="/schedules" element={<MaintenanceSchedules />} />
