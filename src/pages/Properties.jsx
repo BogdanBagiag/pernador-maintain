@@ -275,16 +275,24 @@ export default function Properties() {
   const uploadContractFile = useMutation({
     mutationFn: async ({ tenantId, file }) => {
       const fileName = `contracts/${tenantId}/${Date.now()}_${file.name}`
-      const { error: uploadError } = await supabase.storage
+      const { data: uploadData, error: uploadError } = await supabase.storage
         .from('contract-files')
-        .upload(fileName, file)
-      if (uploadError) throw uploadError
+        .upload(fileName, file, { upsert: true })
+      if (uploadError) {
+        console.error('Upload error:', uploadError)
+        throw uploadError
+      }
 
-      const { error: updateError } = await supabase
+      const { data: updateData, error: updateError } = await supabase
         .from('property_tenants')
         .update({ contract_file_path: fileName })
         .eq('id', tenantId)
-      if (updateError) throw updateError
+        .select()
+      if (updateError) {
+        console.error('Update error:', updateError)
+        throw updateError
+      }
+      return updateData
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['property_tenants'] })
@@ -295,16 +303,24 @@ export default function Properties() {
   const uploadAttachmentFile = useMutation({
     mutationFn: async ({ attachmentId, file }) => {
       const fileName = `attachments/${attachmentId}/${Date.now()}_${file.name}`
-      const { error: uploadError } = await supabase.storage
+      const { data: uploadData, error: uploadError } = await supabase.storage
         .from('contract-files')
-        .upload(fileName, file)
-      if (uploadError) throw uploadError
+        .upload(fileName, file, { upsert: true })
+      if (uploadError) {
+        console.error('Upload error:', uploadError)
+        throw uploadError
+      }
 
-      const { error: updateError } = await supabase
+      const { data: updateData, error: updateError } = await supabase
         .from('contract_attachments')
         .update({ file_path: fileName })
         .eq('id', attachmentId)
-      if (updateError) throw updateError
+        .select()
+      if (updateError) {
+        console.error('Update error:', updateError)
+        throw updateError
+      }
+      return updateData
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['contract_attachments'] })
