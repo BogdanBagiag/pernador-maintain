@@ -698,7 +698,17 @@ export default function Properties() {
                                       })()}
                                     </div>
                                   ) : (
-                                    <p className="text-xs text-gray-400 italic">Niciun contract adăugat.</p>
+                                    <div className="flex items-center gap-2">
+                                      <p className="text-xs text-gray-400 italic">Niciun contract adăugat.</p>
+                                      {pEdit && (
+                                        <button
+                                          onClick={() => setEditingContract(tenant)}
+                                          className="text-xs text-blue-600 hover:text-blue-700 font-medium"
+                                        >
+                                          + Adaugă
+                                        </button>
+                                      )}
+                                    </div>
                                   )}
 
                                   {/* Attachments */}
