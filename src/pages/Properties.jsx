@@ -1035,11 +1035,11 @@ export default function Properties() {
                                 {pEdit && (
                                   <AddReadingForm
                                     utilityId={util.id}
-                                    onAdd={(date, value, amount) => addReading.mutate({
+                                    onAdd={(date, value) => addReading.mutate({
                                       utility_id: util.id,
                                       reading_date: date,
                                       reading_value: value,
-                                      amount: amount || null,
+                                      amount: null,
                                     })}
                                   />
                                 )}
@@ -1290,7 +1290,6 @@ function AddReadingForm({ utilityId, onAdd }) {
   const [show, setShow] = useState(false)
   const [date, setDate] = useState(new Date().toISOString().split('T')[0])
   const [value, setValue] = useState('')
-  const [amount, setAmount] = useState('')
 
   if (!show) {
     return (
@@ -1318,15 +1317,8 @@ function AddReadingForm({ utilityId, onAdd }) {
         onChange={e => setValue(e.target.value)}
         className="px-2 py-1 text-xs border border-gray-300 rounded outline-none w-20"
       />
-      <input
-        type="number"
-        placeholder="Sumă"
-        value={amount}
-        onChange={e => setAmount(e.target.value)}
-        className="px-2 py-1 text-xs border border-gray-300 rounded outline-none w-24"
-      />
       <button
-        onClick={() => { onAdd(date, value, amount); setShow(false); setDate(new Date().toISOString().split('T')[0]); setValue(''); setAmount('') }}
+        onClick={() => { onAdd(date, value); setShow(false); setDate(new Date().toISOString().split('T')[0]); setValue('') }}
         className="px-2 py-1 text-xs bg-primary-600 text-white rounded hover:bg-primary-700"
       >
         OK
