@@ -6,6 +6,7 @@ import { ArrowLeft, Edit, MapPin, Building, Trash2, AlertTriangle, Wrench } from
 import LoadingSpinner from '../components/LoadingSpinner'
 import QRCodeGenerator from '../components/QRCodeGenerator'
 import LocationInspectionsSection from '../components/LocationInspectionsSection'
+import LocationInsurancesSection from '../components/LocationInsurancesSection'
 
 export default function LocationDetail() {
   const { id } = useParams()
@@ -239,6 +240,9 @@ export default function LocationDetail() {
 
           {/* Inspecții periodice (ex: PRAM) */}
           <LocationInspectionsSection locationId={id} canEdit={canEdit} />
+
+          {/* Asigurări */}
+          <LocationInsurancesSection locationId={id} canEdit={canEdit} />
 
           {/* Equipment in Location */}
           <div className="card">

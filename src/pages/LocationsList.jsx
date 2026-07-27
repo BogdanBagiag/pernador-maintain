@@ -44,13 +44,26 @@ export default function LocationsList() {
     },
   })
 
-  // Pentru o locatie, cate un badge de status pentru fiecare "tip" distinct de inspectie (cea mai recenta)
-  const getInspectionBadges = (locationId) => {
+  // Fetch asigurări pentru toate locațiile, ca sa afisam status pe fiecare card
+  const { data: insurances } = useQuery({
+    queryKey: ['all-location-insurances'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('location_insurances')
+        .select('*')
+        .order('data_expirare', { ascending: false })
+      if (error) throw error
+      return data
+    },
+  })
+
+  // Helper generic: cate un badge de status pentru fiecare "tip" distinct dintr-o lista de inregistrari
+  // (data_inceput / data_expirare pentru asigurari, data_inspectie / data_expirare pentru inspectii)
+  const buildStatusBadges = (records, startField) => {
     const fmt = (d) => new Date(d).toLocaleDateString('ro-RO', { day: '2-digit', month: '2-digit', year: 'numeric' })
     const today = new Date(new Date().toDateString())
-    const forLocation = (inspections || []).filter((i) => i.location_id === locationId)
     const latestByTip = {}
-    forLocation.forEach((i) => {
+    records.forEach((i) => {
       if (!latestByTip[i.tip] || new Date(i.data_expirare) > new Date(latestByTip[i.tip].data_expirare)) {
         latestByTip[i.tip] = i
       }
@@ -64,13 +77,21 @@ export default function LocationsList() {
         label: i.tip,
         text: isExpired
           ? `Expirat în data de ${fmt(expiry)}`
-          : i.data_inspectie
-            ? `Activ ${fmt(i.data_inspectie)} – ${fmt(expiry)}`
+          : i[startField]
+            ? `Activ ${fmt(i[startField])} – ${fmt(expiry)}`
             : `Activ până pe ${fmt(expiry)}`,
         color: isExpired ? 'bg-red-100 text-red-800' : isExpiringSoon ? 'bg-yellow-100 text-yellow-800' : 'bg-green-100 text-green-800',
       }
     })
   }
+
+  // Pentru o locatie, cate un badge de status pentru fiecare "tip" distinct de inspectie (cea mai recenta)
+  const getInspectionBadges = (locationId) =>
+    buildStatusBadges((inspections || []).filter((i) => i.location_id === locationId), 'data_inspectie')
+
+  // Pentru o locatie, cate un badge de status pentru fiecare "tip" distinct de asigurare (cea mai recenta)
+  const getInsuranceBadges = (locationId) =>
+    buildStatusBadges((insurances || []).filter((i) => i.location_id === locationId), 'data_inceput')
 
   // Delete mutation
   const deleteMutation = useMutation({
@@ -223,9 +244,9 @@ export default function LocationsList() {
                 </div>
               )}
 
-              {getInspectionBadges(location.id).length > 0 && (
+              {[...getInspectionBadges(location.id), ...getInsuranceBadges(location.id)].length > 0 && (
                 <div className="mb-4 space-y-1.5">
-                  {getInspectionBadges(location.id).map(({ label, text, color }) => (
+                  {[...getInspectionBadges(location.id), ...getInsuranceBadges(location.id)].map(({ label, text, color }) => (
                     <div key={label} className={`flex items-start gap-2 px-2 py-1 rounded text-xs font-medium ${color}`}>
                       <span className="font-semibold shrink-0">{label}:</span>
                       <span>{text}</span>
