@@ -28,6 +28,7 @@ export default function LocationInspectionsSection({ locationId, canEdit }) {
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
   const [uploadingId, setUploadingId] = useState(null)
+  const [fileError, setFileError] = useState(null) // { inspectionId, message }
 
   const { data: inspections, isLoading } = useQuery({
     queryKey: ['location-inspections', locationId],
@@ -186,16 +187,20 @@ export default function LocationInspectionsSection({ locationId, canEdit }) {
         if (dbError) throw dbError
       }
     },
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['location-inspection-files', locationId] })
+      setFileError((prev) => (prev?.inspectionId === variables.inspectionId ? null : prev))
     },
-    onError: (e) => setError(e.message || 'Eroare la încărcarea documentului'),
+    onError: (e, variables) => {
+      console.error('Eroare la încărcarea documentului de inspecție:', e)
+      setFileError({ inspectionId: variables.inspectionId, message: e.message || 'Eroare la încărcarea documentului.' })
+    },
     onSettled: () => setUploadingId(null),
   })
 
   const handleFilesSelected = (inspectionId, fileList) => {
     if (!fileList || fileList.length === 0) return
-    setError('')
+    setFileError(null)
     setUploadingId(inspectionId)
     uploadFilesMutation.mutate({ inspectionId, fileList })
   }
@@ -343,6 +348,9 @@ export default function LocationInspectionsSection({ locationId, canEdit }) {
                 </li>
               ))}
             </ul>
+          )}
+          {fileError?.inspectionId === item.id && (
+            <p className="text-xs text-red-600 mt-1.5">{fileError.message}</p>
           )}
         </div>
       </div>
