@@ -103,6 +103,19 @@ export default function Properties() {
     },
   })
 
+  // Fetch insurances for all properties (pentru badge-urile din lista)
+  const { data: insurances = [] } = useQuery({
+    queryKey: ['all-property-insurances'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('property_insurances')
+        .select('*')
+        .order('data_expirare', { ascending: false })
+      if (error) throw error
+      return data
+    },
+  })
+
   // Fetch readings
   const { data: readings = [] } = useQuery({
     queryKey: ['utility_readings'],
@@ -475,6 +488,64 @@ export default function Properties() {
     },
   })
 
+  const fmtBadgeDate = (d) => new Date(d).toLocaleDateString('ro-RO', { day: '2-digit', month: '2-digit', year: 'numeric' })
+
+  // Badge status contract, pentru chiriașul activ al unei proprietăți (la fel ca la Mașini/Locații)
+  const getContractBadge = (propTenantsList) => {
+    const activeTenant = propTenantsList.find(t => t.is_active)
+    if (!activeTenant || !activeTenant.contract_number) return null
+
+    const tenantAttachments = attachments.filter(a => a.tenant_id === activeTenant.id)
+    const latestAttachment = tenantAttachments.length > 0
+      ? tenantAttachments.reduce((prev, current) => new Date(current.expiry_date) > new Date(prev.expiry_date) ? current : prev)
+      : null
+    const effectiveEndDate = latestAttachment?.expiry_date || activeTenant.contract_end_date
+    if (!effectiveEndDate) return null
+
+    const today = new Date(new Date().toDateString())
+    const expiry = new Date(effectiveEndDate)
+    const isExpired = expiry < today
+    const daysLeft = Math.ceil((expiry - today) / (1000 * 60 * 60 * 24))
+    const isExpiringSoon = !isExpired && daysLeft <= 30
+
+    return {
+      label: 'Contract',
+      text: isExpired
+        ? `Expirat în data de ${fmtBadgeDate(expiry)}`
+        : activeTenant.contract_start_date
+          ? `Activ ${fmtBadgeDate(activeTenant.contract_start_date)} – ${fmtBadgeDate(expiry)}`
+          : `Activ până pe ${fmtBadgeDate(expiry)}`,
+      color: isExpired ? 'bg-red-100 text-red-800' : isExpiringSoon ? 'bg-yellow-100 text-yellow-800' : 'bg-green-100 text-green-800',
+    }
+  }
+
+  // Badge status asigurare, pentru fiecare "tip" distinct de asigurare al unei proprietăți (cea mai recentă)
+  const getInsuranceBadges = (propertyId) => {
+    const today = new Date(new Date().toDateString())
+    const forProperty = insurances.filter(i => i.property_id === propertyId)
+    const latestByTip = {}
+    forProperty.forEach(i => {
+      if (!latestByTip[i.tip] || new Date(i.data_expirare) > new Date(latestByTip[i.tip].data_expirare)) {
+        latestByTip[i.tip] = i
+      }
+    })
+    return Object.values(latestByTip).map(i => {
+      const expiry = new Date(i.data_expirare)
+      const isExpired = expiry < today
+      const daysLeft = Math.ceil((expiry - today) / (1000 * 60 * 60 * 24))
+      const isExpiringSoon = !isExpired && daysLeft <= 30
+      return {
+        label: i.tip,
+        text: isExpired
+          ? `Expirat în data de ${fmtBadgeDate(expiry)}`
+          : i.data_inceput
+            ? `Activ ${fmtBadgeDate(i.data_inceput)} – ${fmtBadgeDate(expiry)}`
+            : `Activ până pe ${fmtBadgeDate(expiry)}`,
+        color: isExpired ? 'bg-red-100 text-red-800' : isExpiringSoon ? 'bg-yellow-100 text-yellow-800' : 'bg-green-100 text-green-800',
+      }
+    })
+  }
+
   const filtered = properties.filter(p => {
     if (!searchTerm) return true
     const search = searchTerm.toLowerCase()
@@ -569,6 +640,24 @@ export default function Properties() {
                     {isExpanded ? <ChevronUp className="w-5 h-5 text-gray-400" /> : <ChevronDown className="w-5 h-5 text-gray-400" />}
                   </div>
                 </button>
+
+                {/* Badge-uri contract / asigurări */}
+                {(() => {
+                  const contractBadge = getContractBadge(propTenants)
+                  const insuranceBadges = getInsuranceBadges(prop.id)
+                  const badges = [contractBadge, ...insuranceBadges].filter(Boolean)
+                  if (badges.length === 0) return null
+                  return (
+                    <div className="px-6 pb-4 -mt-1 space-y-1.5">
+                      {badges.map(({ label, text, color }) => (
+                        <div key={label} className={`flex items-start gap-2 px-2 py-1 rounded text-xs font-medium ${color}`}>
+                          <span className="font-semibold shrink-0">{label}:</span>
+                          <span>{text}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )
+                })()}
 
                 {/* Detalii expandate */}
                 {isExpanded && (
