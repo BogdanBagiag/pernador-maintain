@@ -5,7 +5,7 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import { useLanguage } from '../contexts/LanguageContext'
 import { usePermissions } from '../contexts/PermissionsContext'
-import { Plus, Search, MapPin, Edit, Trash2, Building, ShieldOff } from 'lucide-react'
+import { Plus, Search, MapPin, Edit, Trash2, Building, ShieldOff, AlertTriangle, CheckCircle } from 'lucide-react'
 import LoadingSpinner from '../components/LoadingSpinner'
 
 export default function LocationsList() {
@@ -30,6 +30,44 @@ export default function LocationsList() {
       return data
     },
   })
+
+  // Fetch inspecții (ex: PRAM) pentru toate locațiile, ca sa afisam status pe fiecare card
+  const { data: inspections } = useQuery({
+    queryKey: ['all-location-inspections'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('location_inspections')
+        .select('*')
+        .order('data_expirare', { ascending: false })
+      if (error) throw error
+      return data
+    },
+  })
+
+  // Pentru o locatie, cate un badge de status pentru fiecare "tip" distinct de inspectie (cea mai recenta)
+  const getInspectionBadges = (locationId) => {
+    const today = new Date(new Date().toDateString())
+    const forLocation = (inspections || []).filter((i) => i.location_id === locationId)
+    const latestByTip = {}
+    forLocation.forEach((i) => {
+      if (!latestByTip[i.tip] || new Date(i.data_expirare) > new Date(latestByTip[i.tip].data_expirare)) {
+        latestByTip[i.tip] = i
+      }
+    })
+    return Object.values(latestByTip).map((i) => {
+      const expiry = new Date(i.data_expirare)
+      const isExpired = expiry < today
+      const daysLeft = Math.ceil((expiry - today) / (1000 * 60 * 60 * 24))
+      const isExpiringSoon = !isExpired && daysLeft <= 30
+      return {
+        tip: i.tip,
+        isExpired,
+        isExpiringSoon,
+        daysLeft,
+        color: isExpired ? 'bg-red-100 text-red-800' : isExpiringSoon ? 'bg-yellow-100 text-yellow-800' : 'bg-green-100 text-green-800',
+      }
+    })
+  }
 
   // Delete mutation
   const deleteMutation = useMutation({
@@ -179,6 +217,22 @@ export default function LocationsList() {
                   {location.floor && `${t('locations.floor')}: ${location.floor}`}
                   {location.floor && location.room && ' • '}
                   {location.room && `${t('locations.room')}: ${location.room}`}
+                </div>
+              )}
+
+              {getInspectionBadges(location.id).length > 0 && (
+                <div className="flex flex-wrap gap-1.5 mb-4">
+                  {getInspectionBadges(location.id).map((b) => (
+                    <span
+                      key={b.tip}
+                      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium ${b.color}`}
+                    >
+                      {b.isExpired
+                        ? <AlertTriangle className="w-3 h-3" />
+                        : <CheckCircle className="w-3 h-3" />}
+                      {b.tip}: {b.isExpired ? 'Expirat' : b.isExpiringSoon ? `${b.daysLeft} zile` : 'În termen'}
+                    </span>
+                  ))}
                 </div>
               )}
 

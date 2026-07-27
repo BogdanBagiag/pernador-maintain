@@ -5,6 +5,7 @@ import { useAuth } from '../contexts/AuthContext'
 import { ArrowLeft, Edit, MapPin, Building, Trash2, AlertTriangle, Wrench } from 'lucide-react'
 import LoadingSpinner from '../components/LoadingSpinner'
 import QRCodeGenerator from '../components/QRCodeGenerator'
+import LocationInspectionsSection from '../components/LocationInspectionsSection'
 
 export default function LocationDetail() {
   const { id } = useParams()
@@ -235,6 +236,9 @@ export default function LocationDetail() {
               )}
             </dl>
           </div>
+
+          {/* Inspecții periodice (ex: PRAM) */}
+          <LocationInspectionsSection locationId={id} canEdit={canEdit} />
 
           {/* Equipment in Location */}
           <div className="card">
