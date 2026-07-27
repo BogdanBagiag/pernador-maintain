@@ -5,7 +5,7 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import { useLanguage } from '../contexts/LanguageContext'
 import { usePermissions } from '../contexts/PermissionsContext'
-import { Plus, Search, MapPin, Edit, Trash2, Building, ShieldOff, AlertTriangle, CheckCircle } from 'lucide-react'
+import { Plus, Search, MapPin, Edit, Trash2, Building, ShieldOff } from 'lucide-react'
 import LoadingSpinner from '../components/LoadingSpinner'
 
 export default function LocationsList() {
@@ -46,6 +46,7 @@ export default function LocationsList() {
 
   // Pentru o locatie, cate un badge de status pentru fiecare "tip" distinct de inspectie (cea mai recenta)
   const getInspectionBadges = (locationId) => {
+    const fmt = (d) => new Date(d).toLocaleDateString('ro-RO', { day: '2-digit', month: '2-digit', year: 'numeric' })
     const today = new Date(new Date().toDateString())
     const forLocation = (inspections || []).filter((i) => i.location_id === locationId)
     const latestByTip = {}
@@ -60,10 +61,12 @@ export default function LocationsList() {
       const daysLeft = Math.ceil((expiry - today) / (1000 * 60 * 60 * 24))
       const isExpiringSoon = !isExpired && daysLeft <= 30
       return {
-        tip: i.tip,
-        isExpired,
-        isExpiringSoon,
-        daysLeft,
+        label: i.tip,
+        text: isExpired
+          ? `Expirat în data de ${fmt(expiry)}`
+          : i.data_inspectie
+            ? `Activ ${fmt(i.data_inspectie)} – ${fmt(expiry)}`
+            : `Activ până pe ${fmt(expiry)}`,
         color: isExpired ? 'bg-red-100 text-red-800' : isExpiringSoon ? 'bg-yellow-100 text-yellow-800' : 'bg-green-100 text-green-800',
       }
     })
@@ -221,17 +224,12 @@ export default function LocationsList() {
               )}
 
               {getInspectionBadges(location.id).length > 0 && (
-                <div className="flex flex-wrap gap-1.5 mb-4">
-                  {getInspectionBadges(location.id).map((b) => (
-                    <span
-                      key={b.tip}
-                      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium ${b.color}`}
-                    >
-                      {b.isExpired
-                        ? <AlertTriangle className="w-3 h-3" />
-                        : <CheckCircle className="w-3 h-3" />}
-                      {b.tip}: {b.isExpired ? 'Expirat' : b.isExpiringSoon ? `${b.daysLeft} zile` : 'În termen'}
-                    </span>
+                <div className="mb-4 space-y-1.5">
+                  {getInspectionBadges(location.id).map(({ label, text, color }) => (
+                    <div key={label} className={`flex items-start gap-2 px-2 py-1 rounded text-xs font-medium ${color}`}>
+                      <span className="font-semibold shrink-0">{label}:</span>
+                      <span>{text}</span>
+                    </div>
                   ))}
                 </div>
               )}
