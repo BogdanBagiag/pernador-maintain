@@ -27,6 +27,7 @@ export default function LocationInspectionsSection({ locationId, canEdit }) {
   const [formData, setFormData] = useState(emptyForm())
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
+  const [uploadingId, setUploadingId] = useState(null)
 
   const { data: inspections, isLoading } = useQuery({
     queryKey: ['location-inspections', locationId],
@@ -40,6 +41,30 @@ export default function LocationInspectionsSection({ locationId, canEdit }) {
       return data
     },
   })
+
+  const inspectionIds = (inspections || []).map((i) => i.id)
+
+  // Documente atasate inspectiilor acestei locatii (o inspectie poate avea mai multe fisiere)
+  const { data: files } = useQuery({
+    queryKey: ['location-inspection-files', locationId, inspectionIds.join(',')],
+    queryFn: async () => {
+      if (inspectionIds.length === 0) return []
+      const { data, error } = await supabase
+        .from('location_inspection_files')
+        .select('*')
+        .in('inspection_id', inspectionIds)
+        .order('created_at', { ascending: false })
+      if (error) throw error
+      return data
+    },
+    enabled: inspectionIds.length > 0,
+  })
+
+  const filesByInspection = (files || []).reduce((acc, f) => {
+    if (!acc[f.inspection_id]) acc[f.inspection_id] = []
+    acc[f.inspection_id].push(f)
+    return acc
+  }, {})
 
   const isExpired = (d) => new Date(d) < new Date(new Date().toDateString())
   const daysUntil = (d) => Math.ceil((new Date(d) - new Date(new Date().toDateString())) / (1000 * 60 * 60 * 24))
@@ -135,6 +160,68 @@ export default function LocationInspectionsSection({ locationId, canEdit }) {
     }
   }
 
+  // Upload unul sau mai multe documente pentru o inspecție
+  const uploadFilesMutation = useMutation({
+    mutationFn: async ({ inspectionId, fileList }) => {
+      for (const file of Array.from(fileList)) {
+        const fileExt = file.name.split('.').pop()
+        const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`
+        const filePath = `location-inspections/${locationId}/${inspectionId}/${fileName}`
+
+        const { error: uploadError } = await supabase.storage
+          .from('maintenance-files')
+          .upload(filePath, file)
+        if (uploadError) throw uploadError
+
+        const { data: { publicUrl } } = supabase.storage.from('maintenance-files').getPublicUrl(filePath)
+
+        const { error: dbError } = await supabase.from('location_inspection_files').insert({
+          inspection_id: inspectionId,
+          file_url: publicUrl,
+          file_name: file.name,
+          file_type: file.type,
+          file_size: file.size,
+          uploaded_by: profile?.id,
+        })
+        if (dbError) throw dbError
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['location-inspection-files', locationId] })
+    },
+    onError: (e) => setError(e.message || 'Eroare la încărcarea documentului'),
+    onSettled: () => setUploadingId(null),
+  })
+
+  const handleFilesSelected = (inspectionId, fileList) => {
+    if (!fileList || fileList.length === 0) return
+    setError('')
+    setUploadingId(inspectionId)
+    uploadFilesMutation.mutate({ inspectionId, fileList })
+  }
+
+  const deleteFileMutation = useMutation({
+    mutationFn: async (file) => {
+      const urlParts = file.file_url.split('/maintenance-files/')
+      if (urlParts.length > 1) {
+        const filePath = urlParts[1].split('?')[0]
+        const { error: storageError } = await supabase.storage.from('maintenance-files').remove([filePath])
+        if (storageError) console.error('Storage delete error:', storageError)
+      }
+      const { error } = await supabase.from('location_inspection_files').delete().eq('id', file.id)
+      if (error) throw error
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['location-inspection-files', locationId] })
+    },
+  })
+
+  const handleDeleteFile = (file) => {
+    if (window.confirm(`Ștergi documentul "${file.file_name}"?`)) {
+      deleteFileMutation.mutate(file)
+    }
+  }
+
   const renderCard = (item, isCurrent) => {
     const expired = isExpired(item.data_expirare)
     const expiringSoon = !expired && isExpiringSoon(item.data_expirare)
@@ -199,6 +286,61 @@ export default function LocationInspectionsSection({ locationId, canEdit }) {
         </div>
 
         {item.observatii && <p className="text-gray-500 text-xs mt-2">{item.observatii}</p>}
+
+        {/* Documente atasate */}
+        <div className="mt-3 pt-3 border-t border-gray-200/70">
+          <div className="flex items-center justify-between mb-2 gap-2">
+            <p className="text-xs font-medium text-gray-500">
+              Documente ({(filesByInspection[item.id] || []).length})
+            </p>
+            {canEdit && (
+              <>
+                <input
+                  type="file"
+                  multiple
+                  id={`inspection-files-${item.id}`}
+                  className="hidden"
+                  onChange={(e) => { handleFilesSelected(item.id, e.target.files); e.target.value = '' }}
+                />
+                <button
+                  type="button"
+                  onClick={() => document.getElementById(`inspection-files-${item.id}`).click()}
+                  disabled={uploadingId === item.id}
+                  className="text-xs text-primary-600 hover:text-primary-700 font-medium disabled:opacity-50 flex-shrink-0"
+                >
+                  {uploadingId === item.id ? 'Se încarcă...' : '+ Adaugă document'}
+                </button>
+              </>
+            )}
+          </div>
+          {(filesByInspection[item.id] || []).length > 0 && (
+            <ul className="space-y-1">
+              {filesByInspection[item.id].map((f) => (
+                <li key={f.id} className="flex items-center justify-between gap-2 text-xs">
+                  <a
+                    href={f.file_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-1.5 text-primary-600 hover:text-primary-700 truncate min-w-0"
+                    title={f.file_name}
+                  >
+                    <FileText className="w-3.5 h-3.5 flex-shrink-0" />
+                    <span className="truncate">{f.file_name}</span>
+                  </a>
+                  {canEdit && (
+                    <button
+                      onClick={() => handleDeleteFile(f)}
+                      className="text-gray-300 hover:text-red-500 flex-shrink-0"
+                      title="Șterge document"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
       </div>
     )
   }
