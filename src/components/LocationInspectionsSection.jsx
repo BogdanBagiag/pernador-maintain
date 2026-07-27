@@ -163,7 +163,7 @@ export default function LocationInspectionsSection({ locationId, canEdit }) {
   // Upload unul sau mai multe documente pentru o inspecție
   const uploadFilesMutation = useMutation({
     mutationFn: async ({ inspectionId, fileList }) => {
-      for (const file of Array.from(fileList)) {
+      for (const file of fileList) {
         const fileExt = file.name.split('.').pop()
         const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`
         const filePath = `location-inspections/${locationId}/${inspectionId}/${fileName}`
@@ -300,7 +300,11 @@ export default function LocationInspectionsSection({ locationId, canEdit }) {
                   multiple
                   id={`inspection-files-${item.id}`}
                   className="hidden"
-                  onChange={(e) => { handleFilesSelected(item.id, e.target.files); e.target.value = '' }}
+                  onChange={(e) => {
+                    const selected = Array.from(e.target.files || [])
+                    e.target.value = ''
+                    handleFilesSelected(item.id, selected)
+                  }}
                 />
                 <button
                   type="button"
