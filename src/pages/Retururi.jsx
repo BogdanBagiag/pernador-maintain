@@ -411,20 +411,20 @@ export default function Retururi() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="bg-gray-50 border-b border-gray-200">
-                  <th className="px-3 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wide w-10">Nr.</th>
-                  <th className="px-3 py-3 text-left   text-xs font-semibold text-gray-500 uppercase tracking-wide">Sursă</th>
-                  <th className="px-3 py-3 text-left   text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">Data Comenzii</th>
-                  <th className="px-3 py-3 text-left   text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">Data Cererii</th>
-                  <th className="px-3 py-3 text-left   text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">Data Recepție</th>
-                  <th className="px-3 py-3 text-left   text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">Data Plată</th>
-                  <th className="px-3 py-3 text-left   text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">Nume Client</th>
-                  <th className="px-3 py-3 text-left   text-xs font-semibold text-gray-500 uppercase tracking-wide">Telefon</th>
-                  <th className="px-3 py-3 text-left   text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">Cont Bancar</th>
-                  <th className="px-3 py-3 text-right  text-xs font-semibold text-red-500 uppercase tracking-wide w-24">Valoare</th>
-                  <th className="px-3 py-3 text-left   text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">Fact. Storno</th>
-                  <th className="px-3 py-3 text-left   text-xs font-semibold text-gray-500 uppercase tracking-wide">Motiv</th>
-                  <th className="px-3 py-3 text-left   text-xs font-semibold text-gray-500 uppercase tracking-wide w-28">Responsabil</th>
-                  <th className="px-3 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wide w-28">Acțiuni</th>
+                  <th className="px-1.5 py-2 text-center text-xs font-semibold text-gray-500 uppercase tracking-wide w-8">Nr.</th>
+                  <th className="px-1.5 py-2 text-left   text-xs font-semibold text-gray-500 uppercase tracking-wide">Sursă</th>
+                  <th className="px-1.5 py-2 text-left   text-xs font-semibold text-gray-500 uppercase tracking-wide leading-tight">Data<br/>Comenzii</th>
+                  <th className="px-1.5 py-2 text-left   text-xs font-semibold text-gray-500 uppercase tracking-wide leading-tight">Data<br/>Cererii</th>
+                  <th className="px-1.5 py-2 text-left   text-xs font-semibold text-gray-500 uppercase tracking-wide leading-tight">Data<br/>Recepție</th>
+                  <th className="px-1.5 py-2 text-left   text-xs font-semibold text-gray-500 uppercase tracking-wide leading-tight">Data<br/>Plată</th>
+                  <th className="px-1.5 py-2 text-left   text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">Nume Client</th>
+                  <th className="px-1.5 py-2 text-left   text-xs font-semibold text-gray-500 uppercase tracking-wide">Telefon</th>
+                  <th className="px-1.5 py-2 text-left   text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">Cont Bancar</th>
+                  <th className="px-1.5 py-2 text-right  text-xs font-semibold text-red-500 uppercase tracking-wide w-20">Valoare</th>
+                  <th className="px-1.5 py-2 text-left   text-xs font-semibold text-gray-500 uppercase tracking-wide leading-tight">Fact.<br/>Storno</th>
+                  <th className="px-1.5 py-2 text-left   text-xs font-semibold text-gray-500 uppercase tracking-wide">Motiv</th>
+                  <th className="px-1.5 py-2 text-left   text-xs font-semibold text-gray-500 uppercase tracking-wide w-20">Responsabil</th>
+                  <th className="px-1.5 py-2 text-center text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">Acțiuni</th>
                 </tr>
               </thead>
               <tbody>
@@ -447,40 +447,40 @@ export default function Retururi() {
                           : 'bg-red-50/40 border-red-100 hover:bg-red-50/70'
                       }`}
                     >
-                      <td className="px-3 py-3 text-center text-gray-400 font-mono text-xs">{row.nr}</td>
-                      <td className="px-3 py-3">
+                      <td className="px-1.5 py-2 text-center text-gray-400 font-mono text-xs">{row.nr}</td>
+                      <td className="px-1.5 py-2">
                         {row.sursa
                           ? <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-700 whitespace-nowrap">{row.sursa}</span>
                           : <span className="text-gray-300">—</span>}
                       </td>
-                      <td className="px-3 py-3 text-gray-600 whitespace-nowrap text-xs">
+                      <td className="px-1.5 py-2 text-gray-600 whitespace-nowrap text-xs">
                         {row.data_comanda ? format(new Date(row.data_comanda + 'T00:00:00'), 'dd.MM.yyyy') : <span className="text-gray-300">—</span>}
                       </td>
-                      <td className="px-3 py-3 text-gray-700 whitespace-nowrap text-xs font-medium">
+                      <td className="px-1.5 py-2 text-gray-700 whitespace-nowrap text-xs font-medium">
                         {row.data_cerere ? format(new Date(row.data_cerere + 'T00:00:00'), 'dd.MM.yyyy') : <span className="text-gray-300">—</span>}
                       </td>
-                      <td className="px-3 py-3 whitespace-nowrap text-xs">
+                      <td className="px-1.5 py-2 whitespace-nowrap text-xs">
                         {row.data_receptie
                           ? <span className="text-blue-600 font-medium">{format(new Date(row.data_receptie + 'T00:00:00'), 'dd.MM.yyyy')}</span>
                           : <span className="text-gray-300">—</span>}
                       </td>
-                      <td className="px-3 py-3 whitespace-nowrap text-xs">
+                      <td className="px-1.5 py-2 whitespace-nowrap text-xs">
                         {row.data_plata
                           ? <span className="text-emerald-600 font-medium">{format(new Date(row.data_plata + 'T00:00:00'), 'dd.MM.yyyy')}</span>
                           : <span className="inline-flex items-center gap-1 text-amber-500 font-medium"><Clock className="w-3 h-3" />Neachitat</span>}
                       </td>
-                      <td className="px-3 py-3 text-gray-700 whitespace-nowrap">{row.nume_client || '—'}</td>
-                      <td className="px-3 py-3 text-gray-600 text-xs whitespace-nowrap">{row.telefon || '—'}</td>
-                      <td className="px-3 py-3 text-gray-500 text-xs font-mono whitespace-nowrap">{row.cont_bancar || '—'}</td>
-                      <td className="px-3 py-3 text-right font-mono">
+                      <td className="px-1.5 py-2 text-gray-700 whitespace-nowrap text-xs">{row.nume_client || '—'}</td>
+                      <td className="px-1.5 py-2 text-gray-600 text-xs whitespace-nowrap">{row.telefon || '—'}</td>
+                      <td className="px-1.5 py-2 text-gray-500 text-xs font-mono whitespace-nowrap">{row.cont_bancar || '—'}</td>
+                      <td className="px-1.5 py-2 text-right font-mono text-xs">
                         {valoare > 0
                           ? <span className="text-red-500 font-semibold">{valoare.toLocaleString('ro-RO', { minimumFractionDigits: 2 })}</span>
                           : <span className="text-gray-200">—</span>}
                       </td>
-                      <td className="px-3 py-3 text-gray-600 text-xs whitespace-nowrap">{row.factura_storno || '—'}</td>
-                      <td className="px-3 py-3 text-gray-600 text-xs max-w-[180px] truncate" title={row.motiv}>{row.motiv || '—'}</td>
-                      <td className="px-3 py-3 text-gray-600 text-xs whitespace-nowrap">{row.responsabil?.full_name || '—'}</td>
-                      <td className="px-2 py-3">
+                      <td className="px-1.5 py-2 text-gray-600 text-xs whitespace-nowrap">{row.factura_storno || '—'}</td>
+                      <td className="px-1.5 py-2 text-gray-600 text-xs max-w-[140px] truncate" title={row.motiv}>{row.motiv || '—'}</td>
+                      <td className="px-1.5 py-2 text-gray-600 text-xs whitespace-nowrap">{row.responsabil?.full_name || '—'}</td>
+                      <td className="px-1.5 py-2">
                         <div className="flex items-center justify-center gap-1 flex-wrap">
                           {/* View */}
                           <button onClick={() => setViewRow(row)}
@@ -492,7 +492,7 @@ export default function Retururi() {
                           {pEdit && !receptionat && !achitat && (
                             <button
                               onClick={() => setReceptieRow(row)}
-                              className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 transition-colors whitespace-nowrap"
+                              className="flex items-center gap-1 px-1.5 py-1 text-xs font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 transition-colors whitespace-nowrap"
                               title="Marchează ca recepționat"
                             >
                               <Package className="w-3.5 h-3.5" />
@@ -504,7 +504,7 @@ export default function Retururi() {
                             <button
                               onClick={() => receptionat && setPlatesteRow(row)}
                               disabled={!receptionat}
-                              className={`flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-lg border transition-colors whitespace-nowrap ${
+                              className={`flex items-center gap-1 px-1.5 py-1 text-xs font-medium rounded-lg border transition-colors whitespace-nowrap ${
                                 receptionat
                                   ? 'text-emerald-700 bg-emerald-50 border-emerald-200 hover:bg-emerald-100 cursor-pointer'
                                   : 'text-gray-400 bg-gray-50 border-gray-200 cursor-not-allowed opacity-50'
