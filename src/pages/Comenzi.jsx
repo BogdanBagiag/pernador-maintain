@@ -19,6 +19,21 @@ const STATUSES = [
 ]
 const ROWS_PER_PAGE = 13
 
+// Helper: fetch the org-wide default delivery term (com_setari, singleton row id=1)
+// Inlocuieste vechiul localStorage.getItem('com_termen_livrare_default'), care era per browser/utilizator.
+const useTermenLivrareDefault = () => useQuery({
+  queryKey: ['com_setari_termen_livrare'],
+  queryFn: async () => {
+    const { data, error } = await supabase
+      .from('com_setari')
+      .select('termen_livrare_default')
+      .eq('id', 1)
+      .single()
+    if (error) throw error
+    return data?.termen_livrare_default ?? 14
+  },
+})
+
 // Helper: calculate delivery date with business days (skip weekends + non-working days)
 const calculateDeliveryDate = (startDate, businessDays, nonWorkingDays = []) => {
   const start = new Date(startDate + 'T00:00:00')
@@ -439,6 +454,8 @@ function ComandaModal({ comanda, onClose, onSaved, pEdit }) {
     },
   })
 
+  const { data: termenLivrareDefault = 14 } = useTermenLivrareDefault()
+
   // Populate client name when editing existing order
   useEffect(() => {
     if (comanda?.client_id && clienti.length > 0) {
@@ -536,9 +553,8 @@ function ComandaModal({ comanda, onClose, onSaved, pEdit }) {
         const { error } = await supabase.from('com_comenzi').update(payload).eq('id', comandaId)
         if (error) throw error
       } else {
-        // Noua comanda - seteaza data_livrare cu termenul default (zile lucratoare)
-        const termenDefault = parseInt(localStorage.getItem('com_termen_livrare_default') || '14')
-        const dataLivrare = calculateDeliveryDate(data, termenDefault, nonWorkingDays || [])
+        // Noua comanda - seteaza data_livrare cu termenul default (zile lucratoare), setare globala din com_setari
+        const dataLivrare = calculateDeliveryDate(data, termenLivrareDefault, nonWorkingDays || [])
 
         const { data: nd, error } = await supabase.from('com_comenzi')
           .insert({ ...payload, data_livrare: dataLivrare, created_by: user.id, status: 'noi' })
@@ -1766,14 +1782,21 @@ function ArhivaTab({ pEdit, pDelete }) {
 // SetariTab — gestionare opțiuni dinamice
 // ═════════════════════════════════════════════════════════════
 function SetariTab({ pEdit, pDelete }) {
+  const { user } = useAuth()
   const queryClient = useQueryClient()
   const [newLabel, setNewLabel] = useState('')
   const [adding, setAdding] = useState(false)
   const [editingId, setEditingId] = useState(null)
-  const [termenDefault, setTermenDefault] = useState(() => {
-    return parseInt(localStorage.getItem('com_termen_livrare_default') || '14')
-  })
   const [savingTermen, setSavingTermen] = useState(false)
+
+  // Setare globala (com_setari), valabila pentru toti utilizatorii - nu mai e per browser (localStorage)
+  const { data: termenServer } = useTermenLivrareDefault()
+  const [termenDefault, setTermenDefaultRaw] = useState(null) // null = inca neincarcat de pe server
+  useEffect(() => {
+    if (termenDefault === null && termenServer != null) setTermenDefaultRaw(termenServer)
+  }, [termenServer])
+  const setTermenDefault = (v) => setTermenDefaultRaw(v)
+  const termenDefaultDisplay = termenDefault ?? termenServer ?? 14
 
   const { data: optiuni = [], isLoading } = useQuery({
     queryKey: ['com_optiuni_all'],
@@ -1817,14 +1840,25 @@ function SetariTab({ pEdit, pDelete }) {
   }
 
   const handleSaveTermen = async () => {
-    if (termenDefault < 1 || termenDefault > 365) {
+    if (termenDefaultDisplay < 1 || termenDefaultDisplay > 365) {
       alert('Termenul trebuie să fie între 1 și 365 zile.')
       return
     }
     setSavingTermen(true)
-    localStorage.setItem('com_termen_livrare_default', termenDefault.toString())
-    await new Promise(resolve => setTimeout(resolve, 300))
+    const { error } = await supabase
+      .from('com_setari')
+      .update({
+        termen_livrare_default: termenDefaultDisplay,
+        updated_by: user?.id,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', 1)
     setSavingTermen(false)
+    if (error) {
+      alert('Eroare la salvarea termenului: ' + error.message)
+      return
+    }
+    queryClient.invalidateQueries({ queryKey: ['com_setari_termen_livrare'] })
   }
 
   return (
@@ -1843,7 +1877,7 @@ function SetariTab({ pEdit, pDelete }) {
                 type="number"
                 min="1"
                 max="365"
-                value={termenDefault}
+                value={termenDefaultDisplay}
                 onChange={e => setTermenDefault(Math.max(1, Math.min(365, parseInt(e.target.value) || 1)))}
                 className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary-400"
               />
@@ -1858,7 +1892,7 @@ function SetariTab({ pEdit, pDelete }) {
             </button>
           </div>
           <p className="text-xs text-gray-500 bg-gray-50 rounded px-2 py-1.5">
-            Când creezi o comandă nouă, data de livrare va fi calculată automat la <strong>{termenDefault} zile lucratoare</strong> de la data comenzii (weekenduri și sărbători excludente).
+            Când creezi o comandă nouă, data de livrare va fi calculată automat la <strong>{termenDefaultDisplay} zile lucratoare</strong> de la data comenzii (weekenduri și sărbători excludente). Setarea este valabilă pentru toți utilizatorii.
           </p>
         </div>
       )}
@@ -1993,6 +2027,8 @@ function RapoarteTab() {
     },
   })
 
+  const { data: termenLivrareDefault = 14 } = useTermenLivrareDefault()
+
   // Filter by search and status
   const filtered = comenzi.filter(c => {
     const clientName = c.com_clienti?.denumire || 'Necunoscut'
@@ -2091,8 +2127,7 @@ function RapoarteTab() {
                   livrareDate = new Date(c.data_livrare.split('T')[0] + 'T00:00:00Z')
                 } else if (c.status !== 'livrate' && c.status !== 'arhivat') {
                   // For new/in-progress orders without delivery date, calculate from default term
-                  const termenDefault = parseInt(localStorage.getItem('com_termen_livrare_default') || '14')
-                  livrareDate = calculateDeliveryDate(c.data, termenDefault, nonWorkingDays || [])
+                  livrareDate = calculateDeliveryDate(c.data, termenLivrareDefault, nonWorkingDays || [])
                   livrareDate = new Date(livrareDate + 'T00:00:00Z')
                 }
 
