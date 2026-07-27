@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { supabase } from '../lib/supabase'
 import { Wrench, Mail, Lock, AlertCircle, Check } from 'lucide-react'
@@ -254,14 +254,6 @@ export default function Login() {
             </button>
           </div>
 
-          <div className="mt-4 text-center">
-            <p className="text-sm text-gray-600">
-              Don't have an account?{' '}
-              <Link to="/register" className="text-primary-600 hover:text-primary-700 font-medium">
-                Sign up
-              </Link>
-            </p>
-          </div>
         </div>
 
         <p className="mt-8 text-center text-sm text-gray-600">

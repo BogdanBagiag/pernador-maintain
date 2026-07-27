@@ -7,7 +7,6 @@ import { PermissionsProvider } from './contexts/PermissionsContext'
 // Pages
 import LandingPage from './pages/LandingPage'
 import Login from './pages/Login'
-import Register from './pages/Register'
 import Dashboard from './pages/Dashboard'
 import EquipmentList from './pages/EquipmentList'
 import EquipmentDetail from './pages/EquipmentDetail'
@@ -108,14 +107,8 @@ function App() {
                 </PublicRoute>
               }
             />
-            <Route
-              path="/register"
-              element={
-                <PublicRoute>
-                  <Register />
-                </PublicRoute>
-              }
-            />
+            {/* Auto-inregistrarea publica e dezactivata - utilizatorii se creeaza doar din Admin > Utilizatori */}
+            <Route path="/register" element={<Navigate to="/login" replace />} />
             
             {/* Public Report Routes (No Auth Required) */}
             <Route path="/report/:equipmentId" element={<ReportIssue />} />
