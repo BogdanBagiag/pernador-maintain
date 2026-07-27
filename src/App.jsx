@@ -45,6 +45,7 @@ import Reclamatii from './pages/Reclamatii'
 import Comenzi from './pages/Comenzi'
 import PernadorClean from './pages/PernadorClean'
 import Properties from './pages/Properties'
+import Backup from './pages/Backup'
 
 // Components
 import Layout from './components/Layout'
@@ -186,6 +187,7 @@ function App() {
                       <Route path="/pernador-clean" element={<PernadorClean />} />
                       <Route path="/users" element={<UserManagement />} />
                       <Route path="/settings" element={<Settings />} />
+                      <Route path="/backup" element={<Backup />} />
 
                       {/* Kanban / To Do Routes */}
                       <Route path="/todo" element={<KanbanPage />} />
