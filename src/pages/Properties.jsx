@@ -8,6 +8,7 @@ import {
   Plus, X, Trash2, Loader2, Home, Phone, Zap, AlertCircle,
   Check, Edit2, ChevronDown, ChevronUp, ShieldOff, Search, MapPin, Users,
 } from 'lucide-react'
+import PropertyInsurancesSection from '../components/PropertyInsurancesSection'
 
 const UTILITY_TYPES = [
   { key: 'gaz', label: 'Gaz', icon: '🔥' },
@@ -1063,6 +1064,11 @@ export default function Properties() {
                       {pEdit && (
                         <AddUtilityForm propertyId={prop.id} onAdd={(type, name) => addUtility.mutate({ propertyId: prop.id, type, name })} />
                       )}
+                    </div>
+
+                    {/* Asigurări */}
+                    <div>
+                      <PropertyInsurancesSection propertyId={prop.id} canEdit={pEdit} />
                     </div>
 
                     {/* Butoane acțiuni */}
