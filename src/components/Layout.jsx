@@ -97,21 +97,27 @@ export default function Layout({ children }) {
     }, {})
   })
 
-  // Deschide automat grupul rutei active la navigare
+  // Deschide automat DOAR grupul rutei active la navigare — comportament de tip acordeon,
+  // restul grupurilor se colapsează automat.
   useEffect(() => {
     if (activeGroup) {
       setOpenGroups((prev) => {
-        if (prev[activeGroup]) return prev
-        const next = { ...prev, [activeGroup]: true }
+        const alreadySingleOpen = prev[activeGroup] && GROUPS.every((g) => g.key === activeGroup || !prev[g.key])
+        if (alreadySingleOpen) return prev
+        const next = GROUPS.reduce((acc, g) => { acc[g.key] = g.key === activeGroup; return acc }, {})
         localStorage.setItem('kan_nav_groups', JSON.stringify(next))
         return next
       })
     }
   }, [activeGroup])
 
+  // Acordeon: deschiderea unui grup (manual, din click) închide automat restul grupurilor
   const toggleGroup = (key) => {
     setOpenGroups((prev) => {
-      const next = { ...prev, [key]: !prev[key] }
+      const willOpen = !prev[key]
+      const next = willOpen
+        ? GROUPS.reduce((acc, g) => { acc[g.key] = g.key === key; return acc }, {})
+        : { ...prev, [key]: false }
       localStorage.setItem('kan_nav_groups', JSON.stringify(next))
       return next
     })
