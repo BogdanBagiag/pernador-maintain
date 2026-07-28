@@ -19,6 +19,7 @@ import { BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Toolti
 import LoadingSpinner from '../components/LoadingSpinner'
 import WorkOrderRemindersCard from '../components/WorkOrderRemindersCard'
 import VehicleExpirationAlerts from '../components/VehicleExpirationAlerts'
+import TodayPriorityPanel from '../components/TodayPriorityPanel'
 
 export default function Dashboard() {
   const { canView, loading: permLoading } = usePermissions()
@@ -400,6 +401,9 @@ export default function Dashboard() {
           </div>
         )}
       </div>
+
+      {/* Ce contează azi */}
+      <TodayPriorityPanel />
 
       {/* Work Orders Section */}
       {canView('work_orders') && <div className="mb-6">
