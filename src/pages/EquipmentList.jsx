@@ -79,6 +79,10 @@ export default function EquipmentList() {
       filtered = filtered.filter(eq => !eq.model || eq.model.trim() === '')
     } else if (filterTab === 'missing_location') {
       filtered = filtered.filter(eq => !eq.location_id)
+    } else if (filterTab === 'inspection_overdue') {
+      filtered = filtered.filter(eq => getInspectionInfo(eq)?.status === 'overdue')
+    } else if (filterTab === 'inspection_due_soon') {
+      filtered = filtered.filter(eq => getInspectionInfo(eq)?.status === 'due_soon')
     }
 
     return filtered.sort((a, b) => {
@@ -225,6 +229,8 @@ export default function EquipmentList() {
     missingManufacturer: equipment?.filter(eq => !eq.manufacturer || eq.manufacturer.trim() === '').length || 0,
     missingModel: equipment?.filter(eq => !eq.model || eq.model.trim() === '').length || 0,
     missingLocation: equipment?.filter(eq => !eq.location_id).length || 0,
+    inspectionOverdue: equipment?.filter(eq => getInspectionInfo(eq)?.status === 'overdue').length || 0,
+    inspectionDueSoon: equipment?.filter(eq => getInspectionInfo(eq)?.status === 'due_soon').length || 0,
   }
 
   return (
@@ -270,7 +276,7 @@ export default function EquipmentList() {
       </div>
 
       {/* Filter Tabs */}
-      <div className="print:hidden grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
+      <div className="print:hidden grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3 mb-6">
         {/* All */}
         <button
           onClick={() => setFilterTab('all')}
@@ -367,6 +373,46 @@ export default function EquipmentList() {
           </div>
           <p className={`text-sm font-medium ${filterTab === 'missing_location' ? 'text-purple-800' : 'text-purple-600'}`}>
             Fără Locație
+          </p>
+        </button>
+
+        {/* Inspecție Expirată */}
+        <button
+          onClick={() => setFilterTab('inspection_overdue')}
+          className={`p-4 rounded-lg border-2 transition-all ${
+            filterTab === 'inspection_overdue'
+              ? 'border-red-500 bg-red-100 ring-2 ring-red-300'
+              : 'border-red-300 bg-red-50 hover:border-red-500'
+          }`}
+        >
+          <div className="flex items-center justify-between mb-2">
+            <span className={`text-2xl font-bold ${filterTab === 'inspection_overdue' ? 'text-red-900' : 'text-red-700'}`}>
+              {stats.inspectionOverdue}
+            </span>
+            <AlertTriangle className={`w-6 h-6 ${filterTab === 'inspection_overdue' ? 'text-red-700' : 'text-red-400'} opacity-50`} />
+          </div>
+          <p className={`text-sm font-medium ${filterTab === 'inspection_overdue' ? 'text-red-900' : 'text-red-700'}`}>
+            Inspecție Expirată
+          </p>
+        </button>
+
+        {/* Inspecție Expiră Curând */}
+        <button
+          onClick={() => setFilterTab('inspection_due_soon')}
+          className={`p-4 rounded-lg border-2 transition-all ${
+            filterTab === 'inspection_due_soon'
+              ? 'border-amber-400 bg-amber-100 ring-2 ring-amber-300'
+              : 'border-amber-200 bg-amber-50 hover:border-amber-400'
+          }`}
+        >
+          <div className="flex items-center justify-between mb-2">
+            <span className={`text-2xl font-bold ${filterTab === 'inspection_due_soon' ? 'text-amber-900' : 'text-amber-700'}`}>
+              {stats.inspectionDueSoon}
+            </span>
+            <AlertTriangle className={`w-6 h-6 ${filterTab === 'inspection_due_soon' ? 'text-amber-700' : 'text-amber-400'} opacity-50`} />
+          </div>
+          <p className={`text-sm font-medium ${filterTab === 'inspection_due_soon' ? 'text-amber-800' : 'text-amber-600'}`}>
+            Expiră Curând (≤30z)
           </p>
         </button>
       </div>
