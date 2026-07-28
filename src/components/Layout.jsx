@@ -7,7 +7,7 @@ import { useQuery } from '@tanstack/react-query'
 import {
   LayoutDashboard, Wrench, ClipboardList, Calendar, BarChart3,
   Settings, LogOut, Menu, X, MapPin, QrCode, CheckSquare,
-  FileText, Users, Car, Package, BookOpen, LayoutGrid,
+  FileText, Users, Car, Package, LayoutGrid,
   ScrollText, ChevronDown, BookMarked, RotateCcw, Megaphone, ShoppingCart, Sparkles, Home,
   DatabaseBackup,
 } from 'lucide-react'
@@ -54,7 +54,6 @@ const GROUPS = [
       { name: 'Retururi',            href: '/retururi',           icon: RotateCcw,   moduleKey: 'retururi' },
       { name: 'Reclamații',          href: '/reclamatii',         icon: Megaphone,      moduleKey: 'reclamatii' },
       { name: 'Comenzi',             href: '/comenzi',            icon: ShoppingCart,   moduleKey: 'comenzi' },
-      { name: 'Manual de utilizare', href: '/manual',             icon: BookOpen },
     ],
   },
   {
