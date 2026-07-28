@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { usePermissions } from '../contexts/PermissionsContext'
+import { useAuth } from '../contexts/AuthContext'
 import { callClaude } from '../utils/claudeApi'
 import {
   ShoppingCart, ClipboardList, Calendar, RotateCcw, Megaphone,
@@ -40,7 +41,11 @@ const urgencyLabel = ({ urgency, days }) => {
 }
 
 export default function TodayPriorityPanel() {
-  const { canView } = usePermissions()
+  const { canView, isAdmin } = usePermissions()
+  const { profile } = useAuth()
+  // Vizibil daca esti admin, daca itemul nu are pe nimeni asignat, sau daca esti chiar tu asignatul
+  const visibleToUser = (assigneeId) => isAdmin || !assigneeId || assigneeId === profile?.id
+  const visibleToUserByName = (name) => isAdmin || !name || name === profile?.full_name
   const [aiSummary, setAiSummary] = useState('')
   const [aiLoading, setAiLoading] = useState(false)
   const [aiError, setAiError] = useState('')
@@ -75,7 +80,7 @@ export default function TodayPriorityPanel() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('work_orders')
-        .select('id, title, priority, scheduled_date, status, equipment:equipment(name)')
+        .select('id, title, priority, scheduled_date, status, assigned_to, equipment:equipment(name)')
         .in('status', ['open', 'in_progress'])
         .order('scheduled_date', { ascending: true })
       if (error) throw error
@@ -92,7 +97,7 @@ export default function TodayPriorityPanel() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('maintenance_schedules')
-        .select('id, title, description, next_due_date, equipment:equipment(name)')
+        .select('id, title, description, next_due_date, assigned_to, equipment:equipment(name)')
         .eq('is_active', true)
         .lte('next_due_date', in7days)
         .order('next_due_date', { ascending: true })
@@ -108,7 +113,7 @@ export default function TodayPriorityPanel() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('retururi')
-        .select('id, nume_client, valoare, data_cerere')
+        .select('id, nume_client, valoare, data_cerere, responsabil_id')
         .is('data_plata', null)
         .lte('data_cerere', staleReturns3)
         .order('data_cerere', { ascending: true })
@@ -124,7 +129,7 @@ export default function TodayPriorityPanel() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('reclamatii')
-        .select('id, nume_client, data_reclamatie')
+        .select('id, nume_client, data_reclamatie, responsabil')
         .is('data_rezolvare', null)
         .lte('data_reclamatie', staleReclamatii2)
         .order('data_reclamatie', { ascending: true })
@@ -263,6 +268,7 @@ export default function TodayPriorityPanel() {
     })
 
     workOrders.forEach((wo) => {
+      if (!visibleToUser(wo.assigned_to)) return
       const overdue = wo.scheduled_date && wo.scheduled_date.slice(0, 10) < todayIso
       const { urgency, days } = wo.scheduled_date ? classifyByDate(wo.scheduled_date) : { urgency: 'today', days: 0 }
       list.push({
@@ -273,6 +279,7 @@ export default function TodayPriorityPanel() {
     })
 
     schedules.forEach((s) => {
+      if (!visibleToUser(s.assigned_to)) return
       const { urgency, days } = classifyByDate(s.next_due_date)
       list.push({
         id: `sch-${s.id}`, module: 'Mentenanță', icon: Calendar,
@@ -282,6 +289,7 @@ export default function TodayPriorityPanel() {
     })
 
     retururi.forEach((r) => {
+      if (!visibleToUser(r.responsabil_id)) return
       const { days } = classifyByDate(r.data_cerere)
       list.push({
         id: `ret-${r.id}`, module: 'Retururi', icon: RotateCcw,
@@ -291,6 +299,7 @@ export default function TodayPriorityPanel() {
     })
 
     reclamatii.forEach((r) => {
+      if (!visibleToUserByName(r.responsabil)) return
       const { days } = classifyByDate(r.data_reclamatie)
       list.push({
         id: `rec-${r.id}`, module: 'Reclamații', icon: Megaphone,
@@ -351,7 +360,7 @@ export default function TodayPriorityPanel() {
     vehiclesLookup, vehicleItp, vehicleInsurances, vehicleVignettes,
     locationsLookup, locationInspections, locationInsurances,
     propertiesLookup, propertyInsurances, propertyTenants,
-    equipmentList,
+    equipmentList, isAdmin, profile?.id, profile?.full_name,
   ])
 
   const overdueCount = items.filter((i) => i.urgency === 'overdue').length
