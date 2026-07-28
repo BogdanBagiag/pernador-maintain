@@ -3,7 +3,7 @@ import { useNavigate, useParams, Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
-import { ArrowLeft, Save, AlertCircle } from 'lucide-react'
+import { ArrowLeft, Save, AlertCircle, Upload, X } from 'lucide-react'
 import LoadingSpinner from '../components/LoadingSpinner'
 
 export default function EquipmentForm() {
@@ -30,6 +30,8 @@ export default function EquipmentForm() {
   })
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [imageFile, setImageFile] = useState(null)
+  const [imagePreview, setImagePreview] = useState(null)
 
   // Fetch locations for dropdown
   const { data: locations } = useQuery({
@@ -81,6 +83,9 @@ export default function EquipmentForm() {
         description: equipment.description || '',
         status: equipment.status || 'operational',
       })
+      if (equipment.image_url) {
+        setImagePreview(equipment.image_url)
+      }
     }
   }, [equipment])
 
@@ -91,13 +96,83 @@ export default function EquipmentForm() {
     })
   }
 
+  // Selectare poza
+  const handleImageSelect = (e) => {
+    const file = e.target.files[0]
+    if (!file) return
+
+    // Validare dimensiune (2MB)
+    const maxSize = 2 * 1024 * 1024
+    if (file.size > maxSize) {
+      setError('Imaginea este prea mare. Maxim 2MB.')
+      return
+    }
+
+    // Validare tip fisier
+    if (!file.type.startsWith('image/')) {
+      setError('Fișierul selectat nu este o imagine.')
+      return
+    }
+
+    setImageFile(file)
+    setImagePreview(URL.createObjectURL(file))
+    setError('')
+  }
+
+  // Elimina poza
+  const handleRemoveImage = () => {
+    setImageFile(null)
+    setImagePreview(null)
+    const fileInput = document.getElementById('image-upload')
+    if (fileInput) fileInput.value = ''
+  }
+
+  // Incarca poza in storage
+  const uploadImage = async (equipmentId) => {
+    if (!imageFile) return null
+
+    const fileExt = imageFile.name.split('.').pop()
+    const fileName = `${equipmentId}-${Date.now()}.${fileExt}`
+    const filePath = `equipment/${fileName}`
+
+    const { error: uploadError } = await supabase.storage
+      .from('maintenance-files')
+      .upload(filePath, imageFile, {
+        cacheControl: '3600',
+        upsert: true
+      })
+
+    if (uploadError) throw uploadError
+
+    const { data: { publicUrl } } = supabase.storage
+      .from('maintenance-files')
+      .getPublicUrl(filePath)
+
+    return publicUrl
+  }
+
   const createMutation = useMutation({
     mutationFn: async (data) => {
-      const { error } = await supabase
+      const { data: newEquipment, error } = await supabase
         .from('equipment')
         .insert([{ ...data, created_by: user.id }])
-      
+        .select()
+        .single()
+
       if (error) throw error
+
+      // Incarca poza daca a fost selectata
+      if (imageFile) {
+        const imageUrl = await uploadImage(newEquipment.id)
+        const { error: updateError } = await supabase
+          .from('equipment')
+          .update({ image_url: imageUrl })
+          .eq('id', newEquipment.id)
+
+        if (updateError) throw updateError
+      }
+
+      return newEquipment
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['equipment'] })
@@ -107,11 +182,16 @@ export default function EquipmentForm() {
 
   const updateMutation = useMutation({
     mutationFn: async (data) => {
+      let imageUrl = equipment?.image_url
+      if (imageFile) {
+        imageUrl = await uploadImage(id)
+      }
+
       const { error } = await supabase
         .from('equipment')
-        .update(data)
+        .update({ ...data, image_url: imageUrl })
         .eq('id', id)
-      
+
       if (error) throw error
     },
     onSuccess: () => {
@@ -485,6 +565,50 @@ export default function EquipmentForm() {
                 )}
               </div>
             )}
+          </div>
+
+          {/* Poza Echipament */}
+          <div className="border-t border-gray-200 pt-6">
+            <h3 className="text-lg font-medium text-gray-900 mb-4">Poză Echipament</h3>
+
+            {/* Preview */}
+            {imagePreview && (
+              <div className="mb-4 relative inline-block">
+                <img
+                  src={imagePreview}
+                  alt="Preview"
+                  className="w-full max-w-xs h-48 object-cover rounded-lg"
+                />
+                <button
+                  type="button"
+                  onClick={handleRemoveImage}
+                  className="absolute top-2 right-2 p-1.5 bg-red-600 text-white rounded-full hover:bg-red-700"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            )}
+
+            {/* Upload Button */}
+            <div>
+              <label
+                htmlFor="image-upload"
+                className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 cursor-pointer"
+              >
+                <Upload className="w-5 h-5 mr-2" />
+                {imagePreview ? 'Schimbă Poza' : 'Încarcă Poză'}
+              </label>
+              <input
+                type="file"
+                id="image-upload"
+                accept="image/*"
+                onChange={handleImageSelect}
+                className="hidden"
+              />
+              <p className="mt-2 text-xs text-gray-500">
+                PNG, JPG, GIF până la 2MB
+              </p>
+            </div>
           </div>
 
           {/* Description */}

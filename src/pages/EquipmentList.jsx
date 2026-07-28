@@ -489,9 +489,20 @@ export default function EquipmentList() {
                     <td className="px-6 py-4 whitespace-nowrap">
                       <Link
                         to={`/equipment/${eq.id}`}
-                        className="text-sm font-medium text-primary-600 hover:text-primary-700"
+                        className="flex items-center gap-3"
                       >
-                        {eq.name}
+                        {eq.image_url ? (
+                          <img
+                            src={eq.image_url}
+                            alt={eq.name}
+                            className="w-9 h-9 rounded object-cover flex-shrink-0 border border-gray-200"
+                          />
+                        ) : (
+                          <div className="w-9 h-9 rounded bg-gray-100 border border-gray-200 flex-shrink-0" />
+                        )}
+                        <span className="text-sm font-medium text-primary-600 hover:text-primary-700">
+                          {eq.name}
+                        </span>
                       </Link>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
