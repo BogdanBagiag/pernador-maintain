@@ -628,7 +628,7 @@ function ViewComandaModal({ comanda, onClose, pEdit, showPrint = false }) {
               <p className="text-sm text-gray-400 italic">Nicio linie de produs</p>
             ) : (
               <div className="border border-gray-200 rounded-lg overflow-hidden overflow-x-auto">
-                <table className="w-full text-sm table-fixed">
+                <table className="w-full text-sm table-fixed" style={{ minWidth: '560px' }}>
                   <colgroup>
                     <col />
                     <col style={{ width: '68px' }} />
