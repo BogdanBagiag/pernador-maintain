@@ -631,11 +631,17 @@ function ViewComandaModal({ comanda, onClose, pEdit, showPrint = false }) {
                 <table className="w-full text-sm table-fixed">
                   <colgroup>
                     <col />
+                    <col style={{ width: '68px' }} />
+                    <col style={{ width: '52px' }} />
+                    <col style={{ width: '90px' }} />
                     {STAGES.map(s => <col key={s.key} style={{ width: '44px' }} />)}
                   </colgroup>
                   <thead className="bg-gray-50">
                     <tr>
                       <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500">Produs</th>
+                      <th className="px-1 py-2 text-center text-xs font-semibold text-gray-500 whitespace-nowrap">Dim.</th>
+                      <th className="px-1 py-2 text-center text-xs font-semibold text-gray-500 whitespace-nowrap">Cant.</th>
+                      <th className="px-2 py-2 text-left text-xs font-semibold text-gray-500 whitespace-nowrap">Model</th>
                       {STAGES.map(s => (
                         <th key={s.key} className="px-0.5 py-2 text-center text-[10px] font-semibold text-gray-500 whitespace-nowrap">{s.label}</th>
                       ))}
@@ -644,12 +650,10 @@ function ViewComandaModal({ comanda, onClose, pEdit, showPrint = false }) {
                   <tbody className="divide-y divide-gray-100">
                     {linii.map(l => (
                       <tr key={l.id}>
-                        <td className="px-3 py-2">
-                          <p className="text-gray-900 font-medium">{l.produs_text}</p>
-                          <p className="text-xs text-gray-400">
-                            {[l.dimensiune, l.cantitate ? `${l.cantitate}buc` : null, l.model].filter(Boolean).join(' · ')}
-                          </p>
-                        </td>
+                        <td className="px-3 py-2 text-gray-900 font-medium">{l.produs_text}</td>
+                        <td className="px-1 py-2 text-center text-gray-600">{l.dimensiune || '—'}</td>
+                        <td className="px-1 py-2 text-center text-gray-600">{l.cantitate || '—'}</td>
+                        <td className="px-2 py-2 text-left text-gray-600 truncate">{l.model || '—'}</td>
                         {STAGES.map(s => (
                           <td key={s.key} className="px-0.5 py-2 text-center">
                             <input
