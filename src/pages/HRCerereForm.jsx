@@ -24,9 +24,19 @@ const maskTime = (raw) => {
 }
 const isValidTime = (t) => /^([01]\d|2[0-3]):[0-5]\d$/.test(t)
 
+// Formateaza un numar de ore (poate fi fractionar) ca "2 ore 30 min"
+const formatOre = (h) => {
+  const totalMin = Math.round(Math.max(0, h) * 60)
+  const hh = Math.floor(totalMin / 60)
+  const mm = totalMin % 60
+  if (hh === 0) return `${mm} min`
+  if (mm === 0) return `${hh} ${hh === 1 ? 'oră' : 'ore'}`
+  return `${hh} ${hh === 1 ? 'oră' : 'ore'} ${mm} min`
+}
+
 export default function HRCerereForm() {
   const [step, setStep] = useState('tip') // tip -> angajat -> detalii -> semnatura -> succes
-  const [tipCerere, setTipCerere] = useState(null) // 'concediu' | 'invoire'
+  const [tipCerere, setTipCerere] = useState(null) // 'concediu' | 'invoire' | 'recuperare'
   const [angajatId, setAngajatId] = useState(null)
   const [search, setSearch] = useState('')
 
@@ -42,8 +52,9 @@ export default function HRCerereForm() {
     ora_sfarsit: '',
     interes: '',
   })
-  const [areRecuperare, setAreRecuperare] = useState(false)
   const [recuperari, setRecuperari] = useState([{ data: todayStr(), ora_inceput: '', ora_sfarsit: '' }])
+  const [sold, setSold] = useState(null) // { ore_datorate, ore_recuperate, sold }
+  const [loadingSold, setLoadingSold] = useState(false)
 
   const { data: angajati = [], isLoading: loadingAngajati } = useQuery({
     queryKey: ['hr_angajati_public'],
@@ -61,6 +72,21 @@ export default function HRCerereForm() {
     : []
 
   const nrZile = Math.max(1, differenceInCalendarDays(new Date(concediu.data_sfarsit), new Date(concediu.data_inceput)) + 1)
+
+  const fetchSold = async (id) => {
+    if (!id) return
+    setLoadingSold(true)
+    const { data, error } = await supabase.rpc('hr_get_sold_recuperare_public', { p_angajat_id: id })
+    setLoadingSold(false)
+    if (!error && data && data[0]) setSold(data[0])
+  }
+
+  // Cand ajungem la detalii pentru recuperare, aratam soldul curent
+  useEffect(() => {
+    if (step === 'detalii' && tipCerere === 'recuperare' && angajatId) {
+      fetchSold(angajatId)
+    }
+  }, [step, tipCerere, angajatId])
 
   // ── Semnătură pe canvas ──────────────────────────────────────────────────
   const canvasRef = useRef(null)
@@ -132,8 +158,8 @@ export default function HRCerereForm() {
           p_semnatura_base64: semnatura,
         })
         if (error) throw error
-      } else {
-        const { data: newId, error } = await supabase.rpc('hr_submit_cerere_invoire', {
+      } else if (tipCerere === 'invoire') {
+        const { error } = await supabase.rpc('hr_submit_cerere_invoire', {
           p_angajat_id: angajatId,
           p_data: invoire.data,
           p_ora_inceput: invoire.ora_inceput,
@@ -142,17 +168,18 @@ export default function HRCerereForm() {
           p_semnatura_base64: semnatura,
         })
         if (error) throw error
-
-        if (areRecuperare) {
-          const valide = recuperari.filter(r => r.data && isValidTime(r.ora_inceput) && isValidTime(r.ora_sfarsit) && r.ora_sfarsit > r.ora_inceput)
-          for (const r of valide) {
-            await supabase.rpc('hr_submit_recuperare_invoire', {
-              p_invoire_id: newId,
-              p_data: r.data,
-              p_ora_inceput: r.ora_inceput,
-              p_ora_sfarsit: r.ora_sfarsit,
-            })
-          }
+      } else {
+        // recuperare - o cerere de sine statatoare, poate avea mai multe sesiuni
+        const valide = recuperari.filter(r => r.data && isValidTime(r.ora_inceput) && isValidTime(r.ora_sfarsit) && r.ora_sfarsit > r.ora_inceput)
+        for (const r of valide) {
+          const { error } = await supabase.rpc('hr_submit_recuperare_public', {
+            p_angajat_id: angajatId,
+            p_data: r.data,
+            p_ora_inceput: r.ora_inceput,
+            p_ora_sfarsit: r.ora_sfarsit,
+            p_semnatura_base64: semnatura,
+          })
+          if (error) throw error
         }
       }
     },
@@ -166,8 +193,8 @@ export default function HRCerereForm() {
     setSearch('')
     setConcediu({ tip: TIPURI_CONCEDIU[0], data_inceput: todayStr(), data_sfarsit: todayStr(), observatii: '' })
     setInvoire({ data: todayStr(), ora_inceput: '', ora_sfarsit: '', interes: '' })
-    setAreRecuperare(false)
     setRecuperari([{ data: todayStr(), ora_inceput: '', ora_sfarsit: '' }])
+    setSold(null)
   }
 
   const handleClose = () => {
@@ -182,7 +209,9 @@ export default function HRCerereForm() {
 
   const canGoNextDetalii = tipCerere === 'concediu'
     ? concediu.data_inceput && concediu.data_sfarsit && concediu.data_sfarsit >= concediu.data_inceput
-    : invoire.data && isValidTime(invoire.ora_inceput) && isValidTime(invoire.ora_sfarsit) && invoire.ora_sfarsit > invoire.ora_inceput
+    : tipCerere === 'invoire'
+    ? invoire.data && isValidTime(invoire.ora_inceput) && isValidTime(invoire.ora_sfarsit) && invoire.ora_sfarsit > invoire.ora_inceput
+    : recuperari.some(r => r.data && isValidTime(r.ora_inceput) && isValidTime(r.ora_sfarsit) && r.ora_sfarsit > r.ora_inceput)
 
   return (
     <div className="min-h-screen bg-gray-50 flex items-start sm:items-center justify-center p-4">
@@ -226,6 +255,16 @@ export default function HRCerereForm() {
                 <div>
                   <div className="font-semibold text-gray-900">Cerere de învoire</div>
                   <div className="text-xs text-gray-400">Câteva ore, într-o zi anume</div>
+                </div>
+              </button>
+              <button
+                onClick={() => { setTipCerere('recuperare'); setStep('angajat') }}
+                className="w-full flex items-center gap-3 p-4 rounded-xl border-2 border-gray-200 hover:border-primary-400 hover:bg-primary-50 transition-colors text-left"
+              >
+                <RotateCcw className="w-6 h-6 text-primary-600 flex-shrink-0" />
+                <div>
+                  <div className="font-semibold text-gray-900">Recuperare ore</div>
+                  <div className="text-xs text-gray-400">Recuperezi ore de la o învoire</div>
                 </div>
               </button>
             </div>
@@ -404,59 +443,76 @@ export default function HRCerereForm() {
                 />
               </div>
 
-              <div className="border-t border-gray-100 pt-3">
-                <label className="flex items-center gap-2 text-sm text-gray-700 mb-2">
-                  <input
-                    type="checkbox"
-                    checked={areRecuperare}
-                    onChange={e => setAreRecuperare(e.target.checked)}
-                    className="w-4 h-4"
-                  />
-                  <span className="flex items-center gap-1.5"><RotateCcw className="w-3.5 h-3.5 text-gray-400" /> Ai deja stabilit când recuperezi orele?</span>
-                </label>
+              <div className="flex justify-between pt-1">
+                <button onClick={() => setStep('angajat')} className="text-sm text-gray-400 hover:text-gray-600 flex items-center gap-1">
+                  <ChevronLeft className="w-4 h-4" /> Înapoi
+                </button>
+                <button
+                  disabled={!canGoNextDetalii}
+                  onClick={() => setStep('semnatura')}
+                  className="flex items-center gap-1 bg-primary-600 text-white px-4 py-2 rounded-xl font-medium text-sm hover:bg-primary-700 disabled:opacity-40"
+                >
+                  Continuă <ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          )}
 
-                {areRecuperare && (
-                  <div className="space-y-2 mt-2">
-                    {recuperari.map((r, idx) => (
-                      <div key={idx} className="bg-gray-50 rounded-xl border border-gray-200 p-3 space-y-2">
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs font-medium text-gray-500">Recuperare {idx + 1}</span>
-                          {recuperari.length > 1 && (
-                            <button onClick={() => setRecuperari(recuperari.filter((_, i) => i !== idx))} className="text-gray-300 hover:text-red-500">
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          )}
-                        </div>
-                        <input
-                          type="date"
-                          value={r.data}
-                          onChange={e => setRecuperari(recuperari.map((x, i) => i === idx ? { ...x, data: e.target.value } : x))}
-                          className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400"
-                        />
-                        <div className="grid grid-cols-2 gap-2">
-                          <input
-                            type="text" inputMode="numeric" placeholder="08:15" maxLength={5}
-                            value={r.ora_inceput}
-                            onChange={e => setRecuperari(recuperari.map((x, i) => i === idx ? { ...x, ora_inceput: maskTime(e.target.value) } : x))}
-                            className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400"
-                          />
-                          <input
-                            type="text" inputMode="numeric" placeholder="16:30" maxLength={5}
-                            value={r.ora_sfarsit}
-                            onChange={e => setRecuperari(recuperari.map((x, i) => i === idx ? { ...x, ora_sfarsit: maskTime(e.target.value) } : x))}
-                            className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400"
-                          />
-                        </div>
-                      </div>
-                    ))}
-                    <button
-                      onClick={() => setRecuperari([...recuperari, { data: todayStr(), ora_inceput: '', ora_sfarsit: '' }])}
-                      className="flex items-center gap-1 text-xs text-primary-600 font-medium hover:underline"
-                    >
-                      <Plus className="w-3.5 h-3.5" /> Adaugă altă recuperare
-                    </button>
+          {step === 'detalii' && tipCerere === 'recuperare' && (
+            <div className="space-y-4">
+              <p className="text-sm text-gray-500">Recuperare ore pentru <b>{angajat?.nume} {angajat?.prenume}</b></p>
+
+              <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-center">
+                {loadingSold ? (
+                  <Loader2 className="w-4 h-4 animate-spin text-amber-500 mx-auto" />
+                ) : sold ? (
+                  sold.sold > 0 ? (
+                    <p className="text-sm text-amber-800">Ai de recuperat <b>{formatOre(sold.sold)}</b></p>
+                  ) : (
+                    <p className="text-sm text-green-700">Nu ai ore de recuperat.</p>
+                  )
+                ) : null}
+              </div>
+
+              <div className="space-y-2">
+                {recuperari.map((r, idx) => (
+                  <div key={idx} className="bg-gray-50 rounded-xl border border-gray-200 p-3 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-medium text-gray-500">Recuperare {idx + 1}</span>
+                      {recuperari.length > 1 && (
+                        <button onClick={() => setRecuperari(recuperari.filter((_, i) => i !== idx))} className="text-gray-300 hover:text-red-500">
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
+                    <input
+                      type="date"
+                      value={r.data}
+                      onChange={e => setRecuperari(recuperari.map((x, i) => i === idx ? { ...x, data: e.target.value } : x))}
+                      className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400"
+                    />
+                    <div className="grid grid-cols-2 gap-2">
+                      <input
+                        type="text" inputMode="numeric" placeholder="08:15" maxLength={5}
+                        value={r.ora_inceput}
+                        onChange={e => setRecuperari(recuperari.map((x, i) => i === idx ? { ...x, ora_inceput: maskTime(e.target.value) } : x))}
+                        className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400"
+                      />
+                      <input
+                        type="text" inputMode="numeric" placeholder="16:30" maxLength={5}
+                        value={r.ora_sfarsit}
+                        onChange={e => setRecuperari(recuperari.map((x, i) => i === idx ? { ...x, ora_sfarsit: maskTime(e.target.value) } : x))}
+                        className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400"
+                      />
+                    </div>
                   </div>
-                )}
+                ))}
+                <button
+                  onClick={() => setRecuperari([...recuperari, { data: todayStr(), ora_inceput: '', ora_sfarsit: '' }])}
+                  className="flex items-center gap-1 text-xs text-primary-600 font-medium hover:underline"
+                >
+                  <Plus className="w-3.5 h-3.5" /> Adaugă altă recuperare
+                </button>
               </div>
 
               <div className="flex justify-between pt-1">
@@ -481,12 +537,11 @@ export default function HRCerereForm() {
                 <p><b>{angajat?.nume} {angajat?.prenume}</b></p>
                 {tipCerere === 'concediu' ? (
                   <p>{concediu.tip} · {format(new Date(concediu.data_inceput), 'dd.MM.yyyy')} – {format(new Date(concediu.data_sfarsit), 'dd.MM.yyyy')} ({nrZile} {nrZile === 1 ? 'zi' : 'zile'})</p>
-                ) : (
+                ) : tipCerere === 'invoire' ? (
                   <p>Învoire {format(new Date(invoire.data), 'dd.MM.yyyy')}, {invoire.ora_inceput}–{invoire.ora_sfarsit}{invoire.interes ? ` · ${invoire.interes}` : ''}</p>
-                )}
-                {tipCerere === 'invoire' && areRecuperare && recuperari.some(r => r.data && isValidTime(r.ora_inceput) && isValidTime(r.ora_sfarsit)) && (
-                  <div className="pt-1 border-t border-gray-200 mt-1">
-                    <p className="text-xs text-gray-400 mb-0.5">Recuperare:</p>
+                ) : (
+                  <div>
+                    <p className="mb-0.5">Recuperare ore:</p>
                     {recuperari.filter(r => r.data && isValidTime(r.ora_inceput) && isValidTime(r.ora_sfarsit)).map((r, i) => (
                       <p key={i} className="text-xs">{format(new Date(r.data), 'dd.MM.yyyy')}, {r.ora_inceput}–{r.ora_sfarsit}</p>
                     ))}
@@ -541,6 +596,11 @@ export default function HRCerereForm() {
               <PartyPopper className="w-12 h-12 text-primary-500 mx-auto" />
               <p className="font-semibold text-gray-900">Cererea a fost trimisă!</p>
               <p className="text-sm text-gray-400">Va fi analizată de HR.</p>
+              {tipCerere === 'recuperare' && sold && (
+                <p className="text-xs text-gray-400">
+                  Sold curent aprobat: <b>{formatOre(sold.sold)}</b> de recuperat. Va scădea după ce HR aprobă noua cerere.
+                </p>
+              )}
               <button
                 onClick={handleClose}
                 className="flex items-center gap-2 mx-auto bg-primary-600 text-white px-5 py-2.5 rounded-xl font-medium text-sm hover:bg-primary-700"

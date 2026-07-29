@@ -37,6 +37,21 @@ const maskTime = (raw) => {
 }
 const isValidTime = (t) => /^([01]\d|2[0-3]):[0-5]\d$/.test(t)
 
+const hoursBetween = (start, end) => {
+  if (!start || !end) return 0
+  const [sh, sm] = start.split(':').map(Number)
+  const [eh, em] = end.split(':').map(Number)
+  return (eh * 60 + em - (sh * 60 + sm)) / 60
+}
+const formatOre = (h) => {
+  const totalMin = Math.round(Math.max(0, h) * 60)
+  const hh = Math.floor(totalMin / 60)
+  const mm = totalMin % 60
+  if (hh === 0) return `${mm} min`
+  if (mm === 0) return `${hh} ${hh === 1 ? 'oră' : 'ore'}`
+  return `${hh} ${hh === 1 ? 'oră' : 'ore'} ${mm} min`
+}
+
 export default function ResurseUmane() {
   const { canView, canEdit, canDelete } = usePermissions()
   const [tab, setTab] = useState('calendar')
@@ -209,9 +224,8 @@ function CalendarTab() {
 function CereriTab({ pEdit, pDelete }) {
   const queryClient = useQueryClient()
   const { user } = useAuth()
-  const [typeFilter, setTypeFilter] = useState('toate') // toate / concediu / invoire
+  const [typeFilter, setTypeFilter] = useState('toate') // toate / concediu / invoire / recuperare
   const [statusFilter, setStatusFilter] = useState('in_asteptare')
-  const [expanded, setExpanded] = useState(null)
 
   const { data: concedii = [], isLoading: loadingConcedii } = useQuery({
     queryKey: ['hr_cereri_concediu'],
@@ -237,21 +251,35 @@ function CereriTab({ pEdit, pDelete }) {
     },
   })
 
-  const isLoading = loadingConcedii || loadingInvoiri
+  const { data: recuperari = [], isLoading: loadingRecuperari } = useQuery({
+    queryKey: ['hr_recuperari_toate'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('hr_invoire_recuperari')
+        .select('*, hr_angajati(nume, prenume)')
+        .not('angajat_id', 'is', null)
+        .order('created_at', { ascending: false })
+      if (error) throw error
+      return data
+    },
+  })
+
+  const isLoading = loadingConcedii || loadingInvoiri || loadingRecuperari
 
   const merged = useMemo(() => {
     const c = concedii.map(x => ({ ...x, _tip: 'concediu' }))
     const i = invoiri.map(x => ({ ...x, _tip: 'invoire' }))
-    return [...c, ...i].sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
-  }, [concedii, invoiri])
+    const r = recuperari.map(x => ({ ...x, _tip: 'recuperare' }))
+    return [...c, ...i, ...r].sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+  }, [concedii, invoiri, recuperari])
 
   const filtered = merged.filter(item =>
     (typeFilter === 'toate' || item._tip === typeFilter) &&
     (statusFilter === 'toate' || item.status === statusFilter)
   )
 
-  const tableFor = (tip) => tip === 'concediu' ? 'hr_cereri_concediu' : 'hr_cereri_invoire'
-  const queryKeyFor = (tip) => tip === 'concediu' ? ['hr_cereri_concediu'] : ['hr_cereri_invoire']
+  const tableFor = (tip) => tip === 'concediu' ? 'hr_cereri_concediu' : tip === 'invoire' ? 'hr_cereri_invoire' : 'hr_invoire_recuperari'
+  const queryKeyFor = (tip) => tip === 'concediu' ? ['hr_cereri_concediu'] : tip === 'invoire' ? ['hr_cereri_invoire'] : ['hr_recuperari_toate']
 
   const decide = useMutation({
     mutationFn: async ({ id, tip, status, motiv_respingere }) => {
@@ -271,32 +299,29 @@ function CereriTab({ pEdit, pDelete }) {
     onSuccess: (_data, variables) => queryClient.invalidateQueries({ queryKey: queryKeyFor(variables.tip) }),
   })
 
-  const toggleRecuperatComplet = useMutation({
-    mutationFn: async ({ id, val }) => {
-      const { error } = await supabase.from('hr_cereri_invoire').update({ ore_recuperate_complet: val }).eq('id', id)
-      if (error) throw error
-    },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['hr_cereri_invoire'] }),
-  })
+  // clase Tailwind complete (statice), nu interpolate - altfel JIT-ul nu le include in build
+  const TIP_BORDER = { concediu: 'border-l-blue-400', invoire: 'border-l-amber-400', recuperare: 'border-l-violet-400' }
+  const TIP_TEXT   = { concediu: 'text-blue-400',     invoire: 'text-amber-400',     recuperare: 'text-violet-400' }
+  const TIP_ICON = { concediu: CalendarDays, invoire: Clock, recuperare: RotateCcw }
+  const TIP_LABEL = { concediu: 'Concedii', invoire: 'Învoiri', recuperare: 'Recuperări' }
 
   return (
     <div>
       <div className="flex gap-2 mb-3">
-        {[
-          { key: 'toate', label: 'Toate', icon: null },
-          { key: 'concediu', label: 'Concedii', icon: CalendarDays },
-          { key: 'invoire', label: 'Învoiri', icon: Clock },
-        ].map(({ key, label, icon: Icon }) => (
-          <button
-            key={key}
-            onClick={() => setTypeFilter(key)}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium border ${
-              typeFilter === key ? 'bg-gray-900 text-white border-gray-900' : 'border-gray-200 text-gray-500 hover:bg-gray-50'
-            }`}
-          >
-            {Icon && <Icon className="w-4 h-4" />} {label}
-          </button>
-        ))}
+        {['toate', 'concediu', 'invoire', 'recuperare'].map(key => {
+          const Icon = TIP_ICON[key]
+          return (
+            <button
+              key={key}
+              onClick={() => setTypeFilter(key)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium border ${
+                typeFilter === key ? 'bg-gray-900 text-white border-gray-900' : 'border-gray-200 text-gray-500 hover:bg-gray-50'
+              }`}
+            >
+              {Icon && <Icon className="w-4 h-4" />} {key === 'toate' ? 'Toate' : TIP_LABEL[key]}
+            </button>
+          )
+        })}
       </div>
 
       <FilterBar filter={statusFilter} setFilter={setStatusFilter} />
@@ -304,6 +329,7 @@ function CereriTab({ pEdit, pDelete }) {
       <div className="flex items-center gap-4 mb-3 text-xs text-gray-400">
         <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-blue-400 inline-block" /> Concediu</span>
         <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-amber-400 inline-block" /> Învoire</span>
+        <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-violet-400 inline-block" /> Recuperare</span>
       </div>
 
       {isLoading ? (
@@ -312,64 +338,62 @@ function CereriTab({ pEdit, pDelete }) {
         <p className="text-sm text-gray-400 py-8 text-center">Nicio cerere.</p>
       ) : (
         <div className="space-y-2">
-          {filtered.map(c => (
-            <div key={`${c._tip}-${c.id}`} className={`bg-white border border-gray-200 rounded-xl p-4 border-l-4 ${c._tip === 'concediu' ? 'border-l-blue-400' : 'border-l-amber-400'}`}>
-              <div className="flex flex-wrap items-center gap-3 justify-between">
-                <div className="min-w-[220px]">
-                  <p className="font-semibold text-gray-900 flex items-center gap-1.5">
-                    {c._tip === 'concediu' ? <CalendarDays className="w-3.5 h-3.5 text-blue-400" /> : <Clock className="w-3.5 h-3.5 text-amber-400" />}
-                    {c.hr_angajati?.nume} {c.hr_angajati?.prenume}
-                  </p>
-                  {c._tip === 'concediu' ? (
-                    <p className="text-sm text-gray-500">
-                      {c.tip} · {format(new Date(c.data_inceput), 'dd.MM.yyyy')} – {format(new Date(c.data_sfarsit), 'dd.MM.yyyy')} ({c.nr_zile} {c.nr_zile === 1 ? 'zi' : 'zile'})
+          {filtered.map(c => {
+            const Icon = TIP_ICON[c._tip]
+            return (
+              <div key={`${c._tip}-${c.id}`} className={`bg-white border border-gray-200 rounded-xl p-4 border-l-4 ${TIP_BORDER[c._tip]}`}>
+                <div className="flex flex-wrap items-center gap-3 justify-between">
+                  <div className="min-w-[220px]">
+                    <p className="font-semibold text-gray-900 flex items-center gap-1.5">
+                      <Icon className={`w-3.5 h-3.5 ${TIP_TEXT[c._tip]}`} />
+                      {c.hr_angajati?.nume} {c.hr_angajati?.prenume}
                     </p>
-                  ) : (
-                    <p className="text-sm text-gray-500">
-                      {format(new Date(c.data), 'dd.MM.yyyy')}, {c.ora_inceput?.slice(0,5)}–{c.ora_sfarsit?.slice(0,5)}
-                      {c.interes ? ` · ${c.interes}` : ''}
-                    </p>
-                  )}
-                  {c._tip === 'concediu' && c.observatii && <p className="text-xs text-gray-400 mt-0.5">{c.observatii}</p>}
-                </div>
-                <SignaturePreview src={c.semnatura_base64} />
-                <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${STATUS_BADGE[c.status]}`}>{STATUS_LABEL[c.status]}</span>
-                {pEdit && c.status === 'in_asteptare' && (
-                  <div className="flex gap-2">
-                    <button onClick={() => decide.mutate({ id: c.id, tip: c._tip, status: 'aprobat' })}
-                      className="flex items-center gap-1 px-3 py-1.5 bg-green-600 text-white rounded-lg text-xs font-medium hover:bg-green-700">
-                      <Check className="w-3.5 h-3.5" /> Aprobă
-                    </button>
-                    <button onClick={() => {
-                      const motiv = window.prompt('Motiv respingere (opțional):') || ''
-                      decide.mutate({ id: c.id, tip: c._tip, status: 'respins', motiv_respingere: motiv })
-                    }}
-                      className="flex items-center gap-1 px-3 py-1.5 bg-red-50 text-red-600 rounded-lg text-xs font-medium hover:bg-red-100">
-                      <XCircle className="w-3.5 h-3.5" /> Respinge
-                    </button>
+                    {c._tip === 'concediu' ? (
+                      <p className="text-sm text-gray-500">
+                        {c.tip} · {format(new Date(c.data_inceput), 'dd.MM.yyyy')} – {format(new Date(c.data_sfarsit), 'dd.MM.yyyy')} ({c.nr_zile} {c.nr_zile === 1 ? 'zi' : 'zile'})
+                      </p>
+                    ) : c._tip === 'invoire' ? (
+                      <p className="text-sm text-gray-500">
+                        {format(new Date(c.data), 'dd.MM.yyyy')}, {c.ora_inceput?.slice(0,5)}–{c.ora_sfarsit?.slice(0,5)}
+                        {c.interes ? ` · ${c.interes}` : ''}
+                      </p>
+                    ) : (
+                      <p className="text-sm text-gray-500">
+                        Recuperare {format(new Date(c.data), 'dd.MM.yyyy')}, {c.ora_inceput?.slice(0,5)}–{c.ora_sfarsit?.slice(0,5)}
+                      </p>
+                    )}
+                    {c._tip === 'concediu' && c.observatii && <p className="text-xs text-gray-400 mt-0.5">{c.observatii}</p>}
                   </div>
-                )}
-                {c._tip === 'invoire' && c.status === 'aprobat' && (
-                  <button onClick={() => setExpanded(expanded === c.id ? null : c.id)}
-                    className="text-xs text-primary-600 hover:underline font-medium flex items-center gap-1">
-                    <RotateCcw className="w-3.5 h-3.5" /> Recuperare ore
-                  </button>
-                )}
-                {pDelete && (
-                  <button onClick={() => { if (confirm('Ștergi cererea?')) deleteCerere.mutate({ id: c.id, tip: c._tip }) }}
-                    className="p-1.5 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded">
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
+                  <SignaturePreview src={c.semnatura_base64} />
+                  <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${STATUS_BADGE[c.status]}`}>{STATUS_LABEL[c.status]}</span>
+                  {pEdit && c.status === 'in_asteptare' && (
+                    <div className="flex gap-2">
+                      <button onClick={() => decide.mutate({ id: c.id, tip: c._tip, status: 'aprobat' })}
+                        className="flex items-center gap-1 px-3 py-1.5 bg-green-600 text-white rounded-lg text-xs font-medium hover:bg-green-700">
+                        <Check className="w-3.5 h-3.5" /> Aprobă
+                      </button>
+                      <button onClick={() => {
+                        const motiv = window.prompt('Motiv respingere (opțional):') || ''
+                        decide.mutate({ id: c.id, tip: c._tip, status: 'respins', motiv_respingere: motiv })
+                      }}
+                        className="flex items-center gap-1 px-3 py-1.5 bg-red-50 text-red-600 rounded-lg text-xs font-medium hover:bg-red-100">
+                        <XCircle className="w-3.5 h-3.5" /> Respinge
+                      </button>
+                    </div>
+                  )}
+                  {pDelete && (
+                    <button onClick={() => { if (confirm('Ștergi cererea?')) deleteCerere.mutate({ id: c.id, tip: c._tip }) }}
+                      className="p-1.5 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded">
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+                {c.status === 'respins' && c.motiv_respingere && (
+                  <p className="text-xs text-red-500 mt-2">Motiv: {c.motiv_respingere}</p>
                 )}
               </div>
-              {c.status === 'respins' && c.motiv_respingere && (
-                <p className="text-xs text-red-500 mt-2">Motiv: {c.motiv_respingere}</p>
-              )}
-              {c._tip === 'invoire' && expanded === c.id && (
-                <RecuperariPanel invoire={c} pEdit={pEdit} onToggleComplet={(val) => toggleRecuperatComplet.mutate({ id: c.id, val })} />
-              )}
-            </div>
-          ))}
+            )
+          })}
         </div>
       )}
     </div>
@@ -407,130 +431,6 @@ function SignaturePreview({ src }) {
         </div>
       )}
     </>
-  )
-}
-
-function RecuperariPanel({ invoire, pEdit, onToggleComplet }) {
-  const queryClient = useQueryClient()
-  const { user } = useAuth()
-  const [adding, setAdding] = useState(false)
-  const [form, setForm] = useState({ data: format(new Date(), 'yyyy-MM-dd'), ora_inceput: '', ora_sfarsit: '' })
-
-  const { data: recuperari = [], isLoading } = useQuery({
-    queryKey: ['hr_invoire_recuperari', invoire.id],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('hr_invoire_recuperari')
-        .select('*')
-        .eq('invoire_id', invoire.id)
-        .order('data')
-      if (error) throw error
-      return data
-    },
-  })
-
-  const addRecuperare = useMutation({
-    mutationFn: async () => {
-      const { error } = await supabase.from('hr_invoire_recuperari').insert({
-        invoire_id: invoire.id, data: form.data, ora_inceput: form.ora_inceput, ora_sfarsit: form.ora_sfarsit,
-      })
-      if (error) throw error
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['hr_invoire_recuperari', invoire.id] })
-      setAdding(false)
-      setForm({ data: format(new Date(), 'yyyy-MM-dd'), ora_inceput: '', ora_sfarsit: '' })
-    },
-  })
-
-  const decideRecuperare = useMutation({
-    mutationFn: async ({ id, status }) => {
-      const { error } = await supabase.from('hr_invoire_recuperari')
-        .update({ status, decis_de: user.id, data_decizie: new Date().toISOString() })
-        .eq('id', id)
-      if (error) throw error
-    },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['hr_invoire_recuperari', invoire.id] }),
-  })
-
-  const deleteRecuperare = useMutation({
-    mutationFn: async (id) => {
-      const { error } = await supabase.from('hr_invoire_recuperari').delete().eq('id', id)
-      if (error) throw error
-    },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['hr_invoire_recuperari', invoire.id] }),
-  })
-
-  return (
-    <div className="mt-3 pt-3 border-t border-gray-100 bg-gray-50 -mx-4 -mb-4 px-4 pb-4 rounded-b-xl">
-      <div className="flex items-center justify-between mb-2">
-        <p className="text-xs font-semibold text-gray-500 uppercase">Recuperare ore</p>
-        {pEdit && (
-          <label className="flex items-center gap-1.5 text-xs text-gray-500">
-            <input type="checkbox" checked={invoire.ore_recuperate_complet} onChange={e => onToggleComplet(e.target.checked)} />
-            Recuperare completă
-          </label>
-        )}
-      </div>
-
-      {isLoading ? (
-        <p className="text-xs text-gray-400">Se încarcă...</p>
-      ) : recuperari.length === 0 && !adding ? (
-        <p className="text-xs text-gray-400">Nicio sesiune de recuperare adăugată.</p>
-      ) : (
-        <div className="space-y-1.5">
-          {recuperari.map(r => (
-            <div key={r.id} className="flex items-center gap-2 text-sm bg-white border border-gray-200 rounded-lg px-3 py-1.5">
-              <span className="flex-1">{format(new Date(r.data), 'dd.MM.yyyy')}, {r.ora_inceput?.slice(0,5)}–{r.ora_sfarsit?.slice(0,5)}</span>
-              <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${STATUS_BADGE[r.status]}`}>{STATUS_LABEL[r.status]}</span>
-              {pEdit && r.status === 'in_asteptare' && (
-                <>
-                  <button onClick={() => decideRecuperare.mutate({ id: r.id, status: 'aprobat' })} className="p-1 text-green-600 hover:bg-green-50 rounded"><Check className="w-3.5 h-3.5" /></button>
-                  <button onClick={() => decideRecuperare.mutate({ id: r.id, status: 'respins' })} className="p-1 text-red-500 hover:bg-red-50 rounded"><XCircle className="w-3.5 h-3.5" /></button>
-                </>
-              )}
-              {pEdit && (
-                <button onClick={() => deleteRecuperare.mutate(r.id)} className="p-1 text-gray-300 hover:text-red-500 rounded"><Trash2 className="w-3.5 h-3.5" /></button>
-              )}
-            </div>
-          ))}
-        </div>
-      )}
-
-      {pEdit && (
-        adding ? (
-          <div className="flex flex-wrap items-end gap-2 mt-2 bg-white border border-gray-200 rounded-lg p-2.5">
-            <div>
-              <label className="text-[10px] text-gray-400 block">Data</label>
-              <input type="date" value={form.data} onChange={e => setForm({ ...form, data: e.target.value })}
-                className="border border-gray-200 rounded px-2 py-1 text-xs" />
-            </div>
-            <div>
-              <label className="text-[10px] text-gray-400 block">De la</label>
-              <input type="text" inputMode="numeric" placeholder="08:15" maxLength={5}
-                value={form.ora_inceput} onChange={e => setForm({ ...form, ora_inceput: maskTime(e.target.value) })}
-                className="border border-gray-200 rounded px-2 py-1 text-xs w-16" />
-            </div>
-            <div>
-              <label className="text-[10px] text-gray-400 block">Până la</label>
-              <input type="text" inputMode="numeric" placeholder="16:30" maxLength={5}
-                value={form.ora_sfarsit} onChange={e => setForm({ ...form, ora_sfarsit: maskTime(e.target.value) })}
-                className="border border-gray-200 rounded px-2 py-1 text-xs w-16" />
-            </div>
-            <button disabled={!isValidTime(form.ora_inceput) || !isValidTime(form.ora_sfarsit) || addRecuperare.isPending}
-              onClick={() => addRecuperare.mutate()}
-              className="px-3 py-1.5 bg-primary-600 text-white rounded-lg text-xs font-medium disabled:opacity-40">
-              Salvează
-            </button>
-            <button onClick={() => setAdding(false)} className="px-3 py-1.5 border border-gray-200 rounded-lg text-xs text-gray-500">Anulează</button>
-          </div>
-        ) : (
-          <button onClick={() => setAdding(true)} className="mt-2 flex items-center gap-1 text-xs text-primary-600 font-medium hover:underline">
-            <Plus className="w-3.5 h-3.5" /> Adaugă sesiune de recuperare
-          </button>
-        )
-      )}
-    </div>
   )
 }
 
@@ -894,12 +794,32 @@ function RapoarteTab() {
     },
   })
 
+  const { data: recuperari = [] } = useQuery({
+    queryKey: ['hr_raport_recuperari', angajatId],
+    enabled: !!angajatId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('hr_invoire_recuperari').select('*').eq('angajat_id', angajatId)
+        .order('data', { ascending: false })
+      if (error) throw error
+      return data
+    },
+  })
+
   const totalZileConcediuAnul = useMemo(() =>
     concedii.filter(c => c.status === 'aprobat' && new Date(c.data_inceput).getFullYear() === year)
       .reduce((sum, c) => sum + (c.nr_zile || 0), 0)
   , [concedii, year])
 
   const totalInvoiriAprobate = invoiri.filter(i => i.status === 'aprobat').length
+
+  const oreDatorate = useMemo(() =>
+    invoiri.filter(i => i.status === 'aprobat').reduce((sum, i) => sum + hoursBetween(i.ora_inceput, i.ora_sfarsit), 0)
+  , [invoiri])
+  const oreRecuperate = useMemo(() =>
+    recuperari.filter(r => r.status === 'aprobat').reduce((sum, r) => sum + hoursBetween(r.ora_inceput, r.ora_sfarsit), 0)
+  , [recuperari])
+  const soldOre = oreDatorate - oreRecuperate
 
   return (
     <div>
@@ -916,7 +836,7 @@ function RapoarteTab() {
         <p className="text-sm text-gray-400 py-8 text-center">Alege un angajat pentru a vedea raportul.</p>
       ) : (
         <>
-          <div className="grid grid-cols-2 gap-3 mb-5 max-w-md">
+          <div className="grid grid-cols-3 gap-3 mb-5 max-w-2xl">
             <div className="bg-white border border-gray-200 rounded-xl p-4">
               <p className="text-xs text-gray-400">Zile concediu aprobate ({year})</p>
               <p className="text-2xl font-bold text-gray-900">{totalZileConcediuAnul}</p>
@@ -924,6 +844,10 @@ function RapoarteTab() {
             <div className="bg-white border border-gray-200 rounded-xl p-4">
               <p className="text-xs text-gray-400">Învoiri aprobate (total)</p>
               <p className="text-2xl font-bold text-gray-900">{totalInvoiriAprobate}</p>
+            </div>
+            <div className={`border rounded-xl p-4 ${soldOre > 0 ? 'bg-amber-50 border-amber-200' : 'bg-white border-gray-200'}`}>
+              <p className="text-xs text-gray-400">Ore de recuperat rămase</p>
+              <p className={`text-2xl font-bold ${soldOre > 0 ? 'text-amber-700' : 'text-gray-900'}`}>{formatOre(soldOre)}</p>
             </div>
           </div>
 
@@ -954,7 +878,7 @@ function RapoarteTab() {
           </div>
 
           <h3 className="text-sm font-semibold text-gray-700 mb-2">Învoiri</h3>
-          <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+          <div className="bg-white rounded-xl border border-gray-200 overflow-hidden mb-6">
             <table className="min-w-full divide-y divide-gray-100 text-sm">
               <thead className="bg-gray-50">
                 <tr>
@@ -978,6 +902,32 @@ function RapoarteTab() {
               </tbody>
             </table>
           </div>
+
+          <h3 className="text-sm font-semibold text-gray-700 mb-2">Recuperări ore</h3>
+          <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+            <table className="min-w-full divide-y divide-gray-100 text-sm">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase">Data</th>
+                  <th className="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase">Interval</th>
+                  <th className="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase">Ore</th>
+                  <th className="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase">Status</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {recuperari.length === 0 ? (
+                  <tr><td colSpan={4} className="px-4 py-6 text-center text-gray-400">Nicio recuperare înregistrată.</td></tr>
+                ) : recuperari.map(r => (
+                  <tr key={r.id}>
+                    <td className="px-4 py-2">{format(new Date(r.data), 'dd.MM.yyyy')}</td>
+                    <td className="px-4 py-2">{r.ora_inceput?.slice(0,5)}–{r.ora_sfarsit?.slice(0,5)}</td>
+                    <td className="px-4 py-2">{formatOre(hoursBetween(r.ora_inceput, r.ora_sfarsit))}</td>
+                    <td className="px-4 py-2"><span className={`text-xs font-medium px-2 py-0.5 rounded-full ${STATUS_BADGE[r.status]}`}>{STATUS_LABEL[r.status]}</span></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </>
       )}
 
@@ -987,6 +937,16 @@ function RapoarteTab() {
 }
 
 const COMPANIE = 'SC CB WORKSHOP SRL'
+
+function renderFormPage(item) {
+  if (item._tip === 'concediu') {
+    return <ConcediuFormPage cerere={item.cerere} clipStart={item.clipStart} clipEnd={item.clipEnd} clipDays={item.clipDays} isPartial={item.isPartial} />
+  }
+  if (item._tip === 'invoire') {
+    return <InvoireFormPage cerere={item.cerere} />
+  }
+  return <RecuperareFormPage cerere={item.cerere} />
+}
 
 // Incarcare jsPDF + html2canvas din CDN, doar cand e nevoie (fara dependenta noua in package.json).
 // Folosim html2canvas ca sa "fotografiem" exact acelasi formular frumos (HTML/CSS) care se
@@ -1040,23 +1000,21 @@ function PdfExportSection({ angajatId, angajati }) {
     let invQuery = supabase.from('hr_cereri_invoire')
       .select('*, hr_angajati(nume, prenume), profiles(full_name)')
       .gte('data', monthStart).lte('data', monthEnd)
+    let recQuery = supabase.from('hr_invoire_recuperari')
+      .select('*, hr_angajati(nume, prenume), profiles(full_name)')
+      .not('angajat_id', 'is', null)
+      .gte('data', monthStart).lte('data', monthEnd)
 
     if (scope === 'angajat') {
       concQuery = concQuery.eq('angajat_id', angajatId)
       invQuery = invQuery.eq('angajat_id', angajatId)
+      recQuery = recQuery.eq('angajat_id', angajatId)
     }
 
-    const [{ data: concedii, error: e1 }, { data: invoiri, error: e2 }] = await Promise.all([concQuery, invQuery])
-    if (e1 || e2) { alert('Eroare: ' + (e1?.message || e2?.message)); return null }
+    const [{ data: concedii, error: e1 }, { data: invoiri, error: e2 }, { data: recuperari, error: e3 }] = await Promise.all([concQuery, invQuery, recQuery])
+    if (e1 || e2 || e3) { alert('Eroare: ' + (e1?.message || e2?.message || e3?.message)); return null }
 
-    let recuperari = []
-    const invoireIds = (invoiri || []).map(i => i.id)
-    if (invoireIds.length) {
-      const { data } = await supabase.from('hr_invoire_recuperari').select('*').in('invoire_id', invoireIds)
-      recuperari = data || []
-    }
-
-    if ((concedii?.length || 0) === 0 && (invoiri?.length || 0) === 0) {
+    if ((concedii?.length || 0) === 0 && (invoiri?.length || 0) === 0 && (recuperari?.length || 0) === 0) {
       alert('Nu există cereri în luna selectată.')
       return null
     }
@@ -1069,7 +1027,8 @@ function PdfExportSection({ angajatId, angajati }) {
         const isPartial = format(clipStart, 'yyyy-MM-dd') !== c.data_inceput || format(clipEnd, 'yyyy-MM-dd') !== c.data_sfarsit
         return { _tip: 'concediu', cerere: c, clipStart, clipEnd, clipDays, isPartial }
       }),
-      ...(invoiri || []).map(i => ({ _tip: 'invoire', cerere: i, recuperari: recuperari.filter(r => r.invoire_id === i.id) })),
+      ...(invoiri || []).map(i => ({ _tip: 'invoire', cerere: i })),
+      ...(recuperari || []).map(r => ({ _tip: 'recuperare', cerere: r })),
     ]
   }
 
@@ -1178,9 +1137,7 @@ function PdfExportSection({ angajatId, angajati }) {
             <div id="hr-forms-print-area">
               {printItems.map((item, idx) => (
                 <div key={idx} style={idx < printItems.length - 1 ? { pageBreakAfter: 'always', breakAfter: 'page' } : undefined}>
-                  {item._tip === 'concediu'
-                    ? <ConcediuFormPage cerere={item.cerere} clipStart={item.clipStart} clipEnd={item.clipEnd} clipDays={item.clipDays} isPartial={item.isPartial} />
-                    : <InvoireFormPage cerere={item.cerere} recuperari={item.recuperari} />}
+                  {renderFormPage(item)}
                 </div>
               ))}
             </div>,
@@ -1196,9 +1153,7 @@ function PdfExportSection({ angajatId, angajati }) {
         <div style={{ position: 'fixed', top: 0, left: '-9999px', zIndex: -1 }}>
           {printItems.map((item, idx) => (
             <div key={idx} ref={el => { pageRefs.current[idx] = el }} style={{ width: '148mm', background: '#fff' }}>
-              {item._tip === 'concediu'
-                ? <ConcediuFormPage cerere={item.cerere} clipStart={item.clipStart} clipEnd={item.clipEnd} clipDays={item.clipDays} isPartial={item.isPartial} />
-                : <InvoireFormPage cerere={item.cerere} recuperari={item.recuperari} />}
+              {renderFormPage(item)}
             </div>
           ))}
         </div>,
@@ -1251,7 +1206,7 @@ function ConcediuFormPage({ cerere: c, clipStart, clipEnd, clipDays, isPartial }
   )
 }
 
-function InvoireFormPage({ cerere: c, recuperari = [] }) {
+function InvoireFormPage({ cerere: c }) {
   const FF = 'Georgia, "Times New Roman", serif'
   return (
     <div style={{ fontFamily: FF, fontSize: '11pt', color: '#111', lineHeight: 1.6, padding: '4mm' }}>
@@ -1282,17 +1237,39 @@ function InvoireFormPage({ cerere: c, recuperari = [] }) {
           <p>De acord ................................. <span style={{ fontSize: '8pt', color: '#888' }}>(semnătură angajator/manager)</span></p>
         )}
       </div>
+    </div>
+  )
+}
 
-      <div style={{ marginTop: '8mm', borderTop: '1px solid #ccc', paddingTop: '4mm' }}>
-        <p style={{ fontSize: '9pt', fontWeight: 'bold', marginBottom: '2mm' }}>Recuperare ore de învoire</p>
-        {recuperari.length === 0 ? (
-          <p style={{ fontSize: '9pt', color: '#999' }}>Nicio recuperare înregistrată.</p>
-        ) : recuperari.map(r => (
-          <p key={r.id} style={{ fontSize: '9pt' }}>
-            în ziua de {format(new Date(r.data), 'dd.MM.yyyy')}, între orele {r.ora_inceput?.slice(0,5)} și {r.ora_sfarsit?.slice(0,5)}
-            {' — '}{r.status === 'aprobat' ? 'De acord ✓' : r.status === 'respins' ? 'Respins' : 'în așteptare'}
-          </p>
-        ))}
+function RecuperareFormPage({ cerere: c }) {
+  const FF = 'Georgia, "Times New Roman", serif'
+  const ore = hoursBetween(c.ora_inceput, c.ora_sfarsit)
+  return (
+    <div style={{ fontFamily: FF, fontSize: '11pt', color: '#111', lineHeight: 1.6, padding: '4mm' }}>
+      <h2 style={{ textAlign: 'center', fontSize: '14pt', marginBottom: '8mm', letterSpacing: '0.5px' }}>RECUPERARE ORE DE ÎNVOIRE</h2>
+      <p>
+        Subsemnatul(a), <b>{c.hr_angajati?.nume} {c.hr_angajati?.prenume}</b>, angajat al {COMPANIE}, am recuperat ore de învoire
+        în ziua <b>{format(new Date(c.data), 'dd.MM.yyyy')}</b>, între orele <b>{c.ora_inceput?.slice(0,5)}</b> și <b>{c.ora_sfarsit?.slice(0,5)}</b>
+        {' '}(<b>{formatOre(ore)}</b>).
+      </p>
+      <p style={{ marginTop: '6mm' }}>Vă mulțumesc!</p>
+
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginTop: '10mm' }}>
+        <span>Data {format(new Date(c.created_at), 'dd.MM.yyyy')}</span>
+        <span style={{ textAlign: 'center' }}>
+          <div style={{ fontSize: '8pt', color: '#888' }}>Semnătură</div>
+          {c.semnatura_base64 ? <img src={c.semnatura_base64} alt="semnătură" style={{ height: '16mm' }} /> : '.....................'}
+        </span>
+      </div>
+
+      <div style={{ marginTop: '8mm' }}>
+        {c.status === 'aprobat' ? (
+          <p><b>Aprobat</b>{c.profiles?.full_name ? ` de ${c.profiles.full_name}` : ''}, la {format(new Date(c.data_decizie), 'dd.MM.yyyy HH:mm')}.</p>
+        ) : c.status === 'respins' ? (
+          <p style={{ color: '#b91c1c' }}><b>Respins</b>{c.motiv_respingere ? ` — motiv: ${c.motiv_respingere}` : ''}, la {format(new Date(c.data_decizie), 'dd.MM.yyyy HH:mm')}.</p>
+        ) : (
+          <p>De acord ................................. <span style={{ fontSize: '8pt', color: '#888' }}>(semnătură angajator/manager)</span></p>
+        )}
       </div>
     </div>
   )
