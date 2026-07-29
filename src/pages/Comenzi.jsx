@@ -8,7 +8,7 @@ import { format } from 'date-fns'
 import {
   Plus, X, Save, Loader2, Printer, ShoppingCart,
   Users, Package, BarChart2, Pencil, Trash2, Check,
-  ShieldOff, Search, Settings, Ban, RotateCcw, Archive,
+  ShieldOff, Search, Settings, Ban, RotateCcw, Archive, Eye,
 } from 'lucide-react'
 
 // ─────────────────────────────────────────────────────────────
@@ -158,6 +158,12 @@ function ComenziTab({ pEdit, pDelete }) {
       if (status === 'livrate') update.data_livrare = new Date().toISOString()
       const { error } = await supabase.from('com_comenzi').update(update).eq('id', id)
       if (error) throw error
+      // Cand comanda pleaca in Livrate, bifam automat toate etapele pentru fiecare produs din comanda
+      if (status === 'livrate') {
+        await supabase.from('com_linii')
+          .update({ croit: true, cusut: true, produs_ok: true, livrat: true })
+          .eq('comanda_id', id)
+      }
     },
     // Optimistic update — cardul se mută vizual instant
     onMutate: async ({ id, status }) => {
@@ -189,6 +195,7 @@ function ComenziTab({ pEdit, pDelete }) {
       }
       queryClient.invalidateQueries({ queryKey: ['com_comenzi'] })
       queryClient.invalidateQueries({ queryKey: ['badge_comenzi'] })
+      queryClient.invalidateQueries({ queryKey: ['com_linii_view', variables.id] })
     },
   })
 
@@ -201,6 +208,7 @@ function ComenziTab({ pEdit, pDelete }) {
   })
 
   const openEdit = (c) => { setEditingComanda(c); setShowModal(true) }
+  const [viewingComanda, setViewingComanda] = useState(null)
 
   if (isLoading) return <div className="py-12 text-center text-sm text-gray-400">Se încarcă...</div>
 
@@ -240,6 +248,7 @@ function ComenziTab({ pEdit, pDelete }) {
                     pEdit={pEdit}
                     pDelete={pDelete}
                     onOpen={() => openEdit(c)}
+                    onView={() => setViewingComanda(c)}
                     onMove={(newStatus) => moveStatus.mutate({ id: c.id, status: newStatus })}
                     onDelete={() => {
                       if (confirm(`Ștergi comanda pentru ${c.com_clienti?.denumire || ''}?`))
@@ -268,12 +277,20 @@ function ComenziTab({ pEdit, pDelete }) {
           pEdit={pEdit}
         />
       )}
+
+      {viewingComanda && (
+        <ViewComandaModal
+          comanda={viewingComanda}
+          onClose={() => setViewingComanda(null)}
+          pEdit={pEdit}
+        />
+      )}
     </>
   )
 }
 
 // ─────────────────────────────────────────────────────────────
-function ComandaCard({ comanda, statusIndex, pEdit, pDelete, onOpen, onMove, onDelete }) {
+function ComandaCard({ comanda, statusIndex, pEdit, pDelete, onOpen, onView, onMove, onDelete }) {
   const prevSt = statusIndex > 0 ? STATUSES[statusIndex - 1] : null
   const nextSt = statusIndex < STATUSES.length - 1 ? STATUSES[statusIndex + 1] : null
   const linii = [...(comanda.com_linii || [])].sort((a, b) => (a.pozitie ?? 0) - (b.pozitie ?? 0))
@@ -286,10 +303,17 @@ function ComandaCard({ comanda, statusIndex, pEdit, pDelete, onOpen, onMove, onD
 
   return (
     <div
-      className="bg-white rounded-lg border border-gray-200 p-3 cursor-pointer hover:shadow-sm transition-shadow"
+      className="bg-white rounded-lg border border-gray-200 p-3 cursor-pointer hover:shadow-sm transition-shadow relative"
       onClick={onOpen}
     >
-      <p className="font-semibold text-gray-900 text-sm truncate">
+      <button
+        onClick={e => { e.stopPropagation(); onView() }}
+        title="Vizualizează comanda"
+        className="absolute top-2 right-2 p-1 text-gray-300 hover:text-primary-600 hover:bg-primary-50 rounded"
+      >
+        <Eye className="w-3.5 h-3.5" />
+      </button>
+      <p className="font-semibold text-gray-900 text-sm truncate pr-6">
         {comanda.com_clienti?.denumire || '—'}
       </p>
       <p className="text-xs text-gray-400 mt-0.5">
@@ -353,6 +377,206 @@ function ComandaCard({ comanda, statusIndex, pEdit, pDelete, onOpen, onMove, onD
           )}
         </div>
       )}
+    </div>
+  )
+}
+
+// ═════════════════════════════════════════════════════════════
+// ViewComandaModal — vizualizare read-only + checklist finalizare per produs
+// ═════════════════════════════════════════════════════════════
+const STAGES = [
+  { key: 'croit',     label: 'Croit' },
+  { key: 'cusut',     label: 'Cusut' },
+  { key: 'produs_ok', label: 'Produs' },
+  { key: 'livrat',    label: 'Livrat' },
+]
+
+function ViewComandaModal({ comanda, onClose, pEdit }) {
+  const queryClient = useQueryClient()
+  const [nrColete, setNrColete] = useState(comanda?.nr_colete ?? '')
+  const [savingColete, setSavingColete] = useState(false)
+  const [coleteError, setColeteError] = useState('')
+
+  // Back button pe mobil închide modalul în loc să navigheze înapoi
+  useEffect(() => {
+    history.pushState({ modal: 'comanda-view' }, '')
+    const handlePop = () => onClose()
+    window.addEventListener('popstate', handlePop)
+    return () => window.removeEventListener('popstate', handlePop)
+  }, [])
+
+  const { data: linii = [], isLoading } = useQuery({
+    queryKey: ['com_linii_view', comanda?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('com_linii')
+        .select('id, produs_text, dimensiune, cantitate, model, pozitie, croit, cusut, produs_ok, livrat')
+        .eq('comanda_id', comanda.id)
+        .order('pozitie')
+      if (error) throw error
+      return data
+    },
+    enabled: !!comanda?.id,
+  })
+
+  const toggleStage = useMutation({
+    mutationFn: async ({ lineId, field, value }) => {
+      const { error } = await supabase.from('com_linii').update({ [field]: value }).eq('id', lineId)
+      if (error) throw error
+    },
+    onMutate: async ({ lineId, field, value }) => {
+      await queryClient.cancelQueries({ queryKey: ['com_linii_view', comanda.id] })
+      const previous = queryClient.getQueryData(['com_linii_view', comanda.id])
+      queryClient.setQueryData(['com_linii_view', comanda.id], (old) =>
+        old?.map(l => l.id === lineId ? { ...l, [field]: value } : l) ?? old
+      )
+      return { previous }
+    },
+    onError: (_err, _vars, context) => {
+      if (context?.previous) queryClient.setQueryData(['com_linii_view', comanda.id], context.previous)
+    },
+  })
+
+  const saveColete = async () => {
+    setSavingColete(true)
+    setColeteError('')
+    const value = nrColete === '' ? null : parseInt(nrColete)
+    const { error } = await supabase.from('com_comenzi').update({ nr_colete: value }).eq('id', comanda.id)
+    setSavingColete(false)
+    if (error) { setColeteError('Eroare: ' + error.message); return }
+    queryClient.invalidateQueries({ queryKey: ['com_comenzi'] })
+    queryClient.invalidateQueries({ queryKey: ['com_comenzi_arhiva'] })
+    queryClient.invalidateQueries({ queryKey: ['com_comenzi_anulate'] })
+  }
+
+  const statusConfig = STATUSES.find(s => s.key === comanda.status) || {}
+  const coleteChanged = parseInt(nrColete || 0) !== parseInt(comanda.nr_colete || 0)
+
+  return (
+    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={onClose}>
+      <div
+        className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto"
+        onClick={e => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between px-4 sm:px-6 py-4 border-b border-gray-200">
+          <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+            <Eye className="w-5 h-5 text-gray-400" />
+            Vizualizare comandă
+          </h2>
+          <button onClick={onClose} className="p-1 text-gray-400 hover:text-gray-600 rounded">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        <div className="px-4 sm:px-6 py-4 space-y-4">
+          {/* Info comandă - read only */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            <div className="col-span-2 sm:col-span-1">
+              <p className="text-xs text-gray-500 mb-0.5">Client</p>
+              <p className="text-sm font-medium text-gray-900">{comanda.com_clienti?.denumire || '—'}</p>
+            </div>
+            <div>
+              <p className="text-xs text-gray-500 mb-0.5">Status</p>
+              <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${statusConfig.bg || 'bg-gray-50'} ${statusConfig.text || 'text-gray-600'}`}>
+                <span className={`w-1.5 h-1.5 rounded-full ${statusConfig.dot || 'bg-gray-400'}`} />
+                {statusConfig.label || comanda.status}
+              </span>
+            </div>
+            <div>
+              <p className="text-xs text-gray-500 mb-0.5">Data comandă</p>
+              <p className="text-sm text-gray-800">{comanda.data ? format(new Date(comanda.data), 'dd.MM.yyyy') : '—'}</p>
+            </div>
+            <div>
+              <p className="text-xs text-gray-500 mb-0.5">Termen livrare</p>
+              <p className="text-sm text-gray-800">{comanda.data_livrare ? format(new Date(comanda.data_livrare), 'dd.MM.yyyy') : '—'}</p>
+            </div>
+          </div>
+
+          {comanda.observatii && (
+            <div>
+              <p className="text-xs text-gray-500 mb-0.5">Observații</p>
+              <p className="text-sm text-gray-700 whitespace-pre-wrap">{comanda.observatii}</p>
+            </div>
+          )}
+
+          {/* Nr. Colete - editabil */}
+          <div className="flex items-end gap-2 flex-wrap">
+            <div className="w-32">
+              <label className="text-xs text-gray-500 mb-0.5 block">Nr. Colete</label>
+              <input
+                type="number" min="0" value={nrColete}
+                onChange={e => setNrColete(e.target.value)}
+                disabled={!pEdit}
+                className="w-full border border-gray-300 rounded-lg px-3 py-1.5 text-sm outline-none focus:ring-2 focus:ring-primary-400 disabled:bg-gray-50"
+                placeholder="—"
+              />
+            </div>
+            {pEdit && (
+              <button
+                onClick={saveColete}
+                disabled={savingColete || !coleteChanged}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-primary-600 rounded-lg hover:bg-primary-700 disabled:opacity-50"
+              >
+                {savingColete ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+                Salvează
+              </button>
+            )}
+            {coleteError && <p className="text-xs text-red-600 w-full">{coleteError}</p>}
+          </div>
+
+          {/* Produse - checklist finalizare */}
+          <div>
+            <p className="text-xs text-gray-500 mb-2">Produse și stadiu execuție</p>
+            {isLoading ? (
+              <p className="text-sm text-gray-400">Se încarcă...</p>
+            ) : linii.length === 0 ? (
+              <p className="text-sm text-gray-400 italic">Nicio linie de produs</p>
+            ) : (
+              <div className="border border-gray-200 rounded-lg overflow-hidden overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500">Produs</th>
+                      {STAGES.map(s => (
+                        <th key={s.key} className="px-2 py-2 text-center text-xs font-semibold text-gray-500 whitespace-nowrap">{s.label}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {linii.map(l => (
+                      <tr key={l.id}>
+                        <td className="px-3 py-2">
+                          <p className="text-gray-900">{l.produs_text}</p>
+                          <p className="text-xs text-gray-400">
+                            {[l.dimensiune, l.cantitate ? `${l.cantitate}buc` : null, l.model].filter(Boolean).join(' · ')}
+                          </p>
+                        </td>
+                        {STAGES.map(s => (
+                          <td key={s.key} className="px-2 py-2 text-center">
+                            <input
+                              type="checkbox"
+                              checked={!!l[s.key]}
+                              disabled={!pEdit}
+                              onChange={e => toggleStage.mutate({ lineId: l.id, field: s.key, value: e.target.checked })}
+                              className="w-4 h-4 text-primary-600 rounded focus:ring-primary-500 disabled:opacity-40"
+                            />
+                          </td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="flex justify-end px-4 sm:px-6 py-4 border-t border-gray-200">
+          <button onClick={onClose} className="px-4 py-2 text-sm text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50">
+            Închide
+          </button>
+        </div>
+      </div>
     </div>
   )
 }
