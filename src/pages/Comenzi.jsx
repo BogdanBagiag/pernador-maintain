@@ -132,7 +132,7 @@ function ComenziTab({ pEdit, pDelete }) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('com_comenzi')
-        .select('*, com_clienti(denumire), com_linii(id, produs_text, dimensiune, cantitate, model, pozitie)')
+        .select('*, com_clienti(denumire), com_linii(id, produs_text, dimensiune, cantitate, model, pozitie, produs_ok)')
         .not('status', 'in', '("anulat","arhivat")')
         .order('created_at', { ascending: false })
       if (error) throw error
@@ -210,6 +210,12 @@ function ComenziTab({ pEdit, pDelete }) {
   const openEdit = (c) => { setEditingComanda(c); setShowModal(true) }
   const [viewingComanda, setViewingComanda] = useState(null)
 
+  // Click pe card: "Noi" deschide editarea; "În lucru" și "Livrate" deschid doar vizualizarea
+  const handleCardOpen = (c) => {
+    if (c.status === 'noi') openEdit(c)
+    else setViewingComanda(c)
+  }
+
   if (isLoading) return <div className="py-12 text-center text-sm text-gray-400">Se încarcă...</div>
 
   return (
@@ -247,7 +253,7 @@ function ComenziTab({ pEdit, pDelete }) {
                     totalStatuses={STATUSES.length}
                     pEdit={pEdit}
                     pDelete={pDelete}
-                    onOpen={() => openEdit(c)}
+                    onOpen={() => handleCardOpen(c)}
                     onView={() => setViewingComanda(c)}
                     onMove={(newStatus) => moveStatus.mutate({ id: c.id, status: newStatus })}
                     onDelete={() => {
@@ -282,7 +288,8 @@ function ComenziTab({ pEdit, pDelete }) {
         <ViewComandaModal
           comanda={viewingComanda}
           onClose={() => setViewingComanda(null)}
-          pEdit={pEdit}
+          pEdit={viewingComanda.status === 'livrate' ? false : pEdit}
+          showPrint={viewingComanda.status === 'in_lucru'}
         />
       )}
     </>
@@ -322,11 +329,11 @@ function ComandaCard({ comanda, statusIndex, pEdit, pDelete, onOpen, onView, onM
       {linii.length > 0 && (
         <div className="mt-1.5 space-y-0.5">
           {linii.slice(0, 4).map((l, i) => (
-            <p key={i} className="text-xs text-gray-500 truncate leading-snug">
+            <p key={i} className={`text-xs truncate leading-snug ${l.produs_ok ? 'text-green-600 font-medium' : 'text-gray-500'}`}>
               {l.produs_text}
-              {l.dimensiune ? <span className="text-gray-400"> · {l.dimensiune}</span> : ''}
-              {l.cantitate ? <span className="text-gray-400"> · {l.cantitate}buc</span> : ''}
-              {l.model ? <span className="text-gray-400"> · {l.model}</span> : ''}
+              {l.dimensiune ? <span className={l.produs_ok ? 'text-green-500' : 'text-gray-400'}> · {l.dimensiune}</span> : ''}
+              {l.cantitate ? <span className={l.produs_ok ? 'text-green-500' : 'text-gray-400'}> · {l.cantitate}buc</span> : ''}
+              {l.model ? <span className={l.produs_ok ? 'text-green-500' : 'text-gray-400'}> · {l.model}</span> : ''}
             </p>
           ))}
           {linii.length > 4 && (
@@ -391,7 +398,7 @@ const STAGES = [
   { key: 'livrat',    label: 'Livrat' },
 ]
 
-function ViewComandaModal({ comanda, onClose, pEdit }) {
+function ViewComandaModal({ comanda, onClose, pEdit, showPrint = false }) {
   const queryClient = useQueryClient()
   const [nrColete, setNrColete] = useState(comanda?.nr_colete ?? '')
   const [savingColete, setSavingColete] = useState(false)
@@ -420,22 +427,63 @@ function ViewComandaModal({ comanda, onClose, pEdit }) {
   })
 
   const toggleStage = useMutation({
-    mutationFn: async ({ lineId, field, value }) => {
-      const { error } = await supabase.from('com_linii').update({ [field]: value }).eq('id', lineId)
+    mutationFn: async ({ lineId, updates }) => {
+      const { error } = await supabase.from('com_linii').update(updates).eq('id', lineId)
       if (error) throw error
     },
-    onMutate: async ({ lineId, field, value }) => {
+    onMutate: async ({ lineId, updates }) => {
       await queryClient.cancelQueries({ queryKey: ['com_linii_view', comanda.id] })
       const previous = queryClient.getQueryData(['com_linii_view', comanda.id])
       queryClient.setQueryData(['com_linii_view', comanda.id], (old) =>
-        old?.map(l => l.id === lineId ? { ...l, [field]: value } : l) ?? old
+        old?.map(l => l.id === lineId ? { ...l, ...updates } : l) ?? old
       )
       return { previous }
     },
     onError: (_err, _vars, context) => {
       if (context?.previous) queryClient.setQueryData(['com_linii_view', comanda.id], context.previous)
     },
+    // Kanban-ul (com_comenzi) afiseaza produsele finalizate cu verde - trebuie reincarcat si el
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['com_comenzi'] })
+    },
   })
+
+  // Bifarea unui stadiu bifeaza automat si stadiile anterioare (Croit -> Cusut -> Produs -> Livrat)
+  const handleStageChange = (line, stageKey, checked) => {
+    const idx = STAGES.findIndex(s => s.key === stageKey)
+    const updates = checked
+      ? Object.fromEntries(STAGES.slice(0, idx + 1).map(s => [s.key, true]))
+      : { [stageKey]: false }
+    toggleStage.mutate({ lineId: line.id, updates })
+  }
+
+  // Optiunile bifate pentru fisa de print (doar daca showPrint e activ) - la fel ca in ComandaModal
+  const { data: optiuneIdsChecked = [] } = useQuery({
+    queryKey: ['com_comenzi_optiuni_view', comanda?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('com_comenzi_optiuni')
+        .select('optiune_id')
+        .eq('comanda_id', comanda.id)
+      if (error) throw error
+      return (data || []).map(r => r.optiune_id)
+    },
+    enabled: showPrint && !!comanda?.id,
+  })
+  const { data: optiuniCatalog = [] } = useQuery({
+    queryKey: ['com_optiuni'],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('com_optiuni').select('*').eq('activ', true).order('pozitie')
+      if (error) throw error
+      return data
+    },
+    enabled: showPrint,
+  })
+  const optiuniCheckedLabels = optiuniCatalog
+    .filter(o => optiuneIdsChecked.includes(o.id))
+    .map(o => o.label)
+
+  const handlePrint = () => window.print()
 
   const saveColete = async () => {
     setSavingColete(true)
@@ -451,8 +499,38 @@ function ViewComandaModal({ comanda, onClose, pEdit }) {
 
   const statusConfig = STATUSES.find(s => s.key === comanda.status) || {}
   const coleteChanged = parseInt(nrColete || 0) !== parseInt(comanda.nr_colete || 0)
+  const printLinii = linii.map(l => ({
+    produs_text: l.produs_text, dimensiune: l.dimensiune, cantitate: l.cantitate, model: l.model,
+  }))
 
   return (
+    <>
+      {showPrint && (
+        <>
+          <style>{`
+            @media print {
+              body > *:not(#comanda-view-print-area) { display: none !important; }
+              #comanda-view-print-area { display: block !important; }
+              @page { size: A5 landscape; margin: 6mm; }
+            }
+            @media screen {
+              #comanda-view-print-area { display: none; }
+            }
+          `}</style>
+          {createPortal(
+            <div id="comanda-view-print-area">
+              <PrintLayout
+                clientName={comanda.com_clienti?.denumire || ''}
+                data={comanda.data}
+                observatii={comanda.observatii}
+                linii={printLinii}
+                optiuniChecked={optiuniCheckedLabels}
+              />
+            </div>,
+            document.body
+          )}
+        </>
+      )}
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={onClose}>
       <div
         className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto"
@@ -463,9 +541,19 @@ function ViewComandaModal({ comanda, onClose, pEdit }) {
             <Eye className="w-5 h-5 text-gray-400" />
             Vizualizare comandă
           </h2>
-          <button onClick={onClose} className="p-1 text-gray-400 hover:text-gray-600 rounded">
-            <X className="w-5 h-5" />
-          </button>
+          <div className="flex items-center gap-2">
+            {showPrint && (
+              <button
+                onClick={handlePrint}
+                className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50"
+              >
+                <Printer className="w-4 h-4" /> Print A5
+              </button>
+            )}
+            <button onClick={onClose} className="p-1 text-gray-400 hover:text-gray-600 rounded">
+              <X className="w-5 h-5" />
+            </button>
+          </div>
         </div>
 
         <div className="px-4 sm:px-6 py-4 space-y-4">
@@ -557,7 +645,7 @@ function ViewComandaModal({ comanda, onClose, pEdit }) {
                               type="checkbox"
                               checked={!!l[s.key]}
                               disabled={!pEdit}
-                              onChange={e => toggleStage.mutate({ lineId: l.id, field: s.key, value: e.target.checked })}
+                              onChange={e => handleStageChange(l, s.key, e.target.checked)}
                               className="w-4 h-4 text-primary-600 rounded focus:ring-primary-500 disabled:opacity-40"
                             />
                           </td>
@@ -578,6 +666,7 @@ function ViewComandaModal({ comanda, onClose, pEdit }) {
         </div>
       </div>
     </div>
+    </>
   )
 }
 
