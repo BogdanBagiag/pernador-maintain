@@ -3,11 +3,9 @@ import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { usePermissions } from '../contexts/PermissionsContext'
-import { 
-  Wrench, 
-  MapPin, 
-  ClipboardList, 
-  CheckCircle, 
+import {
+  ClipboardList,
+  CheckCircle,
   Clock,
   AlertTriangle,
   TrendingUp,
@@ -15,9 +13,7 @@ import {
   Filter,
   Shield
 } from 'lucide-react'
-import { BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
 import LoadingSpinner from '../components/LoadingSpinner'
-import WorkOrderRemindersCard from '../components/WorkOrderRemindersCard'
 import VehicleExpirationAlerts from '../components/VehicleExpirationAlerts'
 import TodayPriorityPanel from '../components/TodayPriorityPanel'
 
@@ -26,7 +22,7 @@ export default function Dashboard() {
   const [dateRange, setDateRange] = useState('all') // all, 7days, 30days, 90days, custom
   const [customStartDate, setCustomStartDate] = useState('')
   const [customEndDate, setCustomEndDate] = useState('')
-  const [activeInspectionTab, setActiveInspectionTab] = useState('expiringSoon')
+  const [activeInspectionTab, setActiveInspectionTab] = useState('expired')
 
   // Calculate date filter
   const getDateFilter = () => {
@@ -78,18 +74,6 @@ export default function Dashboard() {
     enabled: !permLoading && canView('work_orders'),
   })
 
-  const { data: locations, isLoading: loadingLocations } = useQuery({
-    queryKey: ['dashboard-locations'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('locations')
-        .select('*')
-      if (error) throw error
-      return data
-    },
-    enabled: !permLoading && canView('locations'),
-  })
-
   // Fetch maintenance schedules for preventive maintenance tracking
   const { data: schedules, isLoading: loadingSchedules } = useQuery({
     queryKey: ['dashboard-schedules'],
@@ -110,7 +94,6 @@ export default function Dashboard() {
 
   const activeLoading = (canView('equipment') && loadingEquipment)
     || (canView('work_orders') && loadingWorkOrders)
-    || (canView('locations') && loadingLocations)
     || (canView('schedules') && loadingSchedules)
 
   if (permLoading || activeLoading) {
@@ -121,10 +104,6 @@ export default function Dashboard() {
     )
   }
 
-  // Calculate statistics
-  const totalEquipment = equipment?.length || 0
-  const totalLocations = locations?.length || 0
-  
   // Filter only corrective work orders (exclude preventive maintenance work orders)
   const correctiveWorkOrders = workOrders?.filter(wo => wo.type === 'corrective') || []
   
@@ -159,12 +138,6 @@ export default function Dashboard() {
     ?.filter(s => s.last_completed_date)
     .sort((a, b) => new Date(b.last_completed_date) - new Date(a.last_completed_date))
     .slice(0, 5) || []
-
-  // Equipment by status
-  const equipmentByStatus = equipment?.reduce((acc, eq) => {
-    acc[eq.status] = (acc[eq.status] || 0) + 1
-    return acc
-  }, {}) || {}
 
   // Equipment by location
   const equipmentByLocation = equipment?.reduce((acc, eq) => {
@@ -261,11 +234,6 @@ export default function Dashboard() {
   })
 
   // Prepare chart data
-  const equipmentStatusData = Object.entries(equipmentByStatus).map(([status, count]) => ({
-    name: status.charAt(0).toUpperCase() + status.slice(1),
-    value: count
-  }))
-
   const locationData = Object.entries(equipmentByLocation)
     .slice(0, 5)
     .map(([location, count]) => ({
@@ -277,17 +245,6 @@ export default function Dashboard() {
     name: priority.charAt(0).toUpperCase() + priority.slice(1),
     value: count
   }))
-
-  const COLORS = {
-    operational: '#10b981',
-    maintenance: '#f59e0b',
-    broken: '#ef4444',
-    retired: '#6b7280',
-    low: '#6b7280',
-    medium: '#3b82f6',
-    high: '#f59e0b',
-    critical: '#ef4444'
-  }
 
   return (
     <div className="space-y-6">
@@ -478,32 +435,16 @@ export default function Dashboard() {
           </Link>
         </div>
 
-        {/* Stat Cards */}
+        {/* Stat Cards - click-abile, schimba tabul activ */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-          {/* Valid */}
-          <div className="card bg-gradient-to-br from-green-50 to-green-100 border-green-200">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-green-600 font-medium mb-1">Valide</p>
-                <p className="text-3xl font-bold text-green-900">{inspectionsByStatus.valid.length}</p>
-              </div>
-              <Shield className="w-10 h-10 text-green-600 opacity-50" />
-            </div>
-          </div>
-
-          {/* Expiring Soon */}
-          <div className="card bg-gradient-to-br from-yellow-50 to-yellow-100 border-yellow-200">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-yellow-600 font-medium mb-1">Expiră în 30 zile</p>
-                <p className="text-3xl font-bold text-yellow-900">{inspectionsByStatus.expiringSoon.length}</p>
-              </div>
-              <Clock className="w-10 h-10 text-yellow-600 opacity-50" />
-            </div>
-          </div>
-
           {/* Expired */}
-          <div className="card bg-gradient-to-br from-red-50 to-red-100 border-red-200">
+          <button
+            type="button"
+            onClick={() => setActiveInspectionTab('expired')}
+            className={`card text-left bg-gradient-to-br from-red-50 to-red-100 border-red-200 transition-all ${
+              activeInspectionTab === 'expired' ? 'ring-2 ring-red-400' : 'hover:border-red-400'
+            }`}
+          >
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-red-600 font-medium mb-1">Expirate</p>
@@ -511,22 +452,46 @@ export default function Dashboard() {
               </div>
               <AlertTriangle className="w-10 h-10 text-red-600 opacity-50" />
             </div>
-          </div>
+          </button>
+
+          {/* Expiring Soon */}
+          <button
+            type="button"
+            onClick={() => setActiveInspectionTab('expiringSoon')}
+            className={`card text-left bg-gradient-to-br from-yellow-50 to-yellow-100 border-yellow-200 transition-all ${
+              activeInspectionTab === 'expiringSoon' ? 'ring-2 ring-yellow-400' : 'hover:border-yellow-400'
+            }`}
+          >
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-yellow-600 font-medium mb-1">Expiră în 30 zile</p>
+                <p className="text-3xl font-bold text-yellow-900">{inspectionsByStatus.expiringSoon.length}</p>
+              </div>
+              <Clock className="w-10 h-10 text-yellow-600 opacity-50" />
+            </div>
+          </button>
+
+          {/* Valid */}
+          <button
+            type="button"
+            onClick={() => setActiveInspectionTab('valid')}
+            className={`card text-left bg-gradient-to-br from-green-50 to-green-100 border-green-200 transition-all ${
+              activeInspectionTab === 'valid' ? 'ring-2 ring-green-400' : 'hover:border-green-400'
+            }`}
+          >
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-green-600 font-medium mb-1">Valide</p>
+                <p className="text-3xl font-bold text-green-900">{inspectionsByStatus.valid.length}</p>
+              </div>
+              <Shield className="w-10 h-10 text-green-600 opacity-50" />
+            </div>
+          </button>
         </div>
 
         {/* Tabs */}
         <div className="card p-0">
           <div className="flex border-b border-gray-200">
-            <button
-              onClick={() => setActiveInspectionTab('expiringSoon')}
-              className={`flex-1 px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
-                activeInspectionTab === 'expiringSoon'
-                  ? 'border-yellow-500 text-yellow-700'
-                  : 'border-transparent text-gray-500 hover:text-gray-700'
-              }`}
-            >
-              Expiră în 30 zile ({inspectionsByStatus.expiringSoon.length})
-            </button>
             <button
               onClick={() => setActiveInspectionTab('expired')}
               className={`flex-1 px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
@@ -536,6 +501,16 @@ export default function Dashboard() {
               }`}
             >
               Expirate ({inspectionsByStatus.expired.length})
+            </button>
+            <button
+              onClick={() => setActiveInspectionTab('expiringSoon')}
+              className={`flex-1 px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
+                activeInspectionTab === 'expiringSoon'
+                  ? 'border-yellow-500 text-yellow-700'
+                  : 'border-transparent text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              Expiră în 30 zile ({inspectionsByStatus.expiringSoon.length})
             </button>
             <button
               onClick={() => setActiveInspectionTab('valid')}
@@ -696,35 +671,6 @@ export default function Dashboard() {
         <VehicleExpirationAlerts />
       </div>}
 
-      {/* Equipment and Locations Section */}
-      {(canView('equipment') || canView('locations')) && <div className="mb-6">
-        <div className="flex items-center gap-2 mb-4">
-          <Wrench className="w-6 h-6 text-gray-700" />
-          <h2 className="text-2xl font-bold text-gray-900">Echipamente și Locații</h2>
-        </div>
-        <div className="grid grid-cols-2 lg:grid-cols-2 gap-4">
-          {canView('equipment') && <Link to="/equipment" className="card hover:shadow-lg transition-shadow bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-blue-600 font-medium mb-1">Total Echipamente</p>
-                <p className="text-3xl font-bold text-blue-900">{totalEquipment}</p>
-              </div>
-              <Wrench className="w-10 h-10 text-blue-600 opacity-50" />
-            </div>
-          </Link>}
-
-          {canView('locations') && <Link to="/locations" className="card hover:shadow-lg transition-shadow bg-gradient-to-br from-purple-50 to-purple-100 border-purple-200">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-purple-600 font-medium mb-1">Total Locații</p>
-                <p className="text-3xl font-bold text-purple-900">{totalLocations}</p>
-              </div>
-              <MapPin className="w-10 h-10 text-purple-600 opacity-50" />
-            </div>
-          </Link>}
-        </div>
-      </div>}
-
       {/* Secondary Stats — doar dacă are acces la work orders */}
       {canView('work_orders') && <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="card bg-gray-50">
@@ -764,40 +710,6 @@ export default function Dashboard() {
           <p className="text-2xl font-bold text-gray-900">{totalWorkOrders}</p>
         </div>
       </div>}
-
-      {/* Work Order Reminders Section */}
-      {canView('work_orders') && <div className="mb-6">
-        <WorkOrderRemindersCard />
-      </div>}
-
-      {/* Charts Row */}
-      <div className="grid lg:grid-cols-1 gap-6">
-        {/* Equipment Status */}
-        {canView('equipment') && equipmentStatusData.length > 0 && (
-          <div className="card">
-            <h2 className="text-xl font-semibold text-gray-900 mb-4">Equipment Status</h2>
-            <ResponsiveContainer width="100%" height={300}>
-              <PieChart>
-                <Pie
-                  data={equipmentStatusData}
-                  cx="50%"
-                  cy="50%"
-                  labelLine={false}
-                  label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
-                  outerRadius={80}
-                  fill="#8884d8"
-                  dataKey="value"
-                >
-                  {equipmentStatusData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[entry.name.toLowerCase()] || '#6b7280'} />
-                  ))}
-                </Pie>
-                <Tooltip />
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
-        )}
-      </div>
 
       {/* Maintenance Schedule Details */}
       {canView('schedules') && recentCompletedMaintenance.length > 0 && (

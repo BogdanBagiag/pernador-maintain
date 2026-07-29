@@ -228,12 +228,23 @@ export default function TodayPriorityPanel() {
   const { data: propertyTenants = [] } = useQuery({
     queryKey: ['today-panel-property-tenants'],
     queryFn: async () => {
+      // Nu filtram aici dupa data - contractul poate fi prelungit printr-o anexa
+      // (contract_attachments), asa ca data efectiva de expirare se calculeaza mai jos
       const { data, error } = await supabase
         .from('property_tenants')
         .select('id, property_id, name, contract_end_date')
         .eq('is_active', true)
         .not('contract_end_date', 'is', null)
-        .lte('contract_end_date', in14days)
+      if (error) throw error
+      return data
+    },
+    enabled: canView('properties'),
+  })
+  // Anexele la contract pot prelungi data de expirare a unui chirias (contract_end_date ramane neschimbat)
+  const { data: contractAttachments = [] } = useQuery({
+    queryKey: ['today-panel-contract-attachments'],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('contract_attachments').select('id, tenant_id, expiry_date')
       if (error) throw error
       return data
     },
@@ -341,7 +352,16 @@ export default function TodayPriorityPanel() {
       list.push({ id: `pins-${i.id}`, module: 'Proprietăți', icon: Home, title: propertyLabel(i.property_id), detail: i.tip, urgency, days, href: '/properties' })
     })
     propertyTenants.forEach((t) => {
-      const { urgency, days } = classifyByDate(t.contract_end_date)
+      // Contractul poate fi prelungit printr-o anexa (contract_attachments) - folosim
+      // cea mai recenta data de expirare dintre anexe, la fel ca la badge-ul din Properties.jsx
+      const tenantAttachments = contractAttachments.filter((a) => a.tenant_id === t.id)
+      const latestAttachment = tenantAttachments.length > 0
+        ? tenantAttachments.reduce((prev, cur) => (new Date(cur.expiry_date) > new Date(prev.expiry_date) ? cur : prev))
+        : null
+      const effectiveEndDate = latestAttachment?.expiry_date || t.contract_end_date
+      if (effectiveEndDate.slice(0, 10) > in14days) return // nu e inca in fereastra de 14 zile
+
+      const { urgency, days } = classifyByDate(effectiveEndDate)
       list.push({ id: `pten-${t.id}`, module: 'Proprietăți', icon: Home, title: propertyLabel(t.property_id), detail: `Contract chiriaș: ${t.name}`, urgency, days, href: '/properties' })
     })
 
@@ -359,7 +379,7 @@ export default function TodayPriorityPanel() {
     comenzi, workOrders, schedules, retururi, reclamatii,
     vehiclesLookup, vehicleItp, vehicleInsurances, vehicleVignettes,
     locationsLookup, locationInspections, locationInsurances,
-    propertiesLookup, propertyInsurances, propertyTenants,
+    propertiesLookup, propertyInsurances, propertyTenants, contractAttachments,
     equipmentList, isAdmin, profile?.id, profile?.full_name,
   ])
 
