@@ -16,6 +16,14 @@ const SUGESTII_INTERES = ['De serviciu', 'Personal']
 
 const todayStr = () => format(new Date(), 'yyyy-MM-dd')
 
+// Mica "mască" pentru ora scrisă de mână (08:15), fără input type="time" (greu de folosit pe mobil)
+const maskTime = (raw) => {
+  const digits = raw.replace(/\D/g, '').slice(0, 4)
+  if (digits.length <= 2) return digits
+  return digits.slice(0, 2) + ':' + digits.slice(2)
+}
+const isValidTime = (t) => /^([01]\d|2[0-3]):[0-5]\d$/.test(t)
+
 export default function HRCerereForm() {
   const [step, setStep] = useState('tip') // tip -> angajat -> detalii -> semnatura -> succes
   const [tipCerere, setTipCerere] = useState(null) // 'concediu' | 'invoire'
@@ -45,9 +53,10 @@ export default function HRCerereForm() {
   })
 
   const angajat = angajati.find(a => a.id === angajatId)
-  const filteredAngajati = angajati.filter(a =>
-    `${a.nume} ${a.prenume}`.toLowerCase().includes(search.toLowerCase())
-  )
+  const searchReady = search.trim().length >= 2
+  const filteredAngajati = searchReady
+    ? angajati.filter(a => `${a.nume} ${a.prenume}`.toLowerCase().includes(search.trim().toLowerCase())).slice(0, 8)
+    : []
 
   const nrZile = Math.max(1, differenceInCalendarDays(new Date(concediu.data_sfarsit), new Date(concediu.data_inceput)) + 1)
 
@@ -141,7 +150,7 @@ export default function HRCerereForm() {
 
   const canGoNextDetalii = tipCerere === 'concediu'
     ? concediu.data_inceput && concediu.data_sfarsit && concediu.data_sfarsit >= concediu.data_inceput
-    : invoire.data && invoire.ora_inceput && invoire.ora_sfarsit && invoire.ora_sfarsit > invoire.ora_inceput
+    : invoire.data && isValidTime(invoire.ora_inceput) && isValidTime(invoire.ora_sfarsit) && invoire.ora_sfarsit > invoire.ora_inceput
 
   return (
     <div className="min-h-screen bg-gray-50 flex items-start sm:items-center justify-center p-4">
@@ -193,21 +202,25 @@ export default function HRCerereForm() {
           {/* Pas 2: alege angajat */}
           {step === 'angajat' && (
             <div className="space-y-3">
-              <p className="text-sm text-gray-500">Cine ești? Alege-te din listă:</p>
+              <p className="text-sm text-gray-500">Cine ești? Scrie-ți numele:</p>
               <div className="relative">
                 <Search className="w-4 h-4 text-gray-300 absolute left-3 top-1/2 -translate-y-1/2" />
                 <input
                   value={search}
                   onChange={e => setSearch(e.target.value)}
-                  placeholder="Caută după nume..."
+                  placeholder="Ex: Bogdan"
+                  autoFocus
                   className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400"
                 />
               </div>
               <div className="max-h-72 overflow-y-auto space-y-1.5 pr-0.5">
-                {loadingAngajati && (
+                {loadingAngajati && searchReady && (
                   <div className="flex justify-center py-6"><Loader2 className="w-5 h-5 animate-spin text-gray-300" /></div>
                 )}
-                {!loadingAngajati && filteredAngajati.length === 0 && (
+                {!searchReady && (
+                  <p className="text-sm text-gray-400 text-center py-6">Scrie cel puțin 2 litere din nume ca să apară.</p>
+                )}
+                {searchReady && !loadingAngajati && filteredAngajati.length === 0 && (
                   <p className="text-sm text-gray-400 text-center py-6">Niciun angajat găsit.</p>
                 )}
                 {filteredAngajati.map(a => (
@@ -313,18 +326,24 @@ export default function HRCerereForm() {
                 <div>
                   <label className="text-xs font-medium text-gray-500 mb-1 block">De la ora</label>
                   <input
-                    type="time"
+                    type="text"
+                    inputMode="numeric"
+                    placeholder="08:15"
+                    maxLength={5}
                     value={invoire.ora_inceput}
-                    onChange={e => setInvoire({ ...invoire, ora_inceput: e.target.value })}
+                    onChange={e => setInvoire({ ...invoire, ora_inceput: maskTime(e.target.value) })}
                     className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400"
                   />
                 </div>
                 <div>
                   <label className="text-xs font-medium text-gray-500 mb-1 block">Până la ora</label>
                   <input
-                    type="time"
+                    type="text"
+                    inputMode="numeric"
+                    placeholder="16:30"
+                    maxLength={5}
                     value={invoire.ora_sfarsit}
-                    onChange={e => setInvoire({ ...invoire, ora_sfarsit: e.target.value })}
+                    onChange={e => setInvoire({ ...invoire, ora_sfarsit: maskTime(e.target.value) })}
                     className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400"
                   />
                 </div>

@@ -9,10 +9,11 @@ import {
   addMonths, subMonths, isSameMonth, isSameDay,
 } from 'date-fns'
 import QRCode from 'qrcode'
+import * as XLSX from 'xlsx'
 import {
   Users2, Plus, Pencil, Trash2, Search, Save, X, Loader2, Check, XCircle,
   Calendar as CalendarIcon, ChevronLeft, ChevronRight, ClipboardList, BarChart2,
-  QrCode, Printer, ShieldOff, Clock, CalendarDays, RotateCcw,
+  QrCode, Printer, ShieldOff, Clock, CalendarDays, RotateCcw, Upload, FileDown,
 } from 'lucide-react'
 
 const TIPURI_CONCEDIU = ['Odihnă', 'Fără plată', 'Medical', 'Evenimente deosebite']
@@ -27,6 +28,14 @@ const STATUS_LABEL = {
   aprobat: 'Aprobat',
   respins: 'Respins',
 }
+
+// Mica "mască" pentru ora scrisă de mână (08:15), fără input type="time" (greu de folosit)
+const maskTime = (raw) => {
+  const digits = raw.replace(/\D/g, '').slice(0, 4)
+  if (digits.length <= 2) return digits
+  return digits.slice(0, 2) + ':' + digits.slice(2)
+}
+const isValidTime = (t) => /^([01]\d|2[0-3]):[0-5]\d$/.test(t)
 
 export default function ResurseUmane() {
   const { canView, canEdit, canDelete } = usePermissions()
@@ -198,28 +207,171 @@ function CalendarTab() {
 // CereriTab — aprobare cereri concediu + invoire (+ recuperari ore)
 // ═════════════════════════════════════════════════════════════
 function CereriTab({ pEdit, pDelete }) {
-  const [subTab, setSubTab] = useState('concediu')
+  const queryClient = useQueryClient()
+  const { user } = useAuth()
+  const [typeFilter, setTypeFilter] = useState('toate') // toate / concediu / invoire
+  const [statusFilter, setStatusFilter] = useState('in_asteptare')
+  const [expanded, setExpanded] = useState(null)
+
+  const { data: concedii = [], isLoading: loadingConcedii } = useQuery({
+    queryKey: ['hr_cereri_concediu'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('hr_cereri_concediu')
+        .select('*, hr_angajati(nume, prenume)')
+        .order('created_at', { ascending: false })
+      if (error) throw error
+      return data
+    },
+  })
+
+  const { data: invoiri = [], isLoading: loadingInvoiri } = useQuery({
+    queryKey: ['hr_cereri_invoire'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('hr_cereri_invoire')
+        .select('*, hr_angajati(nume, prenume)')
+        .order('created_at', { ascending: false })
+      if (error) throw error
+      return data
+    },
+  })
+
+  const isLoading = loadingConcedii || loadingInvoiri
+
+  const merged = useMemo(() => {
+    const c = concedii.map(x => ({ ...x, _tip: 'concediu' }))
+    const i = invoiri.map(x => ({ ...x, _tip: 'invoire' }))
+    return [...c, ...i].sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+  }, [concedii, invoiri])
+
+  const filtered = merged.filter(item =>
+    (typeFilter === 'toate' || item._tip === typeFilter) &&
+    (statusFilter === 'toate' || item.status === statusFilter)
+  )
+
+  const tableFor = (tip) => tip === 'concediu' ? 'hr_cereri_concediu' : 'hr_cereri_invoire'
+  const queryKeyFor = (tip) => tip === 'concediu' ? ['hr_cereri_concediu'] : ['hr_cereri_invoire']
+
+  const decide = useMutation({
+    mutationFn: async ({ id, tip, status, motiv_respingere }) => {
+      const { error } = await supabase.from(tableFor(tip))
+        .update({ status, motiv_respingere: motiv_respingere || null, decis_de: user.id, data_decizie: new Date().toISOString() })
+        .eq('id', id)
+      if (error) throw error
+    },
+    onSuccess: (_data, variables) => queryClient.invalidateQueries({ queryKey: queryKeyFor(variables.tip) }),
+  })
+
+  const deleteCerere = useMutation({
+    mutationFn: async ({ id, tip }) => {
+      const { error } = await supabase.from(tableFor(tip)).delete().eq('id', id)
+      if (error) throw error
+    },
+    onSuccess: (_data, variables) => queryClient.invalidateQueries({ queryKey: queryKeyFor(variables.tip) }),
+  })
+
+  const toggleRecuperatComplet = useMutation({
+    mutationFn: async ({ id, val }) => {
+      const { error } = await supabase.from('hr_cereri_invoire').update({ ore_recuperate_complet: val }).eq('id', id)
+      if (error) throw error
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['hr_cereri_invoire'] }),
+  })
 
   return (
     <div>
-      <div className="flex gap-2 mb-4">
+      <div className="flex gap-2 mb-3">
         {[
-          { key: 'concediu', label: 'Cereri de concediu', icon: CalendarDays },
-          { key: 'invoire', label: 'Cereri de învoire', icon: Clock },
+          { key: 'toate', label: 'Toate', icon: null },
+          { key: 'concediu', label: 'Concedii', icon: CalendarDays },
+          { key: 'invoire', label: 'Învoiri', icon: Clock },
         ].map(({ key, label, icon: Icon }) => (
           <button
             key={key}
-            onClick={() => setSubTab(key)}
-            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium border ${
-              subTab === key ? 'bg-primary-50 border-primary-300 text-primary-700' : 'border-gray-200 text-gray-500 hover:bg-gray-50'
+            onClick={() => setTypeFilter(key)}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium border ${
+              typeFilter === key ? 'bg-gray-900 text-white border-gray-900' : 'border-gray-200 text-gray-500 hover:bg-gray-50'
             }`}
           >
-            <Icon className="w-4 h-4" /> {label}
+            {Icon && <Icon className="w-4 h-4" />} {label}
           </button>
         ))}
       </div>
-      {subTab === 'concediu' && <CereriConcediuList pEdit={pEdit} pDelete={pDelete} />}
-      {subTab === 'invoire' && <CereriInvoireList pEdit={pEdit} pDelete={pDelete} />}
+
+      <FilterBar filter={statusFilter} setFilter={setStatusFilter} />
+
+      <div className="flex items-center gap-4 mb-3 text-xs text-gray-400">
+        <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-blue-400 inline-block" /> Concediu</span>
+        <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-amber-400 inline-block" /> Învoire</span>
+      </div>
+
+      {isLoading ? (
+        <p className="text-sm text-gray-400 py-8 text-center">Se încarcă...</p>
+      ) : filtered.length === 0 ? (
+        <p className="text-sm text-gray-400 py-8 text-center">Nicio cerere.</p>
+      ) : (
+        <div className="space-y-2">
+          {filtered.map(c => (
+            <div key={`${c._tip}-${c.id}`} className={`bg-white border border-gray-200 rounded-xl p-4 border-l-4 ${c._tip === 'concediu' ? 'border-l-blue-400' : 'border-l-amber-400'}`}>
+              <div className="flex flex-wrap items-center gap-3 justify-between">
+                <div className="min-w-[220px]">
+                  <p className="font-semibold text-gray-900 flex items-center gap-1.5">
+                    {c._tip === 'concediu' ? <CalendarDays className="w-3.5 h-3.5 text-blue-400" /> : <Clock className="w-3.5 h-3.5 text-amber-400" />}
+                    {c.hr_angajati?.nume} {c.hr_angajati?.prenume}
+                  </p>
+                  {c._tip === 'concediu' ? (
+                    <p className="text-sm text-gray-500">
+                      {c.tip} · {format(new Date(c.data_inceput), 'dd.MM.yyyy')} – {format(new Date(c.data_sfarsit), 'dd.MM.yyyy')} ({c.nr_zile} {c.nr_zile === 1 ? 'zi' : 'zile'})
+                    </p>
+                  ) : (
+                    <p className="text-sm text-gray-500">
+                      {format(new Date(c.data), 'dd.MM.yyyy')}, {c.ora_inceput?.slice(0,5)}–{c.ora_sfarsit?.slice(0,5)}
+                      {c.interes ? ` · ${c.interes}` : ''}
+                    </p>
+                  )}
+                  {c._tip === 'concediu' && c.observatii && <p className="text-xs text-gray-400 mt-0.5">{c.observatii}</p>}
+                </div>
+                <SignaturePreview src={c.semnatura_base64} />
+                <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${STATUS_BADGE[c.status]}`}>{STATUS_LABEL[c.status]}</span>
+                {pEdit && c.status === 'in_asteptare' && (
+                  <div className="flex gap-2">
+                    <button onClick={() => decide.mutate({ id: c.id, tip: c._tip, status: 'aprobat' })}
+                      className="flex items-center gap-1 px-3 py-1.5 bg-green-600 text-white rounded-lg text-xs font-medium hover:bg-green-700">
+                      <Check className="w-3.5 h-3.5" /> Aprobă
+                    </button>
+                    <button onClick={() => {
+                      const motiv = window.prompt('Motiv respingere (opțional):') || ''
+                      decide.mutate({ id: c.id, tip: c._tip, status: 'respins', motiv_respingere: motiv })
+                    }}
+                      className="flex items-center gap-1 px-3 py-1.5 bg-red-50 text-red-600 rounded-lg text-xs font-medium hover:bg-red-100">
+                      <XCircle className="w-3.5 h-3.5" /> Respinge
+                    </button>
+                  </div>
+                )}
+                {c._tip === 'invoire' && c.status === 'aprobat' && (
+                  <button onClick={() => setExpanded(expanded === c.id ? null : c.id)}
+                    className="text-xs text-primary-600 hover:underline font-medium flex items-center gap-1">
+                    <RotateCcw className="w-3.5 h-3.5" /> Recuperare ore
+                  </button>
+                )}
+                {pDelete && (
+                  <button onClick={() => { if (confirm('Ștergi cererea?')) deleteCerere.mutate({ id: c.id, tip: c._tip }) }}
+                    className="p-1.5 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded">
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+              {c.status === 'respins' && c.motiv_respingere && (
+                <p className="text-xs text-red-500 mt-2">Motiv: {c.motiv_respingere}</p>
+              )}
+              {c._tip === 'invoire' && expanded === c.id && (
+                <RecuperariPanel invoire={c} pEdit={pEdit} onToggleComplet={(val) => toggleRecuperatComplet.mutate({ id: c.id, val })} />
+              )}
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   )
 }
@@ -255,204 +407,6 @@ function SignaturePreview({ src }) {
         </div>
       )}
     </>
-  )
-}
-
-function CereriConcediuList({ pEdit, pDelete }) {
-  const queryClient = useQueryClient()
-  const { user } = useAuth()
-  const [filter, setFilter] = useState('in_asteptare')
-
-  const { data: cereri = [], isLoading } = useQuery({
-    queryKey: ['hr_cereri_concediu'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('hr_cereri_concediu')
-        .select('*, hr_angajati(nume, prenume)')
-        .order('created_at', { ascending: false })
-      if (error) throw error
-      return data
-    },
-  })
-
-  const decide = useMutation({
-    mutationFn: async ({ id, status, motiv_respingere }) => {
-      const { error } = await supabase.from('hr_cereri_concediu')
-        .update({ status, motiv_respingere: motiv_respingere || null, decis_de: user.id, data_decizie: new Date().toISOString() })
-        .eq('id', id)
-      if (error) throw error
-    },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['hr_cereri_concediu'] }),
-  })
-
-  const deleteCerere = useMutation({
-    mutationFn: async (id) => {
-      const { error } = await supabase.from('hr_cereri_concediu').delete().eq('id', id)
-      if (error) throw error
-    },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['hr_cereri_concediu'] }),
-  })
-
-  const filtered = filter === 'toate' ? cereri : cereri.filter(c => c.status === filter)
-
-  return (
-    <div>
-      <FilterBar filter={filter} setFilter={setFilter} />
-      {isLoading ? (
-        <p className="text-sm text-gray-400 py-8 text-center">Se încarcă...</p>
-      ) : filtered.length === 0 ? (
-        <p className="text-sm text-gray-400 py-8 text-center">Nicio cerere.</p>
-      ) : (
-        <div className="space-y-2">
-          {filtered.map(c => (
-            <div key={c.id} className="bg-white border border-gray-200 rounded-xl p-4 flex flex-wrap items-center gap-3 justify-between">
-              <div className="min-w-[220px]">
-                <p className="font-semibold text-gray-900">{c.hr_angajati?.nume} {c.hr_angajati?.prenume}</p>
-                <p className="text-sm text-gray-500">
-                  {c.tip} · {format(new Date(c.data_inceput), 'dd.MM.yyyy')} – {format(new Date(c.data_sfarsit), 'dd.MM.yyyy')} ({c.nr_zile} {c.nr_zile === 1 ? 'zi' : 'zile'})
-                </p>
-                {c.observatii && <p className="text-xs text-gray-400 mt-0.5">{c.observatii}</p>}
-              </div>
-              <SignaturePreview src={c.semnatura_base64} />
-              <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${STATUS_BADGE[c.status]}`}>{STATUS_LABEL[c.status]}</span>
-              {pEdit && c.status === 'in_asteptare' && (
-                <div className="flex gap-2">
-                  <button onClick={() => decide.mutate({ id: c.id, status: 'aprobat' })}
-                    className="flex items-center gap-1 px-3 py-1.5 bg-green-600 text-white rounded-lg text-xs font-medium hover:bg-green-700">
-                    <Check className="w-3.5 h-3.5" /> Aprobă
-                  </button>
-                  <button onClick={() => {
-                    const motiv = window.prompt('Motiv respingere (opțional):') || ''
-                    decide.mutate({ id: c.id, status: 'respins', motiv_respingere: motiv })
-                  }}
-                    className="flex items-center gap-1 px-3 py-1.5 bg-red-50 text-red-600 rounded-lg text-xs font-medium hover:bg-red-100">
-                    <XCircle className="w-3.5 h-3.5" /> Respinge
-                  </button>
-                </div>
-              )}
-              {c.status === 'respins' && c.motiv_respingere && (
-                <p className="text-xs text-red-500 w-full">Motiv: {c.motiv_respingere}</p>
-              )}
-              {pDelete && (
-                <button onClick={() => { if (confirm('Ștergi cererea?')) deleteCerere.mutate(c.id) }}
-                  className="p-1.5 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded">
-                  <Trash2 className="w-3.5 h-3.5" />
-                </button>
-              )}
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  )
-}
-
-function CereriInvoireList({ pEdit, pDelete }) {
-  const queryClient = useQueryClient()
-  const { user } = useAuth()
-  const [filter, setFilter] = useState('in_asteptare')
-  const [expanded, setExpanded] = useState(null)
-
-  const { data: cereri = [], isLoading } = useQuery({
-    queryKey: ['hr_cereri_invoire'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('hr_cereri_invoire')
-        .select('*, hr_angajati(nume, prenume)')
-        .order('created_at', { ascending: false })
-      if (error) throw error
-      return data
-    },
-  })
-
-  const decide = useMutation({
-    mutationFn: async ({ id, status, motiv_respingere }) => {
-      const { error } = await supabase.from('hr_cereri_invoire')
-        .update({ status, motiv_respingere: motiv_respingere || null, decis_de: user.id, data_decizie: new Date().toISOString() })
-        .eq('id', id)
-      if (error) throw error
-    },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['hr_cereri_invoire'] }),
-  })
-
-  const deleteCerere = useMutation({
-    mutationFn: async (id) => {
-      const { error } = await supabase.from('hr_cereri_invoire').delete().eq('id', id)
-      if (error) throw error
-    },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['hr_cereri_invoire'] }),
-  })
-
-  const toggleRecuperatComplet = useMutation({
-    mutationFn: async ({ id, val }) => {
-      const { error } = await supabase.from('hr_cereri_invoire').update({ ore_recuperate_complet: val }).eq('id', id)
-      if (error) throw error
-    },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['hr_cereri_invoire'] }),
-  })
-
-  const filtered = filter === 'toate' ? cereri : cereri.filter(c => c.status === filter)
-
-  return (
-    <div>
-      <FilterBar filter={filter} setFilter={setFilter} />
-      {isLoading ? (
-        <p className="text-sm text-gray-400 py-8 text-center">Se încarcă...</p>
-      ) : filtered.length === 0 ? (
-        <p className="text-sm text-gray-400 py-8 text-center">Nicio cerere.</p>
-      ) : (
-        <div className="space-y-2">
-          {filtered.map(c => (
-            <div key={c.id} className="bg-white border border-gray-200 rounded-xl p-4">
-              <div className="flex flex-wrap items-center gap-3 justify-between">
-                <div className="min-w-[220px]">
-                  <p className="font-semibold text-gray-900">{c.hr_angajati?.nume} {c.hr_angajati?.prenume}</p>
-                  <p className="text-sm text-gray-500">
-                    {format(new Date(c.data), 'dd.MM.yyyy')}, {c.ora_inceput?.slice(0,5)}–{c.ora_sfarsit?.slice(0,5)}
-                    {c.interes ? ` · ${c.interes}` : ''}
-                  </p>
-                </div>
-                <SignaturePreview src={c.semnatura_base64} />
-                <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${STATUS_BADGE[c.status]}`}>{STATUS_LABEL[c.status]}</span>
-                {pEdit && c.status === 'in_asteptare' && (
-                  <div className="flex gap-2">
-                    <button onClick={() => decide.mutate({ id: c.id, status: 'aprobat' })}
-                      className="flex items-center gap-1 px-3 py-1.5 bg-green-600 text-white rounded-lg text-xs font-medium hover:bg-green-700">
-                      <Check className="w-3.5 h-3.5" /> Aprobă
-                    </button>
-                    <button onClick={() => {
-                      const motiv = window.prompt('Motiv respingere (opțional):') || ''
-                      decide.mutate({ id: c.id, status: 'respins', motiv_respingere: motiv })
-                    }}
-                      className="flex items-center gap-1 px-3 py-1.5 bg-red-50 text-red-600 rounded-lg text-xs font-medium hover:bg-red-100">
-                      <XCircle className="w-3.5 h-3.5" /> Respinge
-                    </button>
-                  </div>
-                )}
-                {c.status === 'aprobat' && (
-                  <button onClick={() => setExpanded(expanded === c.id ? null : c.id)}
-                    className="text-xs text-primary-600 hover:underline font-medium flex items-center gap-1">
-                    <RotateCcw className="w-3.5 h-3.5" /> Recuperare ore
-                  </button>
-                )}
-                {pDelete && (
-                  <button onClick={() => { if (confirm('Ștergi cererea?')) deleteCerere.mutate(c.id) }}
-                    className="p-1.5 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded">
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
-                )}
-              </div>
-              {c.status === 'respins' && c.motiv_respingere && (
-                <p className="text-xs text-red-500 mt-2">Motiv: {c.motiv_respingere}</p>
-              )}
-              {expanded === c.id && (
-                <RecuperariPanel invoire={c} pEdit={pEdit} onToggleComplet={(val) => toggleRecuperatComplet.mutate({ id: c.id, val })} />
-              )}
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
   )
 }
 
@@ -553,15 +507,17 @@ function RecuperariPanel({ invoire, pEdit, onToggleComplet }) {
             </div>
             <div>
               <label className="text-[10px] text-gray-400 block">De la</label>
-              <input type="time" value={form.ora_inceput} onChange={e => setForm({ ...form, ora_inceput: e.target.value })}
-                className="border border-gray-200 rounded px-2 py-1 text-xs" />
+              <input type="text" inputMode="numeric" placeholder="08:15" maxLength={5}
+                value={form.ora_inceput} onChange={e => setForm({ ...form, ora_inceput: maskTime(e.target.value) })}
+                className="border border-gray-200 rounded px-2 py-1 text-xs w-16" />
             </div>
             <div>
               <label className="text-[10px] text-gray-400 block">Până la</label>
-              <input type="time" value={form.ora_sfarsit} onChange={e => setForm({ ...form, ora_sfarsit: e.target.value })}
-                className="border border-gray-200 rounded px-2 py-1 text-xs" />
+              <input type="text" inputMode="numeric" placeholder="16:30" maxLength={5}
+                value={form.ora_sfarsit} onChange={e => setForm({ ...form, ora_sfarsit: maskTime(e.target.value) })}
+                className="border border-gray-200 rounded px-2 py-1 text-xs w-16" />
             </div>
-            <button disabled={!form.ora_inceput || !form.ora_sfarsit || addRecuperare.isPending}
+            <button disabled={!isValidTime(form.ora_inceput) || !isValidTime(form.ora_sfarsit) || addRecuperare.isPending}
               onClick={() => addRecuperare.mutate()}
               className="px-3 py-1.5 bg-primary-600 text-white rounded-lg text-xs font-medium disabled:opacity-40">
               Salvează
@@ -584,6 +540,7 @@ function RecuperariPanel({ invoire, pEdit, onToggleComplet }) {
 function AngajatiTab({ pEdit, pDelete }) {
   const queryClient = useQueryClient()
   const [showModal, setShowModal] = useState(false)
+  const [showImport, setShowImport] = useState(false)
   const [editing, setEditing] = useState(null)
   const [search, setSearch] = useState('')
 
@@ -626,10 +583,16 @@ function AngajatiTab({ pEdit, pDelete }) {
           />
         </div>
         {pEdit && (
-          <button onClick={() => { setEditing(null); setShowModal(true) }}
-            className="flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 text-sm font-medium">
-            <Plus className="w-4 h-4" /> Angajat nou
-          </button>
+          <div className="flex items-center gap-2">
+            <button onClick={() => setShowImport(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-sm font-medium text-gray-700">
+              <Upload className="w-4 h-4" /> Importă Excel
+            </button>
+            <button onClick={() => { setEditing(null); setShowModal(true) }}
+              className="flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 text-sm font-medium">
+              <Plus className="w-4 h-4" /> Angajat nou
+            </button>
+          </div>
         )}
       </div>
 
@@ -694,7 +657,142 @@ function AngajatiTab({ pEdit, pDelete }) {
           onSaved={() => { queryClient.invalidateQueries({ queryKey: ['hr_angajati'] }); setShowModal(false); setEditing(null) }}
         />
       )}
+
+      {showImport && (
+        <ImportAngajatiModal
+          onClose={() => setShowImport(false)}
+          onImported={() => { queryClient.invalidateQueries({ queryKey: ['hr_angajati'] }); setShowImport(false) }}
+        />
+      )}
     </>
+  )
+}
+
+function ImportAngajatiModal({ onClose, onImported }) {
+  const [rows, setRows] = useState(null) // [{ nume, prenume, telefon }]
+  const [importing, setImporting] = useState(false)
+  const [result, setResult] = useState(null)
+  const [fileName, setFileName] = useState('')
+
+  const findCol = (headers, keywords) => {
+    const idx = headers.findIndex(h => {
+      const clean = (h || '').toString().toLowerCase().trim()
+      return keywords.some(k => clean.includes(k))
+    })
+    return idx
+  }
+
+  const handleFile = (e) => {
+    const file = e.target.files[0]
+    if (!file) return
+    setFileName(file.name)
+    const reader = new FileReader()
+    reader.onload = (event) => {
+      try {
+        const workbook = XLSX.read(event.target.result, { type: 'binary' })
+        const sheet = workbook.Sheets[workbook.SheetNames[0]]
+        const data = XLSX.utils.sheet_to_json(sheet, { header: 1 })
+        if (data.length < 2) { alert('Fișierul trebuie să aibă un rând de titlu și cel puțin un rând de date.'); return }
+
+        const headers = data[0]
+        const numeIdx = findCol(headers, ['nume'])
+        const prenumeIdx = findCol(headers, ['prenume'])
+        const telefonIdx = findCol(headers, ['telefon', 'phone', 'tel'])
+
+        if (numeIdx === -1 || prenumeIdx === -1) {
+          alert('Fișierul trebuie să aibă coloane "Nume" și "Prenume".')
+          return
+        }
+
+        const parsed = data.slice(1)
+          .filter(row => row[numeIdx] || row[prenumeIdx])
+          .map(row => ({
+            nume: (row[numeIdx] || '').toString().trim(),
+            prenume: (row[prenumeIdx] || '').toString().trim(),
+            telefon: telefonIdx !== -1 ? (row[telefonIdx] || '').toString().trim() : '',
+          }))
+          .filter(r => r.nume && r.prenume)
+
+        setRows(parsed)
+      } catch (err) {
+        alert('Eroare la citirea fișierului: ' + err.message)
+      }
+    }
+    reader.readAsBinaryString(file)
+  }
+
+  const handleImport = async () => {
+    if (!rows?.length) return
+    setImporting(true)
+    let success = 0, failed = 0
+    for (const r of rows) {
+      const { error } = await supabase.from('hr_angajati').insert({
+        nume: r.nume, prenume: r.prenume, telefon: r.telefon || null,
+      })
+      if (error) failed++
+      else success++
+    }
+    setImporting(false)
+    setResult({ success, failed })
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
+          <h2 className="font-semibold text-gray-900">Importă angajați din Excel</h2>
+          <button onClick={onClose} className="p-2 text-gray-400 hover:text-gray-600 rounded-lg"><X className="w-5 h-5" /></button>
+        </div>
+        <div className="px-6 py-5 space-y-4">
+          {!result && (
+            <>
+              <p className="text-sm text-gray-500">
+                Fișierul trebuie să aibă un rând de titlu cu coloanele <b>Nume</b>, <b>Prenume</b> și, opțional, <b>Telefon</b>.
+              </p>
+              <label className="flex items-center justify-center gap-2 border-2 border-dashed border-gray-300 rounded-xl p-6 cursor-pointer hover:bg-gray-50">
+                <Upload className="w-5 h-5 text-gray-400" />
+                <span className="text-sm text-gray-500">{fileName || 'Alege fișier .xlsx / .xls / .csv'}</span>
+                <input type="file" accept=".xlsx,.xls,.csv" onChange={handleFile} className="hidden" />
+              </label>
+
+              {rows && (
+                <div className="bg-gray-50 border border-gray-200 rounded-xl p-3 max-h-48 overflow-y-auto">
+                  <p className="text-xs font-semibold text-gray-500 mb-2">{rows.length} angajați găsiți:</p>
+                  <ul className="text-sm text-gray-700 space-y-0.5">
+                    {rows.slice(0, 15).map((r, i) => (
+                      <li key={i}>{r.nume} {r.prenume} {r.telefon && <span className="text-gray-400">· {r.telefon}</span>}</li>
+                    ))}
+                    {rows.length > 15 && <li className="text-gray-400">...și încă {rows.length - 15}</li>}
+                  </ul>
+                </div>
+              )}
+            </>
+          )}
+
+          {result && (
+            <div className="text-center py-4 space-y-2">
+              <Check className="w-10 h-10 text-green-500 mx-auto" />
+              <p className="font-medium text-gray-900">{result.success} angajați importați</p>
+              {result.failed > 0 && <p className="text-sm text-red-500">{result.failed} au eșuat</p>}
+            </div>
+          )}
+        </div>
+        <div className="flex justify-end gap-3 px-6 py-4 border-t border-gray-200">
+          {!result ? (
+            <>
+              <button onClick={onClose} className="px-4 py-2 text-sm text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50">Anulează</button>
+              <button onClick={handleImport} disabled={!rows?.length || importing}
+                className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-primary-600 rounded-lg hover:bg-primary-700 disabled:opacity-50">
+                {importing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
+                Importă {rows?.length ? `(${rows.length})` : ''}
+              </button>
+            </>
+          ) : (
+            <button onClick={onImported} className="px-4 py-2 text-sm font-medium text-white bg-primary-600 rounded-lg hover:bg-primary-700">Închide</button>
+          )}
+        </div>
+      </div>
+    </div>
   )
 }
 
@@ -882,6 +980,227 @@ function RapoarteTab() {
           </div>
         </>
       )}
+
+      <PdfExportSection angajatId={angajatId} angajati={angajati} />
+    </div>
+  )
+}
+
+const COMPANIE = 'SC CB WORKSHOP SRL'
+
+// ═════════════════════════════════════════════════════════════
+// PdfExportSection — genereaza formulare A5 (print -> Salvează ca PDF)
+// cate o foaie per cerere, pentru un angajat sau toata firma, pe o luna
+// ═════════════════════════════════════════════════════════════
+function PdfExportSection({ angajatId, angajati }) {
+  const [scope, setScope] = useState('angajat') // angajat / firma
+  const [luna, setLuna] = useState(format(new Date(), 'yyyy-MM'))
+  const [printItems, setPrintItems] = useState(null)
+  const [generating, setGenerating] = useState(false)
+
+  const generate = async () => {
+    if (scope === 'angajat' && !angajatId) { alert('Alege întâi un angajat mai sus.'); return }
+    setGenerating(true)
+
+    const monthStart = `${luna}-01`
+    const monthEndDate = endOfMonth(new Date(`${luna}-01T00:00:00`))
+    const monthEnd = format(monthEndDate, 'yyyy-MM-dd')
+
+    let concQuery = supabase.from('hr_cereri_concediu')
+      .select('*, hr_angajati(nume, prenume), profiles(full_name)')
+      .lte('data_inceput', monthEnd).gte('data_sfarsit', monthStart)
+    let invQuery = supabase.from('hr_cereri_invoire')
+      .select('*, hr_angajati(nume, prenume), profiles(full_name)')
+      .gte('data', monthStart).lte('data', monthEnd)
+
+    if (scope === 'angajat') {
+      concQuery = concQuery.eq('angajat_id', angajatId)
+      invQuery = invQuery.eq('angajat_id', angajatId)
+    }
+
+    const [{ data: concedii, error: e1 }, { data: invoiri, error: e2 }] = await Promise.all([concQuery, invQuery])
+    if (e1 || e2) { alert('Eroare: ' + (e1?.message || e2?.message)); setGenerating(false); return }
+
+    let recuperari = []
+    const invoireIds = (invoiri || []).map(i => i.id)
+    if (invoireIds.length) {
+      const { data } = await supabase.from('hr_invoire_recuperari').select('*').in('invoire_id', invoireIds)
+      recuperari = data || []
+    }
+
+    if ((concedii?.length || 0) === 0 && (invoiri?.length || 0) === 0) {
+      alert('Nu există cereri în luna selectată.')
+      setGenerating(false)
+      return
+    }
+
+    const items = [
+      ...(concedii || []).map(c => {
+        const clipStart = new Date(Math.max(new Date(c.data_inceput), new Date(monthStart)))
+        const clipEnd = new Date(Math.min(new Date(c.data_sfarsit), monthEndDate))
+        const clipDays = Math.round((clipEnd - clipStart) / 86400000) + 1
+        const isPartial = format(clipStart, 'yyyy-MM-dd') !== c.data_inceput || format(clipEnd, 'yyyy-MM-dd') !== c.data_sfarsit
+        return { _tip: 'concediu', cerere: c, clipStart, clipEnd, clipDays, isPartial }
+      }),
+      ...(invoiri || []).map(i => ({ _tip: 'invoire', cerere: i, recuperari: recuperari.filter(r => r.invoire_id === i.id) })),
+    ]
+
+    setPrintItems(items)
+    setGenerating(false)
+  }
+
+  useEffect(() => {
+    if (printItems && printItems.length) {
+      const t = setTimeout(() => window.print(), 150)
+      return () => clearTimeout(t)
+    }
+  }, [printItems])
+
+  return (
+    <div className="mt-8 pt-6 border-t border-gray-200">
+      <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
+        <FileDown className="w-4 h-4 text-primary-600" /> Export formulare PDF
+      </h3>
+      <div className="flex flex-wrap items-end gap-3 mb-2">
+        <div>
+          <label className="text-xs font-medium text-gray-500 mb-1 block">Pentru cine</label>
+          <select value={scope} onChange={e => setScope(e.target.value)}
+            className="border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary-400">
+            <option value="angajat">Angajatul selectat mai sus</option>
+            <option value="firma">Toată firma</option>
+          </select>
+        </div>
+        <div>
+          <label className="text-xs font-medium text-gray-500 mb-1 block">Luna</label>
+          <input type="month" value={luna} onChange={e => setLuna(e.target.value)}
+            className="border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary-400" />
+        </div>
+        <button onClick={generate} disabled={generating}
+          className="flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 text-sm font-medium disabled:opacity-50">
+          {generating ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileDown className="w-4 h-4" />}
+          Generează PDF
+        </button>
+      </div>
+      <p className="text-xs text-gray-400">
+        Se deschide fereastra de printare — alege "Salvează ca PDF" ca destinație. O cerere de concediu care trece dintr-o lună în alta apare cu 2 foi separate, câte una pentru fiecare lună exportată.
+      </p>
+
+      {printItems && printItems.length > 0 && (
+        <>
+          <style>{`
+            @media print {
+              body > *:not(#hr-forms-print-area) { display: none !important; }
+              #hr-forms-print-area { display: block !important; }
+              @page { size: A5 portrait; margin: 10mm; }
+            }
+            @media screen {
+              #hr-forms-print-area { display: none; }
+            }
+          `}</style>
+          {createPortal(
+            <div id="hr-forms-print-area">
+              {printItems.map((item, idx) => (
+                <div key={idx} style={idx < printItems.length - 1 ? { pageBreakAfter: 'always', breakAfter: 'page' } : undefined}>
+                  {item._tip === 'concediu'
+                    ? <ConcediuFormPage cerere={item.cerere} clipStart={item.clipStart} clipEnd={item.clipEnd} clipDays={item.clipDays} isPartial={item.isPartial} />
+                    : <InvoireFormPage cerere={item.cerere} recuperari={item.recuperari} />}
+                </div>
+              ))}
+            </div>,
+            document.body
+          )}
+        </>
+      )}
+    </div>
+  )
+}
+
+function ConcediuFormPage({ cerere: c, clipStart, clipEnd, clipDays, isPartial }) {
+  const FF = 'Georgia, "Times New Roman", serif'
+  return (
+    <div style={{ fontFamily: FF, fontSize: '11pt', color: '#111', lineHeight: 1.6, padding: '4mm' }}>
+      <h2 style={{ textAlign: 'center', fontSize: '14pt', marginBottom: '8mm', letterSpacing: '0.5px' }}>CERERE DE CONCEDIU</h2>
+      <p>
+        Subsemnatul(a), <b>{c.hr_angajati?.nume} {c.hr_angajati?.prenume}</b>, angajat al {COMPANIE} prin prezenta vă rog
+        să-mi aprobați efectuarea unui număr de <b>{clipDays}</b> {clipDays === 1 ? 'zi' : 'zile'} de concediu
+        de <b>{c.tip}</b> în perioada (zi.lună.an) <b>{format(clipStart, 'dd.MM.yyyy')}</b> și <b>{format(clipEnd, 'dd.MM.yyyy')}</b>.
+      </p>
+      {isPartial && (
+        <p style={{ fontSize: '8pt', color: '#888' }}>
+          * Cererea inițială acoperă {c.nr_zile} {c.nr_zile === 1 ? 'zi' : 'zile'} în total, din {format(new Date(c.data_inceput), 'dd.MM.yyyy')} până în {format(new Date(c.data_sfarsit), 'dd.MM.yyyy')}; această foaie acoperă doar partea din luna selectată.
+        </p>
+      )}
+      {c.observatii && <p style={{ fontSize: '9pt', color: '#555' }}>Observații: {c.observatii}</p>}
+      <p style={{ marginTop: '6mm' }}>Vă mulțumesc!</p>
+
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginTop: '10mm' }}>
+        <span>Data {format(new Date(c.created_at), 'dd.MM.yyyy')}</span>
+        <span style={{ textAlign: 'center' }}>
+          <div style={{ fontSize: '8pt', color: '#888' }}>Semnătură angajat</div>
+          {c.semnatura_base64 ? <img src={c.semnatura_base64} alt="semnătură" style={{ height: '16mm' }} /> : '.....................'}
+        </span>
+      </div>
+
+      <div style={{ marginTop: '10mm' }}>
+        {c.status === 'aprobat' ? (
+          <p><b>Aprobat</b>{c.profiles?.full_name ? ` de ${c.profiles.full_name}` : ''}, la {format(new Date(c.data_decizie), 'dd.MM.yyyy HH:mm')}.</p>
+        ) : c.status === 'respins' ? (
+          <p style={{ color: '#b91c1c' }}><b>Respins</b>{c.motiv_respingere ? ` — motiv: ${c.motiv_respingere}` : ''}, la {format(new Date(c.data_decizie), 'dd.MM.yyyy HH:mm')}.</p>
+        ) : (
+          <p>De acord ................................. <span style={{ fontSize: '8pt', color: '#888' }}>(semnătura angajator/manager)</span></p>
+        )}
+      </div>
+
+      <p style={{ fontSize: '7.5pt', color: '#aaa', marginTop: '8mm' }}>
+        * se trece tipul de concediu: de odihnă, fără plată, pentru evenimente deosebite etc.
+      </p>
+    </div>
+  )
+}
+
+function InvoireFormPage({ cerere: c, recuperari = [] }) {
+  const FF = 'Georgia, "Times New Roman", serif'
+  return (
+    <div style={{ fontFamily: FF, fontSize: '11pt', color: '#111', lineHeight: 1.6, padding: '4mm' }}>
+      <h2 style={{ textAlign: 'center', fontSize: '14pt', marginBottom: '8mm', letterSpacing: '0.5px' }}>CERERE DE ÎNVOIRE</h2>
+      <p>
+        Subsemnatul(a), <b>{c.hr_angajati?.nume} {c.hr_angajati?.prenume}</b>, angajat al {COMPANIE} prin prezenta vă rog
+        să-mi aprobați cererea de învoire în ziua <b>{format(new Date(c.data), 'dd.MM.yyyy')}</b> în intervalul
+        orar <b>{c.ora_inceput?.slice(0,5)}</b> și <b>{c.ora_sfarsit?.slice(0,5)}</b>
+        {c.interes ? <> în interes* <b>{c.interes}</b></> : ''}.
+      </p>
+      <p style={{ fontSize: '8pt', color: '#888' }}>* în interes: de serviciu, personal, etc.</p>
+      <p style={{ marginTop: '6mm' }}>Vă mulțumesc!</p>
+
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginTop: '10mm' }}>
+        <span>Data {format(new Date(c.created_at), 'dd.MM.yyyy')}</span>
+        <span style={{ textAlign: 'center' }}>
+          <div style={{ fontSize: '8pt', color: '#888' }}>Semnătură</div>
+          {c.semnatura_base64 ? <img src={c.semnatura_base64} alt="semnătură" style={{ height: '16mm' }} /> : '.....................'}
+        </span>
+      </div>
+
+      <div style={{ marginTop: '8mm' }}>
+        {c.status === 'aprobat' ? (
+          <p><b>Aprobat</b>{c.profiles?.full_name ? ` de ${c.profiles.full_name}` : ''}, la {format(new Date(c.data_decizie), 'dd.MM.yyyy HH:mm')}.</p>
+        ) : c.status === 'respins' ? (
+          <p style={{ color: '#b91c1c' }}><b>Respins</b>{c.motiv_respingere ? ` — motiv: ${c.motiv_respingere}` : ''}, la {format(new Date(c.data_decizie), 'dd.MM.yyyy HH:mm')}.</p>
+        ) : (
+          <p>De acord ................................. <span style={{ fontSize: '8pt', color: '#888' }}>(semnătură angajator/manager)</span></p>
+        )}
+      </div>
+
+      <div style={{ marginTop: '8mm', borderTop: '1px solid #ccc', paddingTop: '4mm' }}>
+        <p style={{ fontSize: '9pt', fontWeight: 'bold', marginBottom: '2mm' }}>Recuperare ore de învoire</p>
+        {recuperari.length === 0 ? (
+          <p style={{ fontSize: '9pt', color: '#999' }}>Nicio recuperare înregistrată.</p>
+        ) : recuperari.map(r => (
+          <p key={r.id} style={{ fontSize: '9pt' }}>
+            în ziua de {format(new Date(r.data), 'dd.MM.yyyy')}, între orele {r.ora_inceput?.slice(0,5)} și {r.ora_sfarsit?.slice(0,5)}
+            {' — '}{r.status === 'aprobat' ? 'De acord ✓' : r.status === 'respins' ? 'Respins' : 'în așteptare'}
+          </p>
+        ))}
+      </div>
     </div>
   )
 }
