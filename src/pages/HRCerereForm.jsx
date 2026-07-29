@@ -4,7 +4,7 @@ import { supabase } from '../lib/supabase'
 import { differenceInCalendarDays, format } from 'date-fns'
 import {
   Users2, CalendarDays, Clock, ChevronLeft, ChevronRight,
-  Check, Eraser, Loader2, PartyPopper, Search,
+  Check, Eraser, Loader2, PartyPopper, Search, X,
 } from 'lucide-react'
 
 // Pagina publica de depunere cereri HR - fara autentificare.
@@ -144,6 +144,22 @@ export default function HRCerereForm() {
     },
     onSuccess: () => setStep('succes'),
   })
+
+  const resetForm = () => {
+    setStep('tip')
+    setTipCerere(null)
+    setAngajatId(null)
+    setSearch('')
+    setConcediu({ tip: TIPURI_CONCEDIU[0], data_inceput: todayStr(), data_sfarsit: todayStr(), observatii: '' })
+    setInvoire({ data: todayStr(), ora_inceput: '', ora_sfarsit: '', interes: '' })
+  }
+
+  const handleClose = () => {
+    window.close()
+    // daca browserul nu permite inchiderea (pagina nu a fost deschisa din script),
+    // resetam formularul ca sa fie gata pentru urmatorul angajat de pe acelasi telefon/tableta
+    resetForm()
+  }
 
   const STEP_ORDER = ['tip', 'angajat', 'detalii', 'semnatura', 'succes']
   const stepIdx = STEP_ORDER.indexOf(step)
@@ -442,10 +458,16 @@ export default function HRCerereForm() {
 
           {/* Pas 5: succes */}
           {step === 'succes' && (
-            <div className="text-center py-6 space-y-3">
+            <div className="text-center py-6 space-y-4">
               <PartyPopper className="w-12 h-12 text-primary-500 mx-auto" />
               <p className="font-semibold text-gray-900">Cererea a fost trimisă!</p>
-              <p className="text-sm text-gray-400">Va fi analizată de HR. Poți închide această pagină.</p>
+              <p className="text-sm text-gray-400">Va fi analizată de HR.</p>
+              <button
+                onClick={handleClose}
+                className="flex items-center gap-2 mx-auto bg-primary-600 text-white px-5 py-2.5 rounded-xl font-medium text-sm hover:bg-primary-700"
+              >
+                <X className="w-4 h-4" /> Închide
+              </button>
             </div>
           )}
         </div>
