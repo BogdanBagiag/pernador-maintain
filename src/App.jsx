@@ -43,6 +43,7 @@ import Retururi from './pages/Retururi'
 import Reclamatii from './pages/Reclamatii'
 import Comenzi from './pages/Comenzi'
 import PernadorClean from './pages/PernadorClean'
+import PernadorCleanScan from './pages/PernadorCleanScan'
 import Properties from './pages/Properties'
 import Backup from './pages/Backup'
 
@@ -122,6 +123,9 @@ function App() {
             
             {/* Public Location Route - Smart Redirect */}
             <Route path="/locations/:id" element={<PublicLocationWrapper />} />
+
+            {/* Public Pernador Clean Scan Route (No Auth Required) - scanare bon prin cod QR */}
+            <Route path="/pc-scan/:bonId" element={<PernadorCleanScan />} />
 
 
             {/* Protected Routes */}

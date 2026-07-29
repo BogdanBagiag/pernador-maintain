@@ -4,9 +4,10 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import { format } from 'date-fns'
+import QRCode from 'qrcode'
 import {
   Plus, X, Trash2, Loader2, Sparkles,
-  User, Phone, Eye, ChevronRight, ChevronLeft,
+  User, Phone, Eye,
   Package, Check, Pencil, Settings, Users,
   LayoutGrid, Bell, BellOff, Printer,
 } from 'lucide-react'
@@ -40,29 +41,11 @@ function BonCard({ bon, prevStatus, nextStatus, onMove, onView, onDelete, onPrin
           )}
         </div>
         <div className="flex items-center gap-1">
-          {prevStatus && (
-            <button onClick={() => setPendingMove(prevStatus)}
-              className="p-1 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-600"
-              title={`Mută în ${STATUS_MAP[prevStatus]?.label}`}>
-              <ChevronLeft className="w-3.5 h-3.5" />
-            </button>
-          )}
-          {nextStatus && (
-            <button onClick={() => setPendingMove(nextStatus)}
-              className="p-1 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-600"
-              title={`Mută în ${STATUS_MAP[nextStatus]?.label}`}>
-              <ChevronRight className="w-3.5 h-3.5" />
-            </button>
-          )}
           <button onClick={onView} className="p-1 rounded hover:bg-blue-50 text-gray-400 hover:text-blue-600" title="Vizualizează">
             <Eye className="w-3.5 h-3.5" />
           </button>
           <button onClick={onPrint} className="p-1 rounded hover:bg-amber-50 text-gray-400 hover:text-amber-600" title="Printează bon">
             <Printer className="w-3.5 h-3.5" />
-          </button>
-          <button onClick={onDelete} disabled={deleting}
-            className="p-1 rounded hover:bg-red-50 text-gray-400 hover:text-red-500">
-            {deleting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
           </button>
         </div>
       </div>
@@ -102,23 +85,41 @@ function BonCard({ bon, prevStatus, nextStatus, onMove, onView, onDelete, onPrin
         )}
       </div>
 
-      {pendingMove && (
-        <div className="bg-amber-50 border border-amber-200 rounded-lg p-2 text-xs space-y-1.5">
-          <p className="text-amber-800 font-medium">
-            Muți în <strong>{STATUS_MAP[pendingMove]?.label}</strong>?
-          </p>
-          <div className="flex gap-2">
+      <div className="pt-1 border-t border-gray-100">
+        {pendingMove ? (
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span className="text-xs text-gray-500">Muți în <b>{STATUS_MAP[pendingMove]?.label}</b>?</span>
             <button onClick={() => { onMove(bon.id, pendingMove); setPendingMove(null) }}
-              className="flex-1 bg-amber-500 text-white rounded px-2 py-1 font-medium hover:bg-amber-600">
-              Da, mută
+              className="text-xs px-2 py-0.5 bg-primary-600 text-white rounded hover:bg-primary-700">
+              Da
             </button>
             <button onClick={() => setPendingMove(null)}
-              className="flex-1 bg-white border border-gray-200 text-gray-600 rounded px-2 py-1 hover:bg-gray-50">
+              className="text-xs px-2 py-0.5 text-gray-500 border border-gray-200 rounded hover:bg-gray-50">
               Nu
             </button>
           </div>
-        </div>
-      )}
+        ) : (
+          <div className="flex items-center gap-1">
+            {prevStatus && (
+              <button onClick={() => setPendingMove(prevStatus)}
+                className="text-xs px-2 py-0.5 text-gray-500 hover:bg-gray-100 rounded">
+                ← {STATUS_MAP[prevStatus]?.label}
+              </button>
+            )}
+            <div className="flex-1" />
+            {nextStatus && (
+              <button onClick={() => setPendingMove(nextStatus)}
+                className="text-xs px-2 py-0.5 bg-primary-50 text-primary-600 hover:bg-primary-100 rounded">
+                {STATUS_MAP[nextStatus]?.label} →
+              </button>
+            )}
+            <button onClick={onDelete} disabled={deleting}
+              className="p-1 text-gray-300 hover:text-red-500 rounded">
+              {deleting ? <Loader2 className="w-3 h-3 animate-spin" /> : <Trash2 className="w-3 h-3" />}
+            </button>
+          </div>
+        )}
+      </div>
     </div>
   )
 }
@@ -501,7 +502,7 @@ function BonModal({ onClose, onSaved, userId, initialData = null, clienti = [], 
 }
 
 // ─── Print bon A5 ────────────────────────────────────────────────────────────
-function BonPrintLayout({ bon }) {
+function BonPrintLayout({ bon, qrDataUrl, copyLabel }) {
   const B  = '1px solid #333'
   const FF = 'Arial, Helvetica, sans-serif'
   const F  = '9pt'
@@ -517,21 +518,35 @@ function BonPrintLayout({ bon }) {
   return (
     <div style={{ width: '100%', fontFamily: FF, fontSize: F, color: '#111', boxSizing: 'border-box' }}>
 
+      {copyLabel && (
+        <div style={{ fontSize: '7pt', color: '#999', textAlign: 'right', marginBottom: '1mm' }}>{copyLabel}</div>
+      )}
+
       {/* Header */}
       <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '3mm' }}>
         <tbody>
           <tr>
-            <td style={{ ...cell({ width: '60%', border: B }), fontSize: '14pt', fontWeight: 'bold', letterSpacing: '0.5px' }}>
+            <td style={{ ...cell({ width: '42%', border: B }), fontSize: '14pt', fontWeight: 'bold', letterSpacing: '0.5px' }}>
               ✨ Pernador Clean
               <div style={{ fontSize: '8pt', fontWeight: 'normal', color: '#555', marginTop: '1mm' }}>Servicii curățătorie perne și pilote</div>
             </td>
-            <td style={{ ...cell({ width: '20%', border: B }), textAlign: 'center' }}>
+            <td style={{ ...cell({ width: '16%', border: B }), textAlign: 'center' }}>
               <div style={{ fontSize: '8pt', color: '#888' }}>BON NR.</div>
               <div style={{ fontSize: '20pt', fontWeight: 'bold', color: '#1d4ed8', lineHeight: '1' }}>#{bon.nr_bon}</div>
             </td>
-            <td style={{ ...cell({ width: '20%', border: B }), textAlign: 'center' }}>
+            <td style={{ ...cell({ width: '16%', border: B }), textAlign: 'center' }}>
               <div style={{ fontSize: '8pt', color: '#888' }}>DATA ADUCERII</div>
               <div style={{ fontWeight: '600' }}>{bon.created_at ? format(new Date(bon.created_at), 'dd.MM.yyyy') : '—'}</div>
+            </td>
+            <td style={{ ...cell({ width: '26%', border: B }), textAlign: 'center' }}>
+              {qrDataUrl ? (
+                <>
+                  <img src={qrDataUrl} alt="QR status" style={{ width: '18mm', height: '18mm' }} />
+                  <div style={{ fontSize: '6.5pt', color: '#888', marginTop: '0.5mm' }}>Scanează pentru status</div>
+                </>
+              ) : (
+                <div style={{ fontSize: '7pt', color: '#bbb' }}>—</div>
+              )}
             </td>
           </tr>
         </tbody>
@@ -614,6 +629,15 @@ function BonPrintLayout({ bon }) {
 }
 
 function PrintBonModal({ bon, onClose }) {
+  const [qrDataUrl, setQrDataUrl] = useState(null)
+
+  useEffect(() => {
+    const scanUrl = `${window.location.origin}/pc-scan/${bon.id}`
+    QRCode.toDataURL(scanUrl, { width: 200, margin: 1, color: { dark: '#111111', light: '#ffffff' } })
+      .then(setQrDataUrl)
+      .catch(() => setQrDataUrl(null))
+  }, [bon.id])
+
   const handlePrint = () => window.print()
 
   const produseFilled = (bon.produse || []).filter(p => p.produs || p.cantitate > 1)
@@ -632,10 +656,16 @@ function PrintBonModal({ bon, onClose }) {
         }
       `}</style>
 
-      {/* Portal direct în body — escapes modal stacking context */}
+      {/* Portal direct în body — escapes modal stacking context. 2 exemplare: unul ramane la noi
+          (fara QR, sau il pastram - oricum e util sa poata scana si angajatul), altul merge la client. */}
       {createPortal(
         <div id="print-bon-area">
-          <BonPrintLayout bon={bon} />
+          <div style={{ pageBreakAfter: 'always', breakAfter: 'page' }}>
+            <BonPrintLayout bon={bon} qrDataUrl={qrDataUrl} copyLabel="Exemplar magazin" />
+          </div>
+          <div>
+            <BonPrintLayout bon={bon} qrDataUrl={qrDataUrl} copyLabel="Exemplar client" />
+          </div>
         </div>,
         document.body
       )}
@@ -653,7 +683,7 @@ function PrintBonModal({ bon, onClose }) {
 
           <div className="px-6 py-5 space-y-3">
             <p className="text-sm text-gray-600">
-              Bonul va fi tipărit în format <strong>A5 portrait</strong> cu toate detaliile clientului și produsele.
+              Se vor tipări <strong>2 exemplare A5</strong> (magazin + client), fiecare cu un <strong>cod QR</strong> pentru urmărirea/schimbarea statusului.
             </p>
             <div className="bg-gray-50 rounded-xl border border-gray-200 p-4 space-y-2 text-sm">
               <div className="flex justify-between">
