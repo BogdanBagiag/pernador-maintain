@@ -323,9 +323,16 @@ function ComandaCard({ comanda, statusIndex, pEdit, pDelete, onOpen, onView, onM
       <p className="font-semibold text-gray-900 text-sm truncate pr-6">
         {comanda.com_clienti?.denumire || '—'}
       </p>
-      <p className="text-xs text-gray-400 mt-0.5">
-        {comanda.data ? format(new Date(comanda.data), 'dd.MM.yyyy') : '—'}
-      </p>
+      <div className="flex items-center justify-between mt-0.5 pr-6">
+        <p className="text-xs text-gray-400">
+          {comanda.data ? format(new Date(comanda.data), 'dd.MM.yyyy') : '—'}
+        </p>
+        {comanda.nr_colete > 0 && (
+          <span className="text-sm font-bold text-green-600">
+            {comanda.nr_colete} {comanda.nr_colete === 1 ? 'Colet' : 'Colete'}
+          </span>
+        )}
+      </div>
       {linii.length > 0 && (
         <div className="mt-1.5 space-y-0.5">
           {linii.slice(0, 4).map((l, i) => (
@@ -450,10 +457,10 @@ function ViewComandaModal({ comanda, onClose, pEdit, showPrint = false }) {
 
   // Bifarea unui stadiu bifeaza automat si stadiile anterioare (Croit -> Cusut -> Produs -> Livrat)
   const handleStageChange = (line, stageKey, checked) => {
+    // Bifarea/debifarea unui stadiu afecteaza la fel toate stadiile anterioare
+    // (Croit -> Cusut -> Produs -> Livrat), in ambele sensuri
     const idx = STAGES.findIndex(s => s.key === stageKey)
-    const updates = checked
-      ? Object.fromEntries(STAGES.slice(0, idx + 1).map(s => [s.key, true]))
-      : { [stageKey]: false }
+    const updates = Object.fromEntries(STAGES.slice(0, idx + 1).map(s => [s.key, checked]))
     toggleStage.mutate({ lineId: line.id, updates })
   }
 
@@ -621,12 +628,16 @@ function ViewComandaModal({ comanda, onClose, pEdit, showPrint = false }) {
               <p className="text-sm text-gray-400 italic">Nicio linie de produs</p>
             ) : (
               <div className="border border-gray-200 rounded-lg overflow-hidden overflow-x-auto">
-                <table className="w-full text-sm">
+                <table className="w-full text-sm table-fixed">
+                  <colgroup>
+                    <col />
+                    {STAGES.map(s => <col key={s.key} style={{ width: '44px' }} />)}
+                  </colgroup>
                   <thead className="bg-gray-50">
                     <tr>
                       <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500">Produs</th>
                       {STAGES.map(s => (
-                        <th key={s.key} className="px-2 py-2 text-center text-xs font-semibold text-gray-500 whitespace-nowrap">{s.label}</th>
+                        <th key={s.key} className="px-0.5 py-2 text-center text-[10px] font-semibold text-gray-500 whitespace-nowrap">{s.label}</th>
                       ))}
                     </tr>
                   </thead>
@@ -634,19 +645,19 @@ function ViewComandaModal({ comanda, onClose, pEdit, showPrint = false }) {
                     {linii.map(l => (
                       <tr key={l.id}>
                         <td className="px-3 py-2">
-                          <p className="text-gray-900">{l.produs_text}</p>
+                          <p className="text-gray-900 font-medium">{l.produs_text}</p>
                           <p className="text-xs text-gray-400">
                             {[l.dimensiune, l.cantitate ? `${l.cantitate}buc` : null, l.model].filter(Boolean).join(' · ')}
                           </p>
                         </td>
                         {STAGES.map(s => (
-                          <td key={s.key} className="px-2 py-2 text-center">
+                          <td key={s.key} className="px-0.5 py-2 text-center">
                             <input
                               type="checkbox"
                               checked={!!l[s.key]}
                               disabled={!pEdit}
                               onChange={e => handleStageChange(l, s.key, e.target.checked)}
-                              className="w-4 h-4 text-primary-600 rounded focus:ring-primary-500 disabled:opacity-40"
+                              className="w-3.5 h-3.5 text-primary-600 rounded focus:ring-primary-500 disabled:opacity-40"
                             />
                           </td>
                         ))}
