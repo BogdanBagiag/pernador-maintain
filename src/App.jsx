@@ -44,6 +44,8 @@ import Reclamatii from './pages/Reclamatii'
 import Comenzi from './pages/Comenzi'
 import PernadorClean from './pages/PernadorClean'
 import PernadorCleanScan from './pages/PernadorCleanScan'
+import ResurseUmane from './pages/ResurseUmane'
+import HRCerereForm from './pages/HRCerereForm'
 import Properties from './pages/Properties'
 import Backup from './pages/Backup'
 
@@ -127,6 +129,9 @@ function App() {
             {/* Public Pernador Clean Scan Route (No Auth Required) - scanare bon prin cod QR */}
             <Route path="/pc-scan/:bonId" element={<PernadorCleanScan />} />
 
+            {/* Public HR Request Form (No Auth Required) - cerere concediu/invoire prin cod QR */}
+            <Route path="/hr/cerere" element={<HRCerereForm />} />
+
 
             {/* Protected Routes */}
             <Route
@@ -182,6 +187,7 @@ function App() {
                       <Route path="/reclamatii" element={<Reclamatii />} />
                       <Route path="/comenzi" element={<Comenzi />} />
                       <Route path="/pernador-clean" element={<PernadorClean />} />
+                      <Route path="/resurse-umane" element={<ResurseUmane />} />
                       <Route path="/users" element={<UserManagement />} />
                       <Route path="/settings" element={<Settings />} />
                       <Route path="/backup" element={<Backup />} />

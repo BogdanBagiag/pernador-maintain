@@ -9,7 +9,7 @@ import {
   Settings, LogOut, Menu, X, MapPin, QrCode, CheckSquare,
   FileText, Users, Car, Package, LayoutGrid,
   ScrollText, ChevronDown, BookMarked, RotateCcw, Megaphone, ShoppingCart, Sparkles, Home,
-  DatabaseBackup,
+  DatabaseBackup, Users2,
 } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { useRealtimeNotifications } from '../hooks/useRealtimeNotifications'
@@ -19,6 +19,7 @@ const STANDALONE = [
   { name: 'Dashboard',       href: '/dashboard',      icon: LayoutDashboard },
   { name: 'To Do',           href: '/todo',            icon: LayoutGrid,  moduleKey: 'todo' },
   { name: 'Pernador Clean',  href: '/pernador-clean',  icon: Sparkles, moduleKey: 'pernador_clean' },
+  { name: 'Resurse Umane',  href: '/resurse-umane',  icon: Users2, moduleKey: 'resurse_umane' },
 ]
 
 const GROUPS = [
@@ -208,6 +209,18 @@ export default function Layout({ children }) {
     enabled: !!user, refetchInterval: 60_000, staleTime: 30_000,
   })
 
+  const { data: hrCereriInAsteptare = 0 } = useQuery({
+    queryKey: ['badge_hr_cereri'],
+    queryFn: async () => {
+      const [concediu, invoire] = await Promise.all([
+        supabase.from('hr_cereri_concediu').select('id', { count: 'exact', head: true }).eq('status', 'in_asteptare'),
+        supabase.from('hr_cereri_invoire').select('id', { count: 'exact', head: true }).eq('status', 'in_asteptare'),
+      ])
+      return (concediu.count || 0) + (invoire.count || 0)
+    },
+    enabled: !!user, refetchInterval: 60_000, staleTime: 30_000,
+  })
+
   // Badge per href și per grup
   const ITEM_BADGES = {
     '/retururi':    retururiNeachitate,
@@ -217,6 +230,7 @@ export default function Layout({ children }) {
     '/todo':        tasksDueToday,
     '/reclamatii':  reclamatiiNerezolvate,
     '/comenzi':     comenziNoi,
+    '/resurse-umane': hrCereriInAsteptare,
   }
   const GROUP_BADGES = {
     operational: workOrdersOpen + schedulesOverdue,
