@@ -124,40 +124,71 @@ export default function ResurseUmane() {
 // CalendarTab — cine e in concediu / invoire in luna curenta
 // ═════════════════════════════════════════════════════════════
 function CalendarTab() {
-  const [month, setMonth] = useState(() => startOfMonth(new Date()))
+  // Aratam luna curenta si urmatoarea, una sub alta - util cand cineva isi ia
+  // concediu la sfarsit de luna si continua in luna urmatoare, sa se vada usor.
+  const [baseMonth, setBaseMonth] = useState(() => startOfMonth(new Date()))
+  const nextMonthDate = addMonths(baseMonth, 1)
+  const [hoveredDay, setHoveredDay] = useState(null) // cheie 'yyyy-MM-dd'
 
-  const rangeStart = startOfWeek(startOfMonth(month), { weekStartsOn: 1 })
-  const rangeEnd = endOfWeek(endOfMonth(month), { weekStartsOn: 1 })
-  const monthStartStr = format(startOfMonth(month), 'yyyy-MM-dd')
-  const monthEndStr = format(endOfMonth(month), 'yyyy-MM-dd')
+  const rangeStartStr = format(startOfMonth(baseMonth), 'yyyy-MM-dd')
+  const rangeEndStr = format(endOfMonth(nextMonthDate), 'yyyy-MM-dd')
 
   const { data: concedii = [] } = useQuery({
-    queryKey: ['hr_calendar_concedii', monthStartStr],
+    queryKey: ['hr_calendar_concedii', rangeStartStr],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('hr_cereri_concediu')
         .select('id, data_inceput, data_sfarsit, tip, hr_angajati(nume, prenume)')
         .eq('status', 'aprobat')
-        .lte('data_inceput', monthEndStr)
-        .gte('data_sfarsit', monthStartStr)
+        .lte('data_inceput', rangeEndStr)
+        .gte('data_sfarsit', rangeStartStr)
       if (error) throw error
       return data
     },
   })
 
   const { data: invoiri = [] } = useQuery({
-    queryKey: ['hr_calendar_invoiri', monthStartStr],
+    queryKey: ['hr_calendar_invoiri', rangeStartStr],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('hr_cereri_invoire')
         .select('id, data, ora_inceput, ora_sfarsit, hr_angajati(nume, prenume)')
         .eq('status', 'aprobat')
-        .gte('data', monthStartStr)
-        .lte('data', monthEndStr)
+        .gte('data', rangeStartStr)
+        .lte('data', rangeEndStr)
       if (error) throw error
       return data
     },
   })
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-4">
+        <button onClick={() => setBaseMonth(m => subMonths(m, 1))} className="p-2 rounded-lg border border-gray-200 hover:bg-gray-50">
+          <ChevronLeft className="w-4 h-4" />
+        </button>
+        <p className="text-xs text-gray-400">Luna curentă și luna următoare · treci cu mouse-ul pe o zi pentru detalii</p>
+        <button onClick={() => setBaseMonth(m => addMonths(m, 1))} className="p-2 rounded-lg border border-gray-200 hover:bg-gray-50">
+          <ChevronRight className="w-4 h-4" />
+        </button>
+      </div>
+
+      <div className="flex items-center gap-4 mb-4 text-xs text-gray-400">
+        <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-blue-400 inline-block" /> Concediu</span>
+        <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-amber-400 inline-block" /> Învoire</span>
+      </div>
+
+      <div className="space-y-8">
+        <MonthGrid month={baseMonth} concedii={concedii} invoiri={invoiri} hoveredDay={hoveredDay} setHoveredDay={setHoveredDay} />
+        <MonthGrid month={nextMonthDate} concedii={concedii} invoiri={invoiri} hoveredDay={hoveredDay} setHoveredDay={setHoveredDay} />
+      </div>
+    </div>
+  )
+}
+
+function MonthGrid({ month, concedii, invoiri, hoveredDay, setHoveredDay }) {
+  const rangeStart = startOfWeek(startOfMonth(month), { weekStartsOn: 1 })
+  const rangeEnd = endOfWeek(endOfMonth(month), { weekStartsOn: 1 })
 
   const days = []
   let d = rangeStart
@@ -170,21 +201,7 @@ function CalendarTab() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-4">
-        <button onClick={() => setMonth(m => subMonths(m, 1))} className="p-2 rounded-lg border border-gray-200 hover:bg-gray-50">
-          <ChevronLeft className="w-4 h-4" />
-        </button>
-        <h2 className="font-semibold text-gray-900 capitalize">{format(month, 'MMMM yyyy')}</h2>
-        <button onClick={() => setMonth(m => addMonths(m, 1))} className="p-2 rounded-lg border border-gray-200 hover:bg-gray-50">
-          <ChevronRight className="w-4 h-4" />
-        </button>
-      </div>
-
-      <div className="flex items-center gap-4 mb-3 text-xs text-gray-400">
-        <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-blue-400 inline-block" /> Concediu</span>
-        <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-amber-400 inline-block" /> Învoire</span>
-      </div>
-
+      <h3 className="font-semibold text-gray-900 capitalize mb-2">{format(month, 'MMMM yyyy')}</h3>
       <div className="grid grid-cols-7 gap-px bg-gray-200 border border-gray-200 rounded-lg overflow-hidden text-xs">
         {['Lun', 'Mar', 'Mie', 'Joi', 'Vin', 'Sâm', 'Dum'].map(d => (
           <div key={d} className="bg-gray-50 px-2 py-1.5 font-semibold text-gray-500 text-center">{d}</div>
@@ -193,23 +210,49 @@ function CalendarTab() {
           const inMonth = isSameMonth(day, month)
           const dayConcedii = concediiForDay(day)
           const dayInvoiri = invoiriForDay(day)
+          const hasData = dayConcedii.length > 0 || dayInvoiri.length > 0
+          const key = format(day, 'yyyy-MM-dd') + '-' + format(month, 'yyyy-MM')
+          const isHovered = hoveredDay === key
+
           return (
-            <div key={day.toISOString()} className={`bg-white min-h-[84px] p-1.5 ${!inMonth ? 'opacity-40' : ''}`}>
+            <div
+              key={key}
+              className={`relative bg-white min-h-[64px] p-1.5 ${!inMonth ? 'opacity-40' : ''} ${hasData ? 'cursor-pointer' : ''}`}
+              onMouseEnter={() => hasData && setHoveredDay(key)}
+              onMouseLeave={() => setHoveredDay(h => (h === key ? null : h))}
+              onClick={() => hasData && setHoveredDay(h => (h === key ? null : key))}
+            >
               <div className={`text-[11px] font-medium mb-1 ${isSameDay(day, new Date()) ? 'text-primary-600' : 'text-gray-400'}`}>
                 {format(day, 'd')}
               </div>
-              <div className="space-y-0.5">
-                {dayConcedii.slice(0, 3).map(c => (
-                  <div key={c.id} title={c.tip} className="truncate bg-blue-50 text-blue-700 rounded px-1 py-0.5 text-[10px] font-medium">
-                    {c.hr_angajati?.nume} {c.hr_angajati?.prenume?.[0]}.
-                  </div>
-                ))}
-                {dayInvoiri.slice(0, 2).map(i => (
-                  <div key={i.id} title={`${i.ora_inceput}-${i.ora_sfarsit}`} className="truncate bg-amber-50 text-amber-700 rounded px-1 py-0.5 text-[10px] font-medium">
-                    {i.hr_angajati?.nume} {i.hr_angajati?.prenume?.[0]}.
-                  </div>
-                ))}
-              </div>
+              {hasData && (
+                <div className="flex gap-1">
+                  {dayConcedii.length > 0 && (
+                    <span className="bg-blue-100 text-blue-700 rounded-full px-1.5 py-0.5 text-[10px] font-bold leading-none">{dayConcedii.length}</span>
+                  )}
+                  {dayInvoiri.length > 0 && (
+                    <span className="bg-amber-100 text-amber-700 rounded-full px-1.5 py-0.5 text-[10px] font-bold leading-none">{dayInvoiri.length}</span>
+                  )}
+                </div>
+              )}
+
+              {isHovered && (
+                <div className="absolute z-30 top-full left-0 mt-1 w-60 bg-white border border-gray-200 rounded-lg shadow-xl p-2.5 space-y-1.5 text-left">
+                  <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">{format(day, 'dd MMMM yyyy')}</p>
+                  {dayConcedii.map(c => (
+                    <p key={`c-${c.id}`} className="text-xs text-gray-700 flex items-start gap-1.5">
+                      <span className="w-1.5 h-1.5 rounded-full bg-blue-400 inline-block mt-1 flex-shrink-0" />
+                      <span><b>{c.hr_angajati?.nume} {c.hr_angajati?.prenume}</b> — {c.tip}</span>
+                    </p>
+                  ))}
+                  {dayInvoiri.map(i => (
+                    <p key={`i-${i.id}`} className="text-xs text-gray-700 flex items-start gap-1.5">
+                      <span className="w-1.5 h-1.5 rounded-full bg-amber-400 inline-block mt-1 flex-shrink-0" />
+                      <span><b>{i.hr_angajati?.nume} {i.hr_angajati?.prenume}</b> — {i.ora_inceput?.slice(0,5)}–{i.ora_sfarsit?.slice(0,5)}</span>
+                    </p>
+                  ))}
+                </div>
+              )}
             </div>
           )
         })}
