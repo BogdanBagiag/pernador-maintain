@@ -2425,13 +2425,14 @@ function RapoarteTab() {
               <th className="px-4 py-2 text-left text-xs font-semibold text-gray-500 uppercase">Nr. Comandă</th>
               <th className="px-4 py-2 text-left text-xs font-semibold text-gray-500 uppercase">Status</th>
               <th className="px-4 py-2 text-center text-xs font-semibold text-gray-500 uppercase">Data Comenzii</th>
+              <th className="px-4 py-2 text-center text-xs font-semibold text-gray-500 uppercase">Data Livrării</th>
               <th className="px-4 py-2 text-center text-xs font-semibold text-gray-500 uppercase">Termen Livrare</th>
               <th className="px-4 py-2 text-center text-xs font-semibold text-gray-500 uppercase">Zile</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
             {filtered.length === 0 ? (
-              <tr><td colSpan={6} className="px-4 py-8 text-center text-sm text-gray-400">
+              <tr><td colSpan={7} className="px-4 py-8 text-center text-sm text-gray-400">
                 {searchClient ? 'Nicio comandă găsită pentru acest client.' : 'Nicio comandă înregistrată.'}
               </td></tr>
             ) : filtered.map(c => {
@@ -2490,6 +2491,11 @@ function RapoarteTab() {
                   </td>
                   <td className="px-4 py-2.5 text-sm text-center text-gray-600">
                     {c.data ? format(new Date(c.data), 'dd.MM.yyyy') : '—'}
+                  </td>
+                  <td className="px-4 py-2.5 text-sm text-center font-medium text-green-700">
+                    {(c.status === 'livrate' || c.status === 'arhivat') && c.data_livrare
+                      ? format(new Date(c.data_livrare), 'dd.MM.yyyy')
+                      : '—'}
                   </td>
                   <td className="px-4 py-2.5 text-sm text-center font-medium text-gray-900">
                     {c.data_livrare ? format(new Date(c.data_livrare), 'dd.MM.yyyy') : '—'}
