@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useParams } from 'react-router-dom'
+import { useParams, useSearchParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { format } from 'date-fns'
@@ -19,6 +19,8 @@ const STATUS_MAP = Object.fromEntries(STATUSES.map(s => [s.key, s]))
 
 export default function PernadorCleanScan() {
   const { bonId } = useParams()
+  const [searchParams] = useSearchParams()
+  const readOnly = searchParams.get('ro') === '1'
   const queryClient = useQueryClient()
   const [pendingStatus, setPendingStatus] = useState(null)
 
@@ -122,9 +124,13 @@ export default function PernadorCleanScan() {
             )}
           </div>
 
-          {/* Schimbare status */}
+          {/* Schimbare status - doar pentru exemplarul de magazin, nu si pentru client */}
           <div className="border-t border-gray-100 pt-4">
-            {pendingStatus ? (
+            {readOnly ? (
+              <p className="text-xs text-gray-400 text-center">
+                Poți urmări aici statusul comenzii tale. Statusul este actualizat de operator.
+              </p>
+            ) : pendingStatus ? (
               <div className="space-y-2 text-center">
                 <p className="text-sm text-gray-600">
                   Schimbi statusul în <b>{STATUS_MAP[pendingStatus]?.label}</b>?

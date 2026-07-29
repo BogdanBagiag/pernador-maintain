@@ -502,7 +502,7 @@ function BonModal({ onClose, onSaved, userId, initialData = null, clienti = [], 
 }
 
 // ─── Print bon A5 ────────────────────────────────────────────────────────────
-function BonPrintLayout({ bon, qrDataUrl, copyLabel }) {
+function BonPrintLayout({ bon, qrDataUrl, qrCaption, copyLabel }) {
   const B  = '1px solid #333'
   const FF = 'Arial, Helvetica, sans-serif'
   const F  = '9pt'
@@ -542,7 +542,7 @@ function BonPrintLayout({ bon, qrDataUrl, copyLabel }) {
               {qrDataUrl ? (
                 <>
                   <img src={qrDataUrl} alt="QR status" style={{ width: '18mm', height: '18mm' }} />
-                  <div style={{ fontSize: '6.5pt', color: '#888', marginTop: '0.5mm' }}>Scanează pentru status</div>
+                  <div style={{ fontSize: '6.5pt', color: '#888', marginTop: '0.5mm' }}>{qrCaption || 'Scanează pentru status'}</div>
                 </>
               ) : (
                 <div style={{ fontSize: '7pt', color: '#bbb' }}>—</div>
@@ -629,13 +629,21 @@ function BonPrintLayout({ bon, qrDataUrl, copyLabel }) {
 }
 
 function PrintBonModal({ bon, onClose }) {
-  const [qrDataUrl, setQrDataUrl] = useState(null)
+  const [qrStoreDataUrl, setQrStoreDataUrl] = useState(null)
+  const [qrClientDataUrl, setQrClientDataUrl] = useState(null)
 
   useEffect(() => {
-    const scanUrl = `${window.location.origin}/pc-scan/${bon.id}`
-    QRCode.toDataURL(scanUrl, { width: 200, margin: 1, color: { dark: '#111111', light: '#ffffff' } })
-      .then(setQrDataUrl)
-      .catch(() => setQrDataUrl(null))
+    // Exemplar magazin: QR complet - angajatul poate scana si schimba statusul
+    const storeUrl = `${window.location.origin}/pc-scan/${bon.id}`
+    QRCode.toDataURL(storeUrl, { width: 200, margin: 1, color: { dark: '#111111', light: '#ffffff' } })
+      .then(setQrStoreDataUrl)
+      .catch(() => setQrStoreDataUrl(null))
+
+    // Exemplar client: QR doar de urmarire status, fara posibilitate de schimbare
+    const clientUrl = `${window.location.origin}/pc-scan/${bon.id}?ro=1`
+    QRCode.toDataURL(clientUrl, { width: 200, margin: 1, color: { dark: '#111111', light: '#ffffff' } })
+      .then(setQrClientDataUrl)
+      .catch(() => setQrClientDataUrl(null))
   }, [bon.id])
 
   const handlePrint = () => window.print()
@@ -661,10 +669,10 @@ function PrintBonModal({ bon, onClose }) {
       {createPortal(
         <div id="print-bon-area">
           <div style={{ pageBreakAfter: 'always', breakAfter: 'page' }}>
-            <BonPrintLayout bon={bon} qrDataUrl={qrDataUrl} copyLabel="Exemplar magazin" />
+            <BonPrintLayout bon={bon} qrDataUrl={qrStoreDataUrl} qrCaption="Scanează pentru schimbare status" copyLabel="Exemplar magazin" />
           </div>
           <div>
-            <BonPrintLayout bon={bon} qrDataUrl={qrDataUrl} copyLabel="Exemplar client" />
+            <BonPrintLayout bon={bon} qrDataUrl={qrClientDataUrl} qrCaption="Scanează pentru urmărire status" copyLabel="Exemplar client" />
           </div>
         </div>,
         document.body
