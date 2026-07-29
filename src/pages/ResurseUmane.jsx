@@ -128,7 +128,12 @@ function CalendarTab() {
   // concediu la sfarsit de luna si continua in luna urmatoare, sa se vada usor.
   const [baseMonth, setBaseMonth] = useState(() => startOfMonth(new Date()))
   const nextMonthDate = addMonths(baseMonth, 1)
-  const [hoveredDay, setHoveredDay] = useState(null) // cheie 'yyyy-MM-dd'
+  // popover cu detalii complete, afisat printr-un portal in document.body ca sa nu
+  // fie taiat de overflow-hidden al gridului (asta cauza bug-ul de pe luna curenta)
+  const [popover, setPopover] = useState(null) // { key, day, entries, rect }
+  const togglePopover = (key, day, entries, rect) => {
+    setPopover(p => (p && p.key === key) ? null : { key, day, entries, rect })
+  }
 
   const rangeStartStr = format(startOfMonth(baseMonth), 'yyyy-MM-dd')
   const rangeEndStr = format(endOfMonth(nextMonthDate), 'yyyy-MM-dd')
@@ -167,7 +172,7 @@ function CalendarTab() {
         <button onClick={() => setBaseMonth(m => subMonths(m, 1))} className="p-2 rounded-lg border border-gray-200 hover:bg-gray-50">
           <ChevronLeft className="w-4 h-4" />
         </button>
-        <p className="text-xs text-gray-400">Luna curentă și luna următoare · treci cu mouse-ul pe o zi pentru detalii</p>
+        <p className="text-xs text-gray-400">Luna curentă și luna următoare</p>
         <button onClick={() => setBaseMonth(m => addMonths(m, 1))} className="p-2 rounded-lg border border-gray-200 hover:bg-gray-50">
           <ChevronRight className="w-4 h-4" />
         </button>
@@ -179,14 +184,47 @@ function CalendarTab() {
       </div>
 
       <div className="space-y-8">
-        <MonthGrid month={baseMonth} concedii={concedii} invoiri={invoiri} hoveredDay={hoveredDay} setHoveredDay={setHoveredDay} />
-        <MonthGrid month={nextMonthDate} concedii={concedii} invoiri={invoiri} hoveredDay={hoveredDay} setHoveredDay={setHoveredDay} />
+        <MonthGrid month={baseMonth} concedii={concedii} invoiri={invoiri} activeKey={popover?.key} onToggle={togglePopover} />
+        <MonthGrid month={nextMonthDate} concedii={concedii} invoiri={invoiri} activeKey={popover?.key} onToggle={togglePopover} />
       </div>
+
+      {popover && createPortal(
+        <>
+          <div className="fixed inset-0 z-40" onClick={() => setPopover(null)} />
+          <div
+            className="fixed z-50 w-64 bg-white border border-gray-200 rounded-lg shadow-xl p-2.5 space-y-1.5 text-left"
+            style={{
+              top: Math.min(popover.rect.bottom + 4, window.innerHeight - 260),
+              left: Math.min(popover.rect.left, window.innerWidth - 272),
+            }}
+          >
+            <div className="flex items-center justify-between mb-0.5">
+              <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">{format(popover.day, 'dd MMMM yyyy')}</p>
+              <button onClick={() => setPopover(null)} className="text-gray-300 hover:text-gray-500">
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+            <div className="max-h-64 overflow-y-auto space-y-1.5">
+              {popover.entries.map(e => (
+                <p key={e.id} className="text-xs text-gray-700 flex items-start gap-1.5">
+                  <span className={`w-1.5 h-1.5 rounded-full inline-block mt-1 flex-shrink-0 ${e.tip === 'concediu' ? 'bg-blue-400' : 'bg-amber-400'}`} />
+                  <span><b>{e.nume}</b> — {e.detail}</span>
+                </p>
+              ))}
+            </div>
+          </div>
+        </>,
+        document.body
+      )}
     </div>
   )
 }
 
-function MonthGrid({ month, concedii, invoiri, hoveredDay, setHoveredDay }) {
+// afiseaza pana la 4 nume direct in chenarul zilei; daca sunt mai multe, un buton
+// "+N alții" deschide (prin CalendarTab, via portal) lista completa
+const MAX_NUME_VIZIBILE = 4
+
+function MonthGrid({ month, concedii, invoiri, activeKey, onToggle }) {
   const rangeStart = startOfWeek(startOfMonth(month), { weekStartsOn: 1 })
   const rangeEnd = endOfWeek(endOfMonth(month), { weekStartsOn: 1 })
 
@@ -210,47 +248,53 @@ function MonthGrid({ month, concedii, invoiri, hoveredDay, setHoveredDay }) {
           const inMonth = isSameMonth(day, month)
           const dayConcedii = concediiForDay(day)
           const dayInvoiri = invoiriForDay(day)
-          const hasData = dayConcedii.length > 0 || dayInvoiri.length > 0
+          const entries = [
+            ...dayConcedii.map(c => ({
+              id: `c-${c.id}`, tip: 'concediu',
+              nume: `${c.hr_angajati?.nume || ''} ${c.hr_angajati?.prenume || ''}`.trim(),
+              detail: c.tip,
+            })),
+            ...dayInvoiri.map(i => ({
+              id: `i-${i.id}`, tip: 'invoire',
+              nume: `${i.hr_angajati?.nume || ''} ${i.hr_angajati?.prenume || ''}`.trim(),
+              detail: `${i.ora_inceput?.slice(0, 5)}–${i.ora_sfarsit?.slice(0, 5)}`,
+            })),
+          ]
+          const hasData = entries.length > 0
+          const visible = entries.slice(0, MAX_NUME_VIZIBILE)
+          const extra = entries.length - visible.length
           const key = format(day, 'yyyy-MM-dd') + '-' + format(month, 'yyyy-MM')
-          const isHovered = hoveredDay === key
+          const isActive = activeKey === key
 
           return (
-            <div
-              key={key}
-              className={`relative bg-white min-h-[64px] p-1.5 ${!inMonth ? 'opacity-40' : ''} ${hasData ? 'cursor-pointer' : ''}`}
-              onMouseEnter={() => hasData && setHoveredDay(key)}
-              onMouseLeave={() => setHoveredDay(h => (h === key ? null : h))}
-              onClick={() => hasData && setHoveredDay(h => (h === key ? null : key))}
-            >
+            <div key={key} className={`relative bg-white min-h-[110px] p-1.5 ${!inMonth ? 'opacity-40' : ''}`}>
               <div className={`text-[11px] font-medium mb-1 ${isSameDay(day, new Date()) ? 'text-primary-600' : 'text-gray-400'}`}>
                 {format(day, 'd')}
               </div>
               {hasData && (
-                <div className="flex gap-1">
-                  {dayConcedii.length > 0 && (
-                    <span className="bg-blue-100 text-blue-700 rounded-full px-1.5 py-0.5 text-[10px] font-bold leading-none">{dayConcedii.length}</span>
-                  )}
-                  {dayInvoiri.length > 0 && (
-                    <span className="bg-amber-100 text-amber-700 rounded-full px-1.5 py-0.5 text-[10px] font-bold leading-none">{dayInvoiri.length}</span>
-                  )}
-                </div>
-              )}
-
-              {isHovered && (
-                <div className="absolute z-30 top-full left-0 mt-1 w-60 bg-white border border-gray-200 rounded-lg shadow-xl p-2.5 space-y-1.5 text-left">
-                  <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">{format(day, 'dd MMMM yyyy')}</p>
-                  {dayConcedii.map(c => (
-                    <p key={`c-${c.id}`} className="text-xs text-gray-700 flex items-start gap-1.5">
-                      <span className="w-1.5 h-1.5 rounded-full bg-blue-400 inline-block mt-1 flex-shrink-0" />
-                      <span><b>{c.hr_angajati?.nume} {c.hr_angajati?.prenume}</b> — {c.tip}</span>
-                    </p>
+                <div className="space-y-0.5">
+                  {visible.map(e => (
+                    <div
+                      key={e.id}
+                      title={`${e.nume} — ${e.detail}`}
+                      className={`truncate text-[10px] leading-tight rounded px-1 py-0.5 ${
+                        e.tip === 'concediu' ? 'bg-blue-100 text-blue-700' : 'bg-amber-100 text-amber-700'
+                      }`}
+                    >
+                      {e.nume}
+                    </div>
                   ))}
-                  {dayInvoiri.map(i => (
-                    <p key={`i-${i.id}`} className="text-xs text-gray-700 flex items-start gap-1.5">
-                      <span className="w-1.5 h-1.5 rounded-full bg-amber-400 inline-block mt-1 flex-shrink-0" />
-                      <span><b>{i.hr_angajati?.nume} {i.hr_angajati?.prenume}</b> — {i.ora_inceput?.slice(0,5)}–{i.ora_sfarsit?.slice(0,5)}</span>
-                    </p>
-                  ))}
+                  {extra > 0 && (
+                    <button
+                      type="button"
+                      onClick={(ev) => { ev.stopPropagation(); onToggle(key, day, entries, ev.currentTarget.getBoundingClientRect()) }}
+                      className={`w-full text-left truncate text-[10px] leading-tight rounded px-1 py-0.5 font-semibold ${
+                        isActive ? 'bg-gray-700 text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                      }`}
+                    >
+                      +{extra} alții
+                    </button>
+                  )}
                 </div>
               )}
             </div>
@@ -985,10 +1029,7 @@ function renderFormPage(item) {
   if (item._tip === 'concediu') {
     return <ConcediuFormPage cerere={item.cerere} clipStart={item.clipStart} clipEnd={item.clipEnd} clipDays={item.clipDays} isPartial={item.isPartial} />
   }
-  if (item._tip === 'invoire') {
-    return <InvoireFormPage cerere={item.cerere} />
-  }
-  return <RecuperareFormPage cerere={item.cerere} />
+  return <InvoireFormPage cerere={item.cerere} />
 }
 
 // Incarcare jsPDF + html2canvas din CDN, doar cand e nevoie (fara dependenta noua in package.json).
@@ -1017,85 +1058,134 @@ function loadHtml2Canvas() {
 }
 
 // ═════════════════════════════════════════════════════════════
-// PdfExportSection — genereaza formulare A5, cate o foaie per cerere,
-// pentru un angajat sau toata firma, pe o luna. Doua optiuni:
-// Printeaza (deschide dialogul de print) sau Salveaza (descarca .pdf direct)
+// PdfExportSection — 3 tipuri de raport, alese explicit:
+// - Formulare concediu / Formulare învoiri: cate o foaie A5 per cerere
+// - Raport angajați ore de recuperat: un singur tabel A4 cu soldul fiecarui angajat
 // ═════════════════════════════════════════════════════════════
+const TIPURI_RAPORT = [
+  { value: 'concediu', label: 'Formulare concediu' },
+  { value: 'invoire', label: 'Formulare învoiri' },
+  { value: 'sold_recuperare', label: 'Raport angajați — ore de recuperat' },
+]
+
 function PdfExportSection({ angajatId, angajati }) {
   const [scope, setScope] = useState('angajat') // angajat / firma
+  const [tipRaport, setTipRaport] = useState('concediu')
   const [luna, setLuna] = useState(format(new Date(), 'yyyy-MM'))
   const [printItems, setPrintItems] = useState(null)
+  const [reportRows, setReportRows] = useState(null)
   const [pdfMode, setPdfMode] = useState(null) // 'print' | 'save'
   const [generating, setGenerating] = useState(false)
   const [saving, setSaving] = useState(false)
   const pageRefs = useRef({})
+  const reportRef = useRef(null)
 
-  const fetchItems = async () => {
+  const isSoldReport = tipRaport === 'sold_recuperare'
+
+  // Formulare concediu / invoire - cate o foaie A5 per cerere, pe luna selectata
+  const fetchFormItems = async () => {
     if (scope === 'angajat' && !angajatId) { alert('Alege întâi un angajat mai sus.'); return null }
 
     const monthStart = `${luna}-01`
     const monthEndDate = endOfMonth(new Date(`${luna}-01T00:00:00`))
     const monthEnd = format(monthEndDate, 'yyyy-MM-dd')
 
-    let concQuery = supabase.from('hr_cereri_concediu')
-      .select('*, hr_angajati(nume, prenume), profiles(full_name)')
-      .lte('data_inceput', monthEnd).gte('data_sfarsit', monthStart)
-    let invQuery = supabase.from('hr_cereri_invoire')
-      .select('*, hr_angajati(nume, prenume), profiles(full_name)')
-      .gte('data', monthStart).lte('data', monthEnd)
-    let recQuery = supabase.from('hr_invoire_recuperari')
-      .select('*, hr_angajati(nume, prenume), profiles(full_name)')
-      .not('angajat_id', 'is', null)
-      .gte('data', monthStart).lte('data', monthEnd)
-
-    if (scope === 'angajat') {
-      concQuery = concQuery.eq('angajat_id', angajatId)
-      invQuery = invQuery.eq('angajat_id', angajatId)
-      recQuery = recQuery.eq('angajat_id', angajatId)
-    }
-
-    const [{ data: concedii, error: e1 }, { data: invoiri, error: e2 }, { data: recuperari, error: e3 }] = await Promise.all([concQuery, invQuery, recQuery])
-    if (e1 || e2 || e3) { alert('Eroare: ' + (e1?.message || e2?.message || e3?.message)); return null }
-
-    if ((concedii?.length || 0) === 0 && (invoiri?.length || 0) === 0 && (recuperari?.length || 0) === 0) {
-      alert('Nu există cereri în luna selectată.')
-      return null
-    }
-
-    return [
-      ...(concedii || []).map(c => {
+    if (tipRaport === 'concediu') {
+      let q = supabase.from('hr_cereri_concediu')
+        .select('*, hr_angajati(nume, prenume), profiles(full_name)')
+        .lte('data_inceput', monthEnd).gte('data_sfarsit', monthStart)
+      if (scope === 'angajat') q = q.eq('angajat_id', angajatId)
+      const { data, error } = await q
+      if (error) { alert('Eroare: ' + error.message); return null }
+      if (!data || data.length === 0) { alert('Nu există cereri de concediu în luna selectată.'); return null }
+      return data.map(c => {
         const clipStart = new Date(Math.max(new Date(c.data_inceput), new Date(monthStart)))
         const clipEnd = new Date(Math.min(new Date(c.data_sfarsit), monthEndDate))
         const clipDays = Math.round((clipEnd - clipStart) / 86400000) + 1
         const isPartial = format(clipStart, 'yyyy-MM-dd') !== c.data_inceput || format(clipEnd, 'yyyy-MM-dd') !== c.data_sfarsit
         return { _tip: 'concediu', cerere: c, clipStart, clipEnd, clipDays, isPartial }
-      }),
-      ...(invoiri || []).map(i => ({ _tip: 'invoire', cerere: i })),
-      ...(recuperari || []).map(r => ({ _tip: 'recuperare', cerere: r })),
-    ]
+      })
+    }
+
+    // invoire
+    let q = supabase.from('hr_cereri_invoire')
+      .select('*, hr_angajati(nume, prenume), profiles(full_name)')
+      .gte('data', monthStart).lte('data', monthEnd)
+    if (scope === 'angajat') q = q.eq('angajat_id', angajatId)
+    const { data, error } = await q
+    if (error) { alert('Eroare: ' + error.message); return null }
+    if (!data || data.length === 0) { alert('Nu există cereri de învoire în luna selectată.'); return null }
+    return data.map(i => ({ _tip: 'invoire', cerere: i }))
+  }
+
+  // Raport sold recuperare - un singur tabel cu totalul curent per angajat (nu e legat de luna)
+  const fetchSoldReport = async () => {
+    if (scope === 'angajat' && !angajatId) { alert('Alege întâi un angajat mai sus.'); return null }
+
+    let invQuery = supabase.from('hr_cereri_invoire').select('angajat_id, ora_inceput, ora_sfarsit').eq('status', 'aprobat')
+    let recQuery = supabase.from('hr_invoire_recuperari').select('angajat_id, ora_inceput, ora_sfarsit').eq('status', 'aprobat').not('angajat_id', 'is', null)
+    if (scope === 'angajat') {
+      invQuery = invQuery.eq('angajat_id', angajatId)
+      recQuery = recQuery.eq('angajat_id', angajatId)
+    }
+    const [{ data: inv, error: e1 }, { data: rec, error: e2 }] = await Promise.all([invQuery, recQuery])
+    if (e1 || e2) { alert('Eroare: ' + (e1?.message || e2?.message)); return null }
+
+    const relevantAngajati = scope === 'angajat' ? angajati.filter(a => a.id === angajatId) : angajati
+    const rows = relevantAngajati
+      .map(a => {
+        const datorate = (inv || []).filter(i => i.angajat_id === a.id).reduce((s, i) => s + hoursBetween(i.ora_inceput, i.ora_sfarsit), 0)
+        const recuperate = (rec || []).filter(r => r.angajat_id === a.id).reduce((s, r) => s + hoursBetween(r.ora_inceput, r.ora_sfarsit), 0)
+        return { angajat: a, datorate, recuperate, sold: datorate - recuperate }
+      })
+      .sort((a, b) => b.sold - a.sold)
+
+    if (rows.length === 0) { alert('Niciun angajat de afișat.'); return null }
+    return rows
   }
 
   const handlePrint = async () => {
     setGenerating(true)
-    const items = await fetchItems()
-    setGenerating(false)
-    if (!items) return
-    setPrintItems(items)
-    setPdfMode('print')
+    if (isSoldReport) {
+      const rows = await fetchSoldReport()
+      setGenerating(false)
+      if (!rows) return
+      setReportRows(rows)
+      setPrintItems(null)
+      setPdfMode('print')
+    } else {
+      const items = await fetchFormItems()
+      setGenerating(false)
+      if (!items) return
+      setPrintItems(items)
+      setReportRows(null)
+      setPdfMode('print')
+    }
   }
 
   const handleSave = async () => {
     setSaving(true)
-    const items = await fetchItems()
-    if (!items) { setSaving(false); return }
-    pageRefs.current = {}
-    setPrintItems(items)
-    setPdfMode('save')
-    // efectiv se continua in useEffect de mai jos, dupa ce s-au randat paginile
+    if (isSoldReport) {
+      const rows = await fetchSoldReport()
+      if (!rows) { setSaving(false); return }
+      setReportRows(rows)
+      setPrintItems(null)
+      setPdfMode('save')
+    } else {
+      const items = await fetchFormItems()
+      if (!items) { setSaving(false); return }
+      pageRefs.current = {}
+      setPrintItems(items)
+      setReportRows(null)
+      setPdfMode('save')
+    }
+    // efectiv se continua in useEffect de mai jos, dupa ce s-a randat pagina
   }
 
   useEffect(() => {
-    if (!printItems || !printItems.length) return
+    const hasFormItems = printItems && printItems.length > 0
+    const hasReport = reportRows && reportRows.length > 0
+    if (!hasFormItems && !hasReport) return
 
     if (pdfMode === 'print') {
       const t = setTimeout(() => window.print(), 150)
@@ -1107,27 +1197,40 @@ function PdfExportSection({ angajatId, angajati }) {
       ;(async () => {
         try {
           const [jsPDF, html2canvas] = await Promise.all([loadJsPDF(), loadHtml2Canvas()])
-          // asteapta un tick ca sa fie sigur ca DOM-ul paginilor e randat
+          // asteapta un tick ca sa fie sigur ca DOM-ul e randat
           await new Promise(r => setTimeout(r, 100))
-          const doc = new jsPDF({ unit: 'mm', format: 'a5', orientation: 'portrait' })
-          for (let idx = 0; idx < printItems.length; idx++) {
-            const node = pageRefs.current[idx]
-            if (!node) continue
-            const canvas = await html2canvas(node, { scale: 2, backgroundColor: '#ffffff', useCORS: true })
-            const imgData = canvas.toDataURL('image/jpeg', 0.95)
-            if (idx > 0) doc.addPage('a5', 'portrait')
-            doc.addImage(imgData, 'JPEG', 0, 0, 148, 210)
+
+          if (hasReport) {
+            const doc = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' })
+            const node = reportRef.current
+            if (node) {
+              const canvas = await html2canvas(node, { scale: 2, backgroundColor: '#ffffff', useCORS: true })
+              const imgData = canvas.toDataURL('image/jpeg', 0.95)
+              const imgH = (canvas.height * 210) / canvas.width
+              doc.addImage(imgData, 'JPEG', 0, 0, 210, Math.min(imgH, 297))
+            }
+            if (!cancelled) doc.save(`raport_ore_recuperare_HR.pdf`)
+          } else {
+            const doc = new jsPDF({ unit: 'mm', format: 'a5', orientation: 'portrait' })
+            for (let idx = 0; idx < printItems.length; idx++) {
+              const node = pageRefs.current[idx]
+              if (!node) continue
+              const canvas = await html2canvas(node, { scale: 2, backgroundColor: '#ffffff', useCORS: true })
+              const imgData = canvas.toDataURL('image/jpeg', 0.95)
+              if (idx > 0) doc.addPage('a5', 'portrait')
+              doc.addImage(imgData, 'JPEG', 0, 0, 148, 210)
+            }
+            if (!cancelled) doc.save(`cereri_HR_${tipRaport}_${luna}.pdf`)
           }
-          if (!cancelled) doc.save(`cereri_HR_${luna}.pdf`)
         } catch (e) {
           if (!cancelled) alert('Eroare la generarea PDF: ' + e.message)
         } finally {
-          if (!cancelled) { setSaving(false); setPdfMode(null); setPrintItems(null) }
+          if (!cancelled) { setSaving(false); setPdfMode(null); setPrintItems(null); setReportRows(null) }
         }
       })()
       return () => { cancelled = true }
     }
-  }, [printItems, pdfMode, luna])
+  }, [printItems, reportRows, pdfMode, luna, tipRaport])
 
   return (
     <div className="mt-8 pt-6 border-t border-gray-200">
@@ -1136,6 +1239,13 @@ function PdfExportSection({ angajatId, angajati }) {
       </h3>
       <div className="flex flex-wrap items-end gap-3 mb-2">
         <div>
+          <label className="text-xs font-medium text-gray-500 mb-1 block">Tip raport</label>
+          <select value={tipRaport} onChange={e => setTipRaport(e.target.value)}
+            className="border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary-400">
+            {TIPURI_RAPORT.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+          </select>
+        </div>
+        <div>
           <label className="text-xs font-medium text-gray-500 mb-1 block">Pentru cine</label>
           <select value={scope} onChange={e => setScope(e.target.value)}
             className="border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary-400">
@@ -1143,11 +1253,13 @@ function PdfExportSection({ angajatId, angajati }) {
             <option value="firma">Toată firma</option>
           </select>
         </div>
-        <div>
-          <label className="text-xs font-medium text-gray-500 mb-1 block">Luna</label>
-          <input type="month" value={luna} onChange={e => setLuna(e.target.value)}
-            className="border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary-400" />
-        </div>
+        {!isSoldReport && (
+          <div>
+            <label className="text-xs font-medium text-gray-500 mb-1 block">Luna</label>
+            <input type="month" value={luna} onChange={e => setLuna(e.target.value)}
+              className="border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary-400" />
+          </div>
+        )}
         <button onClick={handlePrint} disabled={generating || saving}
           className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-sm font-medium text-gray-700 disabled:opacity-50">
           {generating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Printer className="w-4 h-4" />}
@@ -1160,8 +1272,9 @@ function PdfExportSection({ angajatId, angajati }) {
         </button>
       </div>
       <p className="text-xs text-gray-400">
-        "Printează PDF" deschide fereastra de printare (alegi o imprimantă sau "Salvează ca PDF"). "Salvează PDF" descarcă direct un fișier .pdf pe acest calculator.
-        O cerere de concediu care trece dintr-o lună în alta apare cu 2 foi separate, câte una pentru fiecare lună exportată.
+        {isSoldReport
+          ? 'Raportul de ore de recuperat arată soldul curent (aprobat) al fiecărui angajat, ca un singur tabel — nu depinde de o lună anume.'
+          : '"Printează PDF" deschide fereastra de printare (alegi o imprimantă sau "Salvează ca PDF"). "Salvează PDF" descarcă direct un fișier .pdf pe acest calculator. O cerere de concediu care trece dintr-o lună în alta apare cu 2 foi separate, câte una pentru fiecare lună exportată.'}
       </p>
 
       {printItems && printItems.length > 0 && pdfMode === 'print' && (
@@ -1189,8 +1302,29 @@ function PdfExportSection({ angajatId, angajati }) {
         </>
       )}
 
-      {/* Pentru Salvează PDF: randam aceleasi formulare in afara ecranului (nu display:none,
-          ca sa aiba dimensiuni reale), le "fotografiem" cu html2canvas si le punem in jsPDF -
+      {reportRows && reportRows.length > 0 && pdfMode === 'print' && (
+        <>
+          <style>{`
+            @media print {
+              body > *:not(#hr-report-print-area) { display: none !important; }
+              #hr-report-print-area { display: block !important; }
+              @page { size: A4 portrait; margin: 15mm; }
+            }
+            @media screen {
+              #hr-report-print-area { display: none; }
+            }
+          `}</style>
+          {createPortal(
+            <div id="hr-report-print-area">
+              <SoldRecuperareReportPage rows={reportRows} />
+            </div>,
+            document.body
+          )}
+        </>
+      )}
+
+      {/* Pentru Salvează PDF: randam acelasi continut in afara ecranului (nu display:none,
+          ca sa aiba dimensiuni reale), il "fotografiem" cu html2canvas si il punem in jsPDF -
           asa iese identic cu ce se vede la Printează PDF, nu un PDF desenat manual, mai urat. */}
       {printItems && printItems.length > 0 && pdfMode === 'save' && createPortal(
         <div style={{ position: 'fixed', top: 0, left: '-9999px', zIndex: -1 }}>
@@ -1199,6 +1333,15 @@ function PdfExportSection({ angajatId, angajati }) {
               {renderFormPage(item)}
             </div>
           ))}
+        </div>,
+        document.body
+      )}
+
+      {reportRows && reportRows.length > 0 && pdfMode === 'save' && createPortal(
+        <div style={{ position: 'fixed', top: 0, left: '-9999px', zIndex: -1 }}>
+          <div ref={reportRef} style={{ width: '210mm', background: '#fff' }}>
+            <SoldRecuperareReportPage rows={reportRows} />
+          </div>
         </div>,
         document.body
       )}
@@ -1284,36 +1427,57 @@ function InvoireFormPage({ cerere: c }) {
   )
 }
 
-function RecuperareFormPage({ cerere: c }) {
+// Raport A4 — un singur tabel cu soldul de ore de recuperat al fiecarui angajat
+// (ore datorate din invoiri aprobate minus ore deja recuperate, aprobate).
+function SoldRecuperareReportPage({ rows }) {
   const FF = 'Georgia, "Times New Roman", serif'
-  const ore = hoursBetween(c.ora_inceput, c.ora_sfarsit)
+  const totalDatorate = rows.reduce((s, r) => s + r.datorate, 0)
+  const totalRecuperate = rows.reduce((s, r) => s + r.recuperate, 0)
+  const totalSold = rows.reduce((s, r) => s + r.sold, 0)
   return (
-    <div style={{ fontFamily: FF, fontSize: '11pt', color: '#111', lineHeight: 1.6, padding: '4mm' }}>
-      <h2 style={{ textAlign: 'center', fontSize: '14pt', marginBottom: '8mm', letterSpacing: '0.5px' }}>RECUPERARE ORE DE ÎNVOIRE</h2>
-      <p>
-        Subsemnatul(a), <b>{c.hr_angajati?.nume} {c.hr_angajati?.prenume}</b>, angajat al {COMPANIE}, am recuperat ore de învoire
-        în ziua <b>{format(new Date(c.data), 'dd.MM.yyyy')}</b>, între orele <b>{c.ora_inceput?.slice(0,5)}</b> și <b>{c.ora_sfarsit?.slice(0,5)}</b>
-        {' '}(<b>{formatOre(ore)}</b>).
+    <div style={{ fontFamily: FF, fontSize: '10.5pt', color: '#111', padding: '6mm' }}>
+      <h2 style={{ textAlign: 'center', fontSize: '15pt', marginBottom: '2mm', letterSpacing: '0.5px' }}>{COMPANIE}</h2>
+      <h3 style={{ textAlign: 'center', fontSize: '12.5pt', fontWeight: 'normal', marginBottom: '2mm', color: '#333' }}>
+        Raport ore de recuperat — situație curentă
+      </h3>
+      <p style={{ textAlign: 'center', fontSize: '9pt', color: '#888', marginBottom: '8mm' }}>
+        Generat la {format(new Date(), 'dd.MM.yyyy HH:mm')}
       </p>
-      <p style={{ marginTop: '6mm' }}>Vă mulțumesc!</p>
-
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginTop: '10mm' }}>
-        <span>Data {format(new Date(c.created_at), 'dd.MM.yyyy')}</span>
-        <span style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: '8pt', color: '#888' }}>Semnătură</div>
-          {c.semnatura_base64 ? <img src={c.semnatura_base64} alt="semnătură" style={{ height: '16mm' }} /> : '.....................'}
-        </span>
-      </div>
-
-      <div style={{ marginTop: '8mm' }}>
-        {c.status === 'aprobat' ? (
-          <p><b>Aprobat</b>{c.profiles?.full_name ? ` de ${c.profiles.full_name}` : ''}, la {format(new Date(c.data_decizie), 'dd.MM.yyyy HH:mm')}.</p>
-        ) : c.status === 'respins' ? (
-          <p style={{ color: '#b91c1c' }}><b>Respins</b>{c.motiv_respingere ? ` — motiv: ${c.motiv_respingere}` : ''}, la {format(new Date(c.data_decizie), 'dd.MM.yyyy HH:mm')}.</p>
-        ) : (
-          <p>De acord ................................. <span style={{ fontSize: '8pt', color: '#888' }}>(semnătură angajator/manager)</span></p>
-        )}
-      </div>
+      <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+        <thead>
+          <tr>
+            <th style={{ textAlign: 'left', borderBottom: '2px solid #111', padding: '2mm', fontSize: '9.5pt' }}>#</th>
+            <th style={{ textAlign: 'left', borderBottom: '2px solid #111', padding: '2mm', fontSize: '9.5pt' }}>Angajat</th>
+            <th style={{ textAlign: 'right', borderBottom: '2px solid #111', padding: '2mm', fontSize: '9.5pt' }}>Ore datorate</th>
+            <th style={{ textAlign: 'right', borderBottom: '2px solid #111', padding: '2mm', fontSize: '9.5pt' }}>Ore recuperate</th>
+            <th style={{ textAlign: 'right', borderBottom: '2px solid #111', padding: '2mm', fontSize: '9.5pt' }}>Sold</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((r, idx) => (
+            <tr key={r.angajat.id}>
+              <td style={{ padding: '2mm', borderBottom: '1px solid #ddd', fontSize: '9.5pt', color: '#888' }}>{idx + 1}</td>
+              <td style={{ padding: '2mm', borderBottom: '1px solid #ddd', fontSize: '9.5pt' }}>{r.angajat.nume} {r.angajat.prenume}</td>
+              <td style={{ padding: '2mm', borderBottom: '1px solid #ddd', fontSize: '9.5pt', textAlign: 'right' }}>{formatOre(r.datorate)}</td>
+              <td style={{ padding: '2mm', borderBottom: '1px solid #ddd', fontSize: '9.5pt', textAlign: 'right' }}>{formatOre(r.recuperate)}</td>
+              <td style={{ padding: '2mm', borderBottom: '1px solid #ddd', fontSize: '9.5pt', textAlign: 'right', fontWeight: 'bold', color: r.sold > 0 ? '#b45309' : '#111' }}>
+                {formatOre(r.sold)}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+        <tfoot>
+          <tr>
+            <td colSpan={2} style={{ padding: '2mm', borderTop: '2px solid #111', fontSize: '9.5pt', fontWeight: 'bold' }}>Total</td>
+            <td style={{ padding: '2mm', borderTop: '2px solid #111', fontSize: '9.5pt', textAlign: 'right', fontWeight: 'bold' }}>{formatOre(totalDatorate)}</td>
+            <td style={{ padding: '2mm', borderTop: '2px solid #111', fontSize: '9.5pt', textAlign: 'right', fontWeight: 'bold' }}>{formatOre(totalRecuperate)}</td>
+            <td style={{ padding: '2mm', borderTop: '2px solid #111', fontSize: '9.5pt', textAlign: 'right', fontWeight: 'bold' }}>{formatOre(totalSold)}</td>
+          </tr>
+        </tfoot>
+      </table>
+      <p style={{ fontSize: '8pt', color: '#aaa', marginTop: '8mm' }}>
+        Soldul include doar cererile de învoire și recuperare aprobate. Cererile în așteptare nu sunt incluse în calcul.
+      </p>
     </div>
   )
 }
