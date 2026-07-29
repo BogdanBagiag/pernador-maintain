@@ -988,19 +988,36 @@ function RapoarteTab() {
 
 const COMPANIE = 'SC CB WORKSHOP SRL'
 
+// Incarcare jsPDF din CDN, doar cand e nevoie (fara dependenta noua in package.json)
+let jsPDFPromise = null
+function loadJsPDF() {
+  if (window.jspdf?.jsPDF) return Promise.resolve(window.jspdf.jsPDF)
+  if (jsPDFPromise) return jsPDFPromise
+  jsPDFPromise = new Promise((resolve, reject) => {
+    const script = document.createElement('script')
+    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js'
+    script.onload = () => resolve(window.jspdf.jsPDF)
+    script.onerror = () => reject(new Error('Nu s-a putut încărca librăria de PDF (verifică conexiunea la internet).'))
+    document.head.appendChild(script)
+  })
+  return jsPDFPromise
+}
+
 // ═════════════════════════════════════════════════════════════
-// PdfExportSection — genereaza formulare A5 (print -> Salvează ca PDF)
-// cate o foaie per cerere, pentru un angajat sau toata firma, pe o luna
+// PdfExportSection — genereaza formulare A5, cate o foaie per cerere,
+// pentru un angajat sau toata firma, pe o luna. Doua optiuni:
+// Printeaza (deschide dialogul de print) sau Salveaza (descarca .pdf direct)
 // ═════════════════════════════════════════════════════════════
 function PdfExportSection({ angajatId, angajati }) {
   const [scope, setScope] = useState('angajat') // angajat / firma
   const [luna, setLuna] = useState(format(new Date(), 'yyyy-MM'))
   const [printItems, setPrintItems] = useState(null)
+  const [pdfMode, setPdfMode] = useState(null) // 'print' | 'save'
   const [generating, setGenerating] = useState(false)
+  const [saving, setSaving] = useState(false)
 
-  const generate = async () => {
-    if (scope === 'angajat' && !angajatId) { alert('Alege întâi un angajat mai sus.'); return }
-    setGenerating(true)
+  const fetchItems = async () => {
+    if (scope === 'angajat' && !angajatId) { alert('Alege întâi un angajat mai sus.'); return null }
 
     const monthStart = `${luna}-01`
     const monthEndDate = endOfMonth(new Date(`${luna}-01T00:00:00`))
@@ -1019,7 +1036,7 @@ function PdfExportSection({ angajatId, angajati }) {
     }
 
     const [{ data: concedii, error: e1 }, { data: invoiri, error: e2 }] = await Promise.all([concQuery, invQuery])
-    if (e1 || e2) { alert('Eroare: ' + (e1?.message || e2?.message)); setGenerating(false); return }
+    if (e1 || e2) { alert('Eroare: ' + (e1?.message || e2?.message)); return null }
 
     let recuperari = []
     const invoireIds = (invoiri || []).map(i => i.id)
@@ -1030,11 +1047,10 @@ function PdfExportSection({ angajatId, angajati }) {
 
     if ((concedii?.length || 0) === 0 && (invoiri?.length || 0) === 0) {
       alert('Nu există cereri în luna selectată.')
-      setGenerating(false)
-      return
+      return null
     }
 
-    const items = [
+    return [
       ...(concedii || []).map(c => {
         const clipStart = new Date(Math.max(new Date(c.data_inceput), new Date(monthStart)))
         const clipEnd = new Date(Math.min(new Date(c.data_sfarsit), monthEndDate))
@@ -1044,17 +1060,43 @@ function PdfExportSection({ angajatId, angajati }) {
       }),
       ...(invoiri || []).map(i => ({ _tip: 'invoire', cerere: i, recuperari: recuperari.filter(r => r.invoire_id === i.id) })),
     ]
+  }
 
-    setPrintItems(items)
+  const handlePrint = async () => {
+    setGenerating(true)
+    const items = await fetchItems()
     setGenerating(false)
+    if (!items) return
+    setPrintItems(items)
+    setPdfMode('print')
+  }
+
+  const handleSave = async () => {
+    setSaving(true)
+    try {
+      const items = await fetchItems()
+      if (!items) { setSaving(false); return }
+      const jsPDF = await loadJsPDF()
+      const doc = new jsPDF({ unit: 'mm', format: 'a5', orientation: 'portrait' })
+      items.forEach((item, idx) => {
+        if (idx > 0) doc.addPage('a5', 'portrait')
+        if (item._tip === 'concediu') drawConcediuPdfPage(doc, item)
+        else drawInvoirePdfPage(doc, item)
+      })
+      doc.save(`cereri_HR_${luna}.pdf`)
+    } catch (e) {
+      alert('Eroare la generarea PDF: ' + e.message)
+    } finally {
+      setSaving(false)
+    }
   }
 
   useEffect(() => {
-    if (printItems && printItems.length) {
+    if (printItems && printItems.length && pdfMode === 'print') {
       const t = setTimeout(() => window.print(), 150)
       return () => clearTimeout(t)
     }
-  }, [printItems])
+  }, [printItems, pdfMode])
 
   return (
     <div className="mt-8 pt-6 border-t border-gray-200">
@@ -1075,17 +1117,23 @@ function PdfExportSection({ angajatId, angajati }) {
           <input type="month" value={luna} onChange={e => setLuna(e.target.value)}
             className="border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary-400" />
         </div>
-        <button onClick={generate} disabled={generating}
+        <button onClick={handlePrint} disabled={generating || saving}
+          className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-sm font-medium text-gray-700 disabled:opacity-50">
+          {generating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Printer className="w-4 h-4" />}
+          Printează PDF
+        </button>
+        <button onClick={handleSave} disabled={generating || saving}
           className="flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 text-sm font-medium disabled:opacity-50">
-          {generating ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileDown className="w-4 h-4" />}
-          Generează PDF
+          {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileDown className="w-4 h-4" />}
+          Salvează PDF
         </button>
       </div>
       <p className="text-xs text-gray-400">
-        Se deschide fereastra de printare — alege "Salvează ca PDF" ca destinație. O cerere de concediu care trece dintr-o lună în alta apare cu 2 foi separate, câte una pentru fiecare lună exportată.
+        "Printează PDF" deschide fereastra de printare (alegi o imprimantă sau "Salvează ca PDF"). "Salvează PDF" descarcă direct un fișier .pdf pe acest calculator.
+        O cerere de concediu care trece dintr-o lună în alta apare cu 2 foi separate, câte una pentru fiecare lună exportată.
       </p>
 
-      {printItems && printItems.length > 0 && (
+      {printItems && printItems.length > 0 && pdfMode === 'print' && (
         <>
           <style>{`
             @media print {
@@ -1203,6 +1251,161 @@ function InvoireFormPage({ cerere: c, recuperari = [] }) {
       </div>
     </div>
   )
+}
+
+// ═════════════════════════════════════════════════════════════
+// Desenare pagini PDF direct cu jsPDF (pentru butonul "Salvează PDF")
+// A5 portrait = 148 x 210 mm
+// ═════════════════════════════════════════════════════════════
+function drawConcediuPdfPage(doc, item) {
+  const { cerere: c, clipStart, clipEnd, clipDays, isPartial } = item
+  const pageW = 148
+  const marginX = 15
+  const usableW = pageW - marginX * 2
+  let y = 20
+
+  doc.setFont('times', 'bold'); doc.setFontSize(15)
+  doc.text('CERERE DE CONCEDIU', pageW / 2, y, { align: 'center' })
+  y += 12
+
+  doc.setFont('times', 'normal'); doc.setFontSize(11); doc.setTextColor(0)
+  const text = `Subsemnatul(a), ${c.hr_angajati?.nume} ${c.hr_angajati?.prenume}, angajat al ${COMPANIE} prin prezenta vă rog să-mi aprobați efectuarea unui număr de ${clipDays} ${clipDays === 1 ? 'zi' : 'zile'} de concediu de ${c.tip} în perioada (zi.lună.an) ${format(clipStart, 'dd.MM.yyyy')} și ${format(clipEnd, 'dd.MM.yyyy')}.`
+  let lines = doc.splitTextToSize(text, usableW)
+  doc.text(lines, marginX, y)
+  y += lines.length * 5.5 + 3
+
+  if (isPartial) {
+    doc.setFontSize(8); doc.setTextColor(140)
+    const note = `* Cererea inițială acoperă ${c.nr_zile} ${c.nr_zile === 1 ? 'zi' : 'zile'} în total, din ${format(new Date(c.data_inceput), 'dd.MM.yyyy')} până în ${format(new Date(c.data_sfarsit), 'dd.MM.yyyy')}; această foaie acoperă doar partea din luna selectată.`
+    lines = doc.splitTextToSize(note, usableW)
+    doc.text(lines, marginX, y)
+    y += lines.length * 4 + 3
+    doc.setFontSize(11); doc.setTextColor(0)
+  }
+
+  if (c.observatii) {
+    doc.setFontSize(9); doc.setTextColor(80)
+    lines = doc.splitTextToSize(`Observații: ${c.observatii}`, usableW)
+    doc.text(lines, marginX, y)
+    y += lines.length * 4.5 + 3
+    doc.setFontSize(11); doc.setTextColor(0)
+  }
+
+  y += 5
+  doc.text('Vă mulțumesc!', marginX, y)
+  y += 20
+
+  doc.text(`Data ${format(new Date(c.created_at), 'dd.MM.yyyy')}`, marginX, y)
+  doc.setFontSize(8); doc.setTextColor(140)
+  doc.text('Semnătură angajat', pageW - marginX - 22, y - 12, { align: 'center' })
+  doc.setFontSize(11); doc.setTextColor(0)
+  if (c.semnatura_base64) {
+    try { doc.addImage(c.semnatura_base64, 'PNG', pageW - marginX - 42, y - 10, 40, 16) } catch {}
+  } else {
+    doc.text('.....................', pageW - marginX - 22, y, { align: 'center' })
+  }
+  y += 18
+
+  if (c.status === 'aprobat') {
+    doc.setFont('times', 'bold'); doc.text('Aprobat', marginX, y); doc.setFont('times', 'normal')
+    const who = c.profiles?.full_name ? ` de ${c.profiles.full_name}` : ''
+    doc.text(`${who}, la ${format(new Date(c.data_decizie), 'dd.MM.yyyy HH:mm')}.`, marginX + 17, y)
+  } else if (c.status === 'respins') {
+    doc.setTextColor(180, 30, 30)
+    doc.setFont('times', 'bold'); doc.text('Respins', marginX, y); doc.setFont('times', 'normal')
+    const motiv = c.motiv_respingere ? ` — motiv: ${c.motiv_respingere}` : ''
+    lines = doc.splitTextToSize(`${motiv}, la ${format(new Date(c.data_decizie), 'dd.MM.yyyy HH:mm')}.`, usableW - 20)
+    doc.text(lines, marginX + 17, y)
+    doc.setTextColor(0)
+  } else {
+    doc.text('De acord .................................', marginX, y)
+    doc.setFontSize(8); doc.setTextColor(140)
+    doc.text('(semnătura angajator/manager)', marginX, y + 5)
+    doc.setFontSize(11); doc.setTextColor(0)
+  }
+
+  doc.setFontSize(7.5); doc.setTextColor(170)
+  lines = doc.splitTextToSize('* se trece tipul de concediu: de odihnă, fără plată, pentru evenimente deosebite etc.', usableW)
+  doc.text(lines, marginX, 195)
+  doc.setTextColor(0)
+}
+
+function drawInvoirePdfPage(doc, item) {
+  const { cerere: c, recuperari = [] } = item
+  const pageW = 148
+  const marginX = 15
+  const usableW = pageW - marginX * 2
+  let y = 20
+
+  doc.setFont('times', 'bold'); doc.setFontSize(15)
+  doc.text('CERERE DE ÎNVOIRE', pageW / 2, y, { align: 'center' })
+  y += 12
+
+  doc.setFont('times', 'normal'); doc.setFontSize(11); doc.setTextColor(0)
+  const text = `Subsemnatul(a), ${c.hr_angajati?.nume} ${c.hr_angajati?.prenume}, angajat al ${COMPANIE} prin prezenta vă rog să-mi aprobați cererea de învoire în ziua ${format(new Date(c.data), 'dd.MM.yyyy')} în intervalul orar ${c.ora_inceput?.slice(0,5)} și ${c.ora_sfarsit?.slice(0,5)}${c.interes ? ` în interes* ${c.interes}` : ''}.`
+  let lines = doc.splitTextToSize(text, usableW)
+  doc.text(lines, marginX, y)
+  y += lines.length * 5.5 + 3
+
+  doc.setFontSize(8); doc.setTextColor(140)
+  doc.text('* în interes: de serviciu, personal, etc.', marginX, y)
+  y += 8
+  doc.setFontSize(11); doc.setTextColor(0)
+
+  doc.text('Vă mulțumesc!', marginX, y)
+  y += 20
+
+  doc.text(`Data ${format(new Date(c.created_at), 'dd.MM.yyyy')}`, marginX, y)
+  doc.setFontSize(8); doc.setTextColor(140)
+  doc.text('Semnătură', pageW - marginX - 22, y - 12, { align: 'center' })
+  doc.setFontSize(11); doc.setTextColor(0)
+  if (c.semnatura_base64) {
+    try { doc.addImage(c.semnatura_base64, 'PNG', pageW - marginX - 42, y - 10, 40, 16) } catch {}
+  } else {
+    doc.text('.....................', pageW - marginX - 22, y, { align: 'center' })
+  }
+  y += 18
+
+  if (c.status === 'aprobat') {
+    doc.setFont('times', 'bold'); doc.text('Aprobat', marginX, y); doc.setFont('times', 'normal')
+    const who = c.profiles?.full_name ? ` de ${c.profiles.full_name}` : ''
+    doc.text(`${who}, la ${format(new Date(c.data_decizie), 'dd.MM.yyyy HH:mm')}.`, marginX + 17, y)
+  } else if (c.status === 'respins') {
+    doc.setTextColor(180, 30, 30)
+    doc.setFont('times', 'bold'); doc.text('Respins', marginX, y); doc.setFont('times', 'normal')
+    const motiv = c.motiv_respingere ? ` — motiv: ${c.motiv_respingere}` : ''
+    lines = doc.splitTextToSize(`${motiv}, la ${format(new Date(c.data_decizie), 'dd.MM.yyyy HH:mm')}.`, usableW - 20)
+    doc.text(lines, marginX + 17, y)
+    doc.setTextColor(0)
+  } else {
+    doc.text('De acord .................................', marginX, y)
+    doc.setFontSize(8); doc.setTextColor(140)
+    doc.text('(semnătură angajator/manager)', marginX, y + 5)
+    doc.setFontSize(11); doc.setTextColor(0)
+  }
+
+  y += 14
+  doc.setDrawColor(200); doc.line(marginX, y, pageW - marginX, y)
+  y += 6
+  doc.setFont('times', 'bold'); doc.setFontSize(9.5)
+  doc.text('Recuperare ore de învoire', marginX, y)
+  doc.setFont('times', 'normal')
+  y += 5.5
+
+  if (recuperari.length === 0) {
+    doc.setFontSize(9); doc.setTextColor(150)
+    doc.text('Nicio recuperare înregistrată.', marginX, y)
+    doc.setTextColor(0)
+  } else {
+    doc.setFontSize(9)
+    recuperari.forEach(r => {
+      const statusText = r.status === 'aprobat' ? 'De acord' : r.status === 'respins' ? 'Respins' : 'în așteptare'
+      const line = `în ziua de ${format(new Date(r.data), 'dd.MM.yyyy')}, între orele ${r.ora_inceput?.slice(0,5)} și ${r.ora_sfarsit?.slice(0,5)} — ${statusText}`
+      const rLines = doc.splitTextToSize(line, usableW)
+      doc.text(rLines, marginX, y)
+      y += rLines.length * 4.5 + 1
+    })
+  }
 }
 
 // ═════════════════════════════════════════════════════════════
