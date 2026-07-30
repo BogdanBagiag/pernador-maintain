@@ -5,6 +5,7 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import { format } from 'date-fns'
 import QRCode from 'qrcode'
+import pernadorCleanLogo from '../assets/pernador-clean-logo.jpg'
 import {
   Plus, X, Trash2, Loader2, Sparkles,
   User, Phone, Eye,
@@ -526,9 +527,9 @@ function BonPrintLayout({ bon, qrDataUrl, qrCaption, copyLabel }) {
       <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '3mm' }}>
         <tbody>
           <tr>
-            <td style={{ ...cell({ width: '42%', border: B }), fontSize: '14pt', fontWeight: 'bold', letterSpacing: '0.5px' }}>
-              ✨ Pernador Clean
-              <div style={{ fontSize: '8pt', fontWeight: 'normal', color: '#555', marginTop: '1mm' }}>Servicii curățătorie perne și pilote</div>
+            <td style={{ ...cell({ width: '42%', border: B }) }}>
+              <img src={pernadorCleanLogo} alt="Pernador Clean" style={{ height: '9mm', display: 'block' }} />
+              <div style={{ fontSize: '8pt', fontWeight: 'normal', color: '#555', marginTop: '1.5mm' }}>Servicii curățătorie perne și pilote</div>
             </td>
             <td style={{ ...cell({ width: '16%', border: B }), textAlign: 'center' }}>
               <div style={{ fontSize: '8pt', color: '#888' }}>BON NR.</div>
@@ -1029,9 +1030,12 @@ export default function PernadorClean() {
     <div className="max-w-full mx-auto space-y-5">
 
       {/* Titlu */}
-      <div>
-        <h1 className="text-xl font-bold text-gray-900">Pernador Clean</h1>
-        <p className="text-sm text-gray-500 mt-0.5">Sistem de înregistrare curățătorie perne și pilote</p>
+      <div className="flex items-center gap-3">
+        <img src={pernadorCleanLogo} alt="Pernador Clean" className="h-8 w-auto" />
+        <div>
+          <h1 className="text-xl font-bold text-gray-900">Pernador Clean</h1>
+          <p className="text-sm text-gray-500 mt-0.5">Sistem de înregistrare curățătorie perne și pilote</p>
+        </div>
       </div>
 
       {/* Carduri sumar */}

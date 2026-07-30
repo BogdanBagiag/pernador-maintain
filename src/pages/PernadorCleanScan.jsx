@@ -3,7 +3,8 @@ import { useParams, useSearchParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { format } from 'date-fns'
-import { Loader2, Package, Phone, CheckCircle2, AlertCircle, Sparkles } from 'lucide-react'
+import { Loader2, Package, Phone, CheckCircle2, AlertCircle } from 'lucide-react'
+import pernadorCleanLogo from '../assets/pernador-clean-logo.jpg'
 
 // Pagina publica de scanare a unui bon Pernador Clean - fara autentificare.
 // Accesibila prin codul QR tiparit pe bon; oricine are link-ul (deci id-ul bonului)
@@ -75,11 +76,10 @@ export default function PernadorCleanScan() {
       <div className="bg-white rounded-2xl border border-gray-200 shadow-sm w-full max-w-md overflow-hidden">
         {/* Header */}
         <div className="bg-primary-600 px-6 py-5 text-white">
-          <div className="flex items-center gap-2">
-            <Sparkles className="w-5 h-5" />
-            <span className="font-bold text-lg">Pernador Clean</span>
+          <div className="bg-white rounded-lg inline-block px-3 py-1.5">
+            <img src={pernadorCleanLogo} alt="Pernador Clean" className="h-6 w-auto" />
           </div>
-          <p className="text-primary-100 text-sm mt-0.5">Bon #{bon.nr_bon}</p>
+          <p className="text-primary-100 text-sm mt-2">Bon #{bon.nr_bon}</p>
         </div>
 
         <div className="p-6 space-y-5">
