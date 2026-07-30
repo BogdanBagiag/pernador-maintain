@@ -10,10 +10,10 @@ import { Loader2, Package, Phone, CheckCircle2, AlertCircle, Sparkles } from 'lu
 // poate vedea bonul si ii poate schimba statusul, fara sa fie logat in aplicatie.
 
 const STATUSES = [
-  { key: 'adus',     label: 'Adus',     emoji: '📥', badge: 'bg-blue-100 text-blue-700',  ring: 'ring-blue-300' },
-  { key: 'in_lucru', label: 'În lucru', emoji: '🧼', badge: 'bg-amber-100 text-amber-700', ring: 'ring-amber-300' },
-  { key: 'gata',     label: 'Gata',     emoji: '✅', badge: 'bg-green-100 text-green-700', ring: 'ring-green-300' },
-  { key: 'ridicat',  label: 'Ridicat',  emoji: '🏠', badge: 'bg-gray-100 text-gray-600',   ring: 'ring-gray-300' },
+  { key: 'adus',     label: 'Comandă primită',    emoji: '📥', badge: 'bg-blue-100 text-blue-700',  ring: 'ring-blue-300' },
+  { key: 'in_lucru', label: 'Comandă în lucru',   emoji: '🧼', badge: 'bg-amber-100 text-amber-700', ring: 'ring-amber-300' },
+  { key: 'gata',     label: 'Comandă finalizată', emoji: '✅', badge: 'bg-green-100 text-green-700', ring: 'ring-green-300' },
+  { key: 'ridicat',  label: 'Comandă ridicată',   emoji: '🏠', badge: 'bg-gray-100 text-gray-600',   ring: 'ring-gray-300' },
 ]
 const STATUS_MAP = Object.fromEntries(STATUSES.map(s => [s.key, s]))
 

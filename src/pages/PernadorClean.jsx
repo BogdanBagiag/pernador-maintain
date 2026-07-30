@@ -14,10 +14,10 @@ import {
 
 // ─── Configurare statusuri ────────────────────────────────────────────────────
 const STATUSES = [
-  { key: 'adus',     label: 'Adus',     emoji: '📥', dot: 'bg-blue-400',  header: 'bg-blue-50 border-blue-200',   badge: 'bg-blue-100 text-blue-700' },
-  { key: 'in_lucru', label: 'În lucru', emoji: '🧼', dot: 'bg-amber-400', header: 'bg-amber-50 border-amber-200', badge: 'bg-amber-100 text-amber-700' },
-  { key: 'gata',     label: 'Gata',     emoji: '✅', dot: 'bg-green-400', header: 'bg-green-50 border-green-200', badge: 'bg-green-100 text-green-700' },
-  { key: 'ridicat',  label: 'Ridicat',  emoji: '🏠', dot: 'bg-gray-400',  header: 'bg-gray-50 border-gray-200',   badge: 'bg-gray-100 text-gray-600' },
+  { key: 'adus',     label: 'Comandă primită',    emoji: '📥', dot: 'bg-blue-400',  header: 'bg-blue-50 border-blue-200',   badge: 'bg-blue-100 text-blue-700' },
+  { key: 'in_lucru', label: 'Comandă în lucru',   emoji: '🧼', dot: 'bg-amber-400', header: 'bg-amber-50 border-amber-200', badge: 'bg-amber-100 text-amber-700' },
+  { key: 'gata',     label: 'Comandă finalizată', emoji: '✅', dot: 'bg-green-400', header: 'bg-green-50 border-green-200', badge: 'bg-green-100 text-green-700' },
+  { key: 'ridicat',  label: 'Comandă ridicată',   emoji: '🏠', dot: 'bg-gray-400',  header: 'bg-gray-50 border-gray-200',   badge: 'bg-gray-100 text-gray-600' },
 ]
 const STATUS_MAP = Object.fromEntries(STATUSES.map(s => [s.key, s]))
 
