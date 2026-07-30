@@ -166,6 +166,21 @@ function CalendarTab() {
     },
   })
 
+  const { data: recuperari = [] } = useQuery({
+    queryKey: ['hr_calendar_recuperari', rangeStartStr],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('hr_invoire_recuperari')
+        .select('id, data, ora_inceput, ora_sfarsit, hr_angajati(nume, prenume)')
+        .eq('status', 'aprobat')
+        .not('angajat_id', 'is', null)
+        .gte('data', rangeStartStr)
+        .lte('data', rangeEndStr)
+      if (error) throw error
+      return data
+    },
+  })
+
   return (
     <div>
       <div className="flex items-center justify-between mb-4">
@@ -181,11 +196,12 @@ function CalendarTab() {
       <div className="flex items-center gap-4 mb-4 text-xs text-gray-400">
         <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-blue-400 inline-block" /> Concediu</span>
         <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-amber-400 inline-block" /> Învoire</span>
+        <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-violet-400 inline-block" /> Recuperare</span>
       </div>
 
       <div className="space-y-8">
-        <MonthGrid month={baseMonth} concedii={concedii} invoiri={invoiri} activeKey={popover?.key} onToggle={togglePopover} />
-        <MonthGrid month={nextMonthDate} concedii={concedii} invoiri={invoiri} activeKey={popover?.key} onToggle={togglePopover} />
+        <MonthGrid month={baseMonth} concedii={concedii} invoiri={invoiri} recuperari={recuperari} activeKey={popover?.key} onToggle={togglePopover} />
+        <MonthGrid month={nextMonthDate} concedii={concedii} invoiri={invoiri} recuperari={recuperari} activeKey={popover?.key} onToggle={togglePopover} />
       </div>
 
       {popover && createPortal(
@@ -207,7 +223,7 @@ function CalendarTab() {
             <div className="max-h-64 overflow-y-auto space-y-1.5">
               {popover.entries.map(e => (
                 <p key={e.id} className="text-xs text-gray-700 flex items-start gap-1.5">
-                  <span className={`w-1.5 h-1.5 rounded-full inline-block mt-1 flex-shrink-0 ${e.tip === 'concediu' ? 'bg-blue-400' : 'bg-amber-400'}`} />
+                  <span className={`w-1.5 h-1.5 rounded-full inline-block mt-1 flex-shrink-0 ${ENTRY_DOT[e.tip]}`} />
                   <span><b>{e.nume}</b> — {e.detail}</span>
                 </p>
               ))}
@@ -224,7 +240,19 @@ function CalendarTab() {
 // "+N alții" deschide (prin CalendarTab, via portal) lista completa
 const MAX_NUME_VIZIBILE = 4
 
-function MonthGrid({ month, concedii, invoiri, activeKey, onToggle }) {
+// clase Tailwind complete (statice), nu interpolate - altfel JIT-ul nu le include in build
+const ENTRY_CHIP = {
+  concediu:   'bg-blue-100 text-blue-700',
+  invoire:    'bg-amber-100 text-amber-700',
+  recuperare: 'bg-violet-100 text-violet-700',
+}
+const ENTRY_DOT = {
+  concediu:   'bg-blue-400',
+  invoire:    'bg-amber-400',
+  recuperare: 'bg-violet-400',
+}
+
+function MonthGrid({ month, concedii, invoiri, recuperari, activeKey, onToggle }) {
   const rangeStart = startOfWeek(startOfMonth(month), { weekStartsOn: 1 })
   const rangeEnd = endOfWeek(endOfMonth(month), { weekStartsOn: 1 })
 
@@ -236,6 +264,7 @@ function MonthGrid({ month, concedii, invoiri, activeKey, onToggle }) {
     day >= new Date(c.data_inceput + 'T00:00:00') && day <= new Date(c.data_sfarsit + 'T00:00:00')
   )
   const invoiriForDay = (day) => invoiri.filter(i => isSameDay(day, new Date(i.data + 'T00:00:00')))
+  const recuperariForDay = (day) => (recuperari || []).filter(r => isSameDay(day, new Date(r.data + 'T00:00:00')))
 
   return (
     <div>
@@ -248,6 +277,7 @@ function MonthGrid({ month, concedii, invoiri, activeKey, onToggle }) {
           const inMonth = isSameMonth(day, month)
           const dayConcedii = concediiForDay(day)
           const dayInvoiri = invoiriForDay(day)
+          const dayRecuperari = recuperariForDay(day)
           const entries = [
             ...dayConcedii.map(c => ({
               id: `c-${c.id}`, tip: 'concediu',
@@ -258,6 +288,11 @@ function MonthGrid({ month, concedii, invoiri, activeKey, onToggle }) {
               id: `i-${i.id}`, tip: 'invoire',
               nume: `${i.hr_angajati?.nume || ''} ${i.hr_angajati?.prenume || ''}`.trim(),
               detail: `${i.ora_inceput?.slice(0, 5)}–${i.ora_sfarsit?.slice(0, 5)}`,
+            })),
+            ...dayRecuperari.map(r => ({
+              id: `r-${r.id}`, tip: 'recuperare',
+              nume: `${r.hr_angajati?.nume || ''} ${r.hr_angajati?.prenume || ''}`.trim(),
+              detail: `recuperare ${r.ora_inceput?.slice(0, 5)}–${r.ora_sfarsit?.slice(0, 5)}`,
             })),
           ]
           const hasData = entries.length > 0
@@ -277,9 +312,7 @@ function MonthGrid({ month, concedii, invoiri, activeKey, onToggle }) {
                     <div
                       key={e.id}
                       title={`${e.nume} — ${e.detail}`}
-                      className={`truncate text-[10px] leading-tight rounded px-1 py-0.5 ${
-                        e.tip === 'concediu' ? 'bg-blue-100 text-blue-700' : 'bg-amber-100 text-amber-700'
-                      }`}
+                      className={`truncate text-[10px] leading-tight rounded px-1 py-0.5 ${ENTRY_CHIP[e.tip]}`}
                     >
                       {e.nume}
                     </div>
@@ -971,7 +1004,7 @@ function RapoarteTab() {
                 <tr>
                   <th className="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase">Data</th>
                   <th className="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase">Interval</th>
-                  <th className="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase">Interes</th>
+                  <th className="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase">Ore</th>
                   <th className="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase">Status</th>
                 </tr>
               </thead>
@@ -982,7 +1015,7 @@ function RapoarteTab() {
                   <tr key={i.id}>
                     <td className="px-4 py-2">{format(new Date(i.data), 'dd.MM.yyyy')}</td>
                     <td className="px-4 py-2">{i.ora_inceput?.slice(0,5)}–{i.ora_sfarsit?.slice(0,5)}</td>
-                    <td className="px-4 py-2">{i.interes || '—'}</td>
+                    <td className="px-4 py-2">{formatOre(hoursBetween(i.ora_inceput, i.ora_sfarsit))}</td>
                     <td className="px-4 py-2"><span className={`text-xs font-medium px-2 py-0.5 rounded-full ${STATUS_BADGE[i.status]}`}>{STATUS_LABEL[i.status]}</span></td>
                   </tr>
                 ))}
