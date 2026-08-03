@@ -346,6 +346,9 @@ function CereriTab({ pEdit, pDelete }) {
   const { user } = useAuth()
   const [typeFilter, setTypeFilter] = useState('toate') // toate / concediu / invoire / recuperare
   const [statusFilter, setStatusFilter] = useState('in_asteptare')
+  const [perioadaFilter, setPerioadaFilter] = useState('toate') // toate / luna_trecuta / luna_curenta / custom
+  const [customStart, setCustomStart] = useState('')
+  const [customEnd, setCustomEnd] = useState('')
 
   const { data: concedii = [], isLoading: loadingConcedii } = useQuery({
     queryKey: ['hr_cereri_concediu'],
@@ -393,9 +396,47 @@ function CereriTab({ pEdit, pDelete }) {
     return [...c, ...i, ...r].sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
   }, [concedii, invoiri, recuperari])
 
+  // interval de date pentru filtrul de perioadă (null = fără limită pe partea aia)
+  const perioadaRange = useMemo(() => {
+    if (perioadaFilter === 'luna_trecuta') {
+      const l = subMonths(new Date(), 1)
+      return { start: startOfMonth(l), end: endOfMonth(l) }
+    }
+    if (perioadaFilter === 'luna_curenta') {
+      const l = new Date()
+      return { start: startOfMonth(l), end: endOfMonth(l) }
+    }
+    if (perioadaFilter === 'custom') {
+      return {
+        start: customStart ? new Date(`${customStart}T00:00:00`) : null,
+        end: customEnd ? new Date(`${customEnd}T23:59:59`) : null,
+      }
+    }
+    return null // 'toate'
+  }, [perioadaFilter, customStart, customEnd])
+
+  // data (sau intervalul) relevanta a cererii, in functie de tip - folosita ca sa
+  // stim daca se suprapune cu perioada selectata
+  const itemDateRange = (item) => {
+    if (item._tip === 'concediu') {
+      return { from: new Date(item.data_inceput + 'T00:00:00'), to: new Date(item.data_sfarsit + 'T00:00:00') }
+    }
+    const d = new Date(item.data + 'T00:00:00')
+    return { from: d, to: d }
+  }
+
+  const matchesPerioada = (item) => {
+    if (!perioadaRange) return true
+    const { from, to } = itemDateRange(item)
+    if (perioadaRange.start && to < perioadaRange.start) return false
+    if (perioadaRange.end && from > perioadaRange.end) return false
+    return true
+  }
+
   const filtered = merged.filter(item =>
     (typeFilter === 'toate' || item._tip === typeFilter) &&
-    (statusFilter === 'toate' || item.status === statusFilter)
+    (statusFilter === 'toate' || item.status === statusFilter) &&
+    matchesPerioada(item)
   )
 
   const tableFor = (tip) => tip === 'concediu' ? 'hr_cereri_concediu' : tip === 'invoire' ? 'hr_cereri_invoire' : 'hr_invoire_recuperari'
@@ -445,6 +486,41 @@ function CereriTab({ pEdit, pDelete }) {
       </div>
 
       <FilterBar filter={statusFilter} setFilter={setStatusFilter} />
+
+      <div className="flex flex-wrap items-end gap-2 mb-3">
+        <div className="flex gap-2">
+          {[
+            { key: 'toate', label: 'Toate' },
+            { key: 'luna_trecuta', label: 'Luna trecută' },
+            { key: 'luna_curenta', label: 'Luna curentă' },
+            { key: 'custom', label: 'Alt interval' },
+          ].map(p => (
+            <button
+              key={p.key}
+              onClick={() => setPerioadaFilter(p.key)}
+              className={`px-3 py-1.5 rounded-lg text-sm font-medium border ${
+                perioadaFilter === p.key ? 'bg-gray-900 text-white border-gray-900' : 'border-gray-200 text-gray-500 hover:bg-gray-50'
+              }`}
+            >
+              {p.label}
+            </button>
+          ))}
+        </div>
+        {perioadaFilter === 'custom' && (
+          <div className="flex items-end gap-2">
+            <div>
+              <label className="text-xs font-medium text-gray-500 mb-1 block">De la</label>
+              <input type="date" value={customStart} onChange={e => setCustomStart(e.target.value)}
+                className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm outline-none focus:ring-2 focus:ring-primary-400" />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-gray-500 mb-1 block">Până la</label>
+              <input type="date" value={customEnd} onChange={e => setCustomEnd(e.target.value)}
+                className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm outline-none focus:ring-2 focus:ring-primary-400" />
+            </div>
+          </div>
+        )}
+      </div>
 
       <div className="flex items-center gap-4 mb-3 text-xs text-gray-400">
         <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-blue-400 inline-block" /> Concediu</span>
