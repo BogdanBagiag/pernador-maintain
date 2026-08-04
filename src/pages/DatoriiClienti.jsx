@@ -165,18 +165,23 @@ async function runImport(rows) {
     facturiProcesate += chunk.length
   }
 
+  // Import = actualizare completa: orice factura existenta care nu mai apare in
+  // noul excel e stearsa (nu doar marcata achitata) - lista ramane mereu in sincron
+  // cu ultimul fisier importat. Clientii NU sunt afectati de aceasta stergere.
   const nrDocsInFile = new Set(rows.map(r => r.nr_document))
-  const { data: existingUnpaid, error: eExisting } = await supabase
-    .from('datorii_facturi').select('id, nr_document').eq('achitat', false)
+  const { data: existingAll, error: eExisting } = await supabase
+    .from('datorii_facturi').select('id, nr_document')
   if (eExisting) throw eExisting
-  const toMarkPaid = (existingUnpaid || []).filter(f => !nrDocsInFile.has(f.nr_document)).map(f => f.id)
-  if (toMarkPaid.length > 0) {
-    const { error: eMark } = await supabase.from('datorii_facturi')
-      .update({ achitat: true, rest_de_incasat: 0 }).in('id', toMarkPaid)
-    if (eMark) throw eMark
+  const idsDeSters = (existingAll || []).filter(f => !nrDocsInFile.has(f.nr_document)).map(f => f.id)
+  if (idsDeSters.length > 0) {
+    for (let i = 0; i < idsDeSters.length; i += CHUNK) {
+      const chunk = idsDeSters.slice(i, i + CHUNK)
+      const { error: eDel } = await supabase.from('datorii_facturi').delete().in('id', chunk)
+      if (eDel) throw eDel
+    }
   }
 
-  return { facturi: facturiProcesate, clientiNoi, marcateAchitate: toMarkPaid.length }
+  return { facturi: facturiProcesate, clientiNoi, sterse: idsDeSters.length }
 }
 
 // ═════════════════════════════════════════════════════════════
@@ -753,8 +758,9 @@ function ImportDatoriiModal({ onClose }) {
 
         <div className="p-4 space-y-3">
           <p className="text-sm text-gray-500">
-            Importă fișierul .xls exportat din contabilitate ("Sume de încasat"). Clienții noi apar automat în tab-ul Clienți,
-            facturile existente se actualizează, iar cele care nu mai apar în fișier (pentru că s-au achitat) sunt marcate automat ca achitate.
+            Importă fișierul .xls exportat din contabilitate ("Sume de încasat"). Acesta actualizează lista completă: clienții noi
+            apar automat în tab-ul Clienți, facturile existente se actualizează, cele noi din fișier se adaugă, iar cele care nu mai
+            apar în fișier sunt șterse automat. Clienții (nume, email, telefon) nu sunt afectați.
           </p>
           <input type="file" accept=".xls,.xlsx,.csv" onChange={handleFile}
             className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 file:mr-3 file:py-1 file:px-3 file:rounded-lg file:border-0 file:bg-gray-100 file:text-sm" />
@@ -764,7 +770,7 @@ function ImportDatoriiModal({ onClose }) {
           {result && (
             <div className="text-sm text-green-700 bg-green-50 border border-green-200 rounded-lg p-3 space-y-0.5">
               <p className="font-medium">Import reușit.</p>
-              <p>{result.facturi} facturi procesate · {result.clientiNoi} clienți noi · {result.marcateAchitate} marcate automat ca achitate.</p>
+              <p>{result.facturi} facturi procesate · {result.clientiNoi} clienți noi · {result.sterse} șterse (nu mai apar în fișier).</p>
             </div>
           )}
         </div>
