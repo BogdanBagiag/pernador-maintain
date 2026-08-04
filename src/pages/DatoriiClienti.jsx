@@ -6,7 +6,7 @@ import { format, differenceInCalendarDays } from 'date-fns'
 import * as XLSX from 'xlsx'
 import {
   Upload, Search, Mail, Copy, Check, X, Loader2, ChevronDown, ChevronRight,
-  Users, Banknote, Pencil, Save, AlertTriangle,
+  Users, Banknote, Pencil, Save, AlertTriangle, RotateCcw,
 } from 'lucide-react'
 
 // ═════════════════════════════════════════════════════════════
@@ -16,6 +16,7 @@ import {
 
 const CATEGORII = [
   { key: 'toate',        label: 'Toate' },
+  { key: 'depasite',     label: 'Depășite' },
   { key: 'in_termen',    label: 'În termen' },
   { key: 'sub_30',       label: 'Sub 30 zile' },
   { key: 'intre_30_90',  label: '30–90 zile' },
@@ -29,11 +30,6 @@ const CATEGORIE_BADGE = {
   intre_90_365: 'bg-red-100 text-red-700',
   peste_an:     'bg-rose-200 text-rose-800',
 }
-const CATEGORIE_LABEL = {
-  in_termen: 'În termen', sub_30: 'Sub 30 zile', intre_30_90: '30–90 zile',
-  intre_90_365: '90–365 zile', peste_an: 'Peste un an',
-}
-
 function zileIntarziere(scadenta) {
   if (!scadenta) return 0
   return differenceInCalendarDays(new Date(), new Date(scadenta + 'T00:00:00'))
@@ -185,11 +181,22 @@ async function runImport(rows) {
 
 // ═════════════════════════════════════════════════════════════
 export default function DatoriiClienti() {
+  const queryClient = useQueryClient()
   const { canView, canEdit } = usePermissions()
   const pView = canView('datorii_clienti')
   const pEdit = canEdit('datorii_clienti')
   const [tab, setTab] = useState('datorii')
   const [showImport, setShowImport] = useState(false)
+  const [resetting, setResetting] = useState(false)
+
+  const handleReset = async () => {
+    if (!confirm('Sigur vrei să resetezi raportul de datorii? Toate facturile importate vor fi șterse. Clienții (nume, email, telefon) rămân în baza de date.')) return
+    setResetting(true)
+    const { error } = await supabase.from('datorii_facturi').delete().not('id', 'is', null)
+    setResetting(false)
+    if (error) { alert('Eroare la resetare: ' + error.message); return }
+    queryClient.invalidateQueries({ queryKey: ['datorii_facturi'] })
+  }
 
   if (!pView) return (
     <div className="text-center py-16">
@@ -208,10 +215,16 @@ export default function DatoriiClienti() {
           <p className="text-sm text-gray-500 mt-0.5">Situația sumelor de încasat de la clienți, pe baza extraselor contabile importate</p>
         </div>
         {pEdit && (
-          <button onClick={() => setShowImport(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 text-sm font-medium">
-            <Upload className="w-4 h-4" /> Import Excel
-          </button>
+          <div className="flex items-center gap-2">
+            <button onClick={handleReset} disabled={resetting}
+              className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-sm font-medium text-gray-600 disabled:opacity-50">
+              {resetting ? <Loader2 className="w-4 h-4 animate-spin" /> : <RotateCcw className="w-4 h-4" />} Resetează raportul
+            </button>
+            <button onClick={() => setShowImport(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 text-sm font-medium">
+              <Upload className="w-4 h-4" /> Import Excel
+            </button>
+          </div>
         )}
       </div>
 
@@ -279,7 +292,8 @@ function DatoriiTab({ pEdit }) {
 
   const facturiFiltrate = useMemo(() => facturiCalc.filter(f => {
     if (doarRestante && (f.achitat || Number(f.rest_de_incasat) <= 0)) return false
-    if (categorieFilter !== 'toate' && f._categorie !== categorieFilter) return false
+    if (categorieFilter === 'depasite' && f._categorie === 'in_termen') return false
+    else if (categorieFilter !== 'toate' && categorieFilter !== 'depasite' && f._categorie !== categorieFilter) return false
     return true
   }), [facturiCalc, doarRestante, categorieFilter])
 
@@ -440,8 +454,10 @@ function ClientCard({ client, facturi, totalRestant, expanded, onToggleExpand, s
                     <td className="px-3 py-2 text-gray-500 whitespace-nowrap">{fmtData(f.scadenta)}</td>
                     <td className="px-3 py-2 text-right font-medium whitespace-nowrap">{fmtBani(f.rest_de_incasat)}</td>
                     <td className="px-3 py-2">
-                      {f.achitat ? <span className="text-xs text-gray-400">—</span> : (
-                        <span className={`text-xs font-medium px-2 py-0.5 rounded-full whitespace-nowrap ${CATEGORIE_BADGE[f._categorie]}`}>{CATEGORIE_LABEL[f._categorie]}</span>
+                      {f.achitat ? <span className="text-xs text-gray-400">—</span> : f._zile <= 0 ? (
+                        <span className={`text-xs font-medium px-2 py-0.5 rounded-full whitespace-nowrap ${CATEGORIE_BADGE.in_termen}`}>În termen</span>
+                      ) : (
+                        <span className={`text-xs font-medium px-2 py-0.5 rounded-full whitespace-nowrap ${CATEGORIE_BADGE[f._categorie]}`}>{f._zile} {f._zile === 1 ? 'zi' : 'zile'} întârziere</span>
                       )}
                     </td>
                     <td className="px-3 py-2">
