@@ -132,29 +132,41 @@ function parseSumeIncasat(rows) {
 }
 
 // Upsert clienti (fara sa suprascrie email/telefon deja completate) + facturi
-// (dupa nr_document, unic) + reconciliere: facturile neachitate care nu mai apar
-// in noul extras sunt marcate automat ca achitate (nu mai figureaza la "de incasat").
+// (dupa nr_document, unic) + reconciliere completa: raportul "Sume de incasat"
+// contine uneori si facturi deja achitate integral (rest_de_incasat <= 0) - pe
+// acestea NU le tinem in evidenta (nu e o datorie), asa ca sunt excluse din
+// import, iar daca existau deja in baza (dintr-un import anterior, cand inca
+// erau neachitate) sunt sterse automat, la fel ca facturile care dispar din
+// fisier - lista ramane mereu doar cu datorii reale, in sincron cu excelul.
 async function runImport(rows) {
+  const rowsActive = rows.filter(r => Number(r.rest_de_incasat) > 0)
+
   const clientMap = new Map()
-  for (const r of rows) {
+  for (const r of rowsActive) {
     if (!clientMap.has(r.client_nume)) clientMap.set(r.client_nume, { nume: r.client_nume, cif: r.cif })
     else if (r.cif && !clientMap.get(r.client_nume).cif) clientMap.get(r.client_nume).cif = r.cif
   }
   const clientRows = [...clientMap.values()]
   const numeList = clientRows.map(c => c.nume)
 
-  const { data: existingClients, error: eCheck } = await supabase
-    .from('datorii_clienti').select('nume').in('nume', numeList)
-  if (eCheck) throw eCheck
-  const existingSet = new Set((existingClients || []).map(c => c.nume))
+  const existingSet = new Set()
+  if (numeList.length > 0) {
+    const { data: existingClients, error: eCheck } = await supabase
+      .from('datorii_clienti').select('nume').in('nume', numeList)
+    if (eCheck) throw eCheck
+    ;(existingClients || []).forEach(c => existingSet.add(c.nume))
+  }
   const clientiNoi = clientRows.filter(c => !existingSet.has(c.nume)).length
 
-  const { data: upsertedClients, error: eClienti } = await supabase
-    .from('datorii_clienti').upsert(clientRows, { onConflict: 'nume' }).select('id, nume')
-  if (eClienti) throw eClienti
-  const idByNume = new Map(upsertedClients.map(c => [c.nume, c.id]))
+  let idByNume = new Map()
+  if (clientRows.length > 0) {
+    const { data: upsertedClients, error: eClienti } = await supabase
+      .from('datorii_clienti').upsert(clientRows, { onConflict: 'nume' }).select('id, nume')
+    if (eClienti) throw eClienti
+    idByNume = new Map(upsertedClients.map(c => [c.nume, c.id]))
+  }
 
-  const facturiRows = rows.map(r => ({
+  const facturiRows = rowsActive.map(r => ({
     client_id: idByNume.get(r.client_nume),
     nr_document: r.nr_document,
     data_document: r.data_document,
@@ -163,7 +175,7 @@ async function runImport(rows) {
     valoare_totala: r.valoare_totala,
     incasat: r.incasat,
     rest_de_incasat: r.rest_de_incasat,
-    achitat: r.rest_de_incasat <= 0,
+    achitat: false,
   })).filter(f => f.client_id)
 
   const CHUNK = 200
@@ -175,10 +187,11 @@ async function runImport(rows) {
     facturiProcesate += chunk.length
   }
 
-  // Import = actualizare completa: orice factura existenta care nu mai apare in
-  // noul excel e stearsa (nu doar marcata achitata) - lista ramane mereu in sincron
-  // cu ultimul fisier importat. Clientii NU sunt afectati de aceasta stergere.
-  const nrDocsInFile = new Set(rows.map(r => r.nr_document))
+  // Import = actualizare completa: orice factura existenta care nu mai apare ca
+  // datorie activa in noul excel (fie ca a disparut din fisier, fie ca a fost
+  // achitata integral) e stearsa - lista ramane mereu in sincron cu ultimul
+  // fisier importat. Clientii NU sunt afectati de aceasta stergere.
+  const nrDocsInFile = new Set(rowsActive.map(r => r.nr_document))
   const { data: existingAll, error: eExisting } = await supabase
     .from('datorii_facturi').select('id, nr_document')
   if (eExisting) throw eExisting
@@ -665,6 +678,16 @@ function DatoriiTab({ pEdit }) {
   )
 }
 
+// Latimi comune de coloane (px), folosite atat la tabelul de plati cat si la cel
+// de facturi (cu table-fixed), ca "Dată plată" sa cada exact deasupra coloanei
+// "Emisă" si "Sumă încasată" exact deasupra coloanei "Rest de plată".
+const COL_WIDTHS = [40, 140, 100, 100, 130, 160, 120, 160]
+
+function ColGroup({ pEdit }) {
+  const widths = pEdit ? COL_WIDTHS : COL_WIDTHS.slice(0, 7)
+  return <colgroup>{widths.map((w, i) => <col key={i} style={{ width: w }} />)}</colgroup>
+}
+
 function ClientCard({ client, facturi, totalRestant, expanded, onToggleExpand, selection, onToggleSelect, onNotify, onToggleAchitat, plati, pEdit }) {
   const countRestante = facturi.filter(f => !f.achitat && Number(f.rest_de_incasat) > 0).length
   const selectedFacturi = facturi.filter(f => selection.has(f.id))
@@ -700,20 +723,31 @@ function ClientCard({ client, facturi, totalRestant, expanded, onToggleExpand, s
                 <Landmark className="w-4 h-4 flex-shrink-0" />
                 <span className="font-medium">Ultimele {plati.length} {plati.length === 1 ? 'plată încasată' : 'plăți încasate'} de la acest client (din extrasele bancare)</span>
               </div>
-              <table className="min-w-full text-sm mt-1.5">
+              <table className="min-w-full text-sm mt-1.5 table-fixed">
+                <ColGroup pEdit={pEdit} />
                 <thead>
                   <tr>
-                    <th className="px-3 pb-1.5 text-left text-xs font-semibold text-blue-500 uppercase w-8"></th>
+                    <th className="px-3 pb-1.5"></th>
+                    <th className="px-3 pb-1.5"></th>
                     <th className="px-3 pb-1.5 text-left text-xs font-semibold text-blue-500 uppercase">Dată plată</th>
+                    <th className="px-3 pb-1.5"></th>
                     <th className="px-3 pb-1.5 text-right text-xs font-semibold text-blue-500 uppercase">Sumă încasată</th>
+                    <th className="px-3 pb-1.5"></th>
+                    <th className="px-3 pb-1.5"></th>
+                    {pEdit && <th className="px-3 pb-1.5"></th>}
                   </tr>
                 </thead>
                 <tbody>
                   {plati.map(p => (
                     <tr key={p.id}>
                       <td className="px-3 py-1 text-blue-300"><Check className="w-3.5 h-3.5" /></td>
+                      <td></td>
                       <td className="px-3 py-1 text-blue-900 whitespace-nowrap">{fmtData(p.data)}</td>
+                      <td></td>
                       <td className="px-3 py-1 text-right font-medium text-blue-900 whitespace-nowrap">{fmtBani(p.suma)}</td>
+                      <td></td>
+                      <td></td>
+                      {pEdit && <td></td>}
                     </tr>
                   ))}
                 </tbody>
@@ -722,10 +756,11 @@ function ClientCard({ client, facturi, totalRestant, expanded, onToggleExpand, s
             </div>
           )}
           <div className="overflow-x-auto">
-            <table className="min-w-full text-sm">
+            <table className="min-w-full text-sm table-fixed">
+              <ColGroup pEdit={pEdit} />
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-3 py-2 w-8"></th>
+                  <th className="px-3 py-2"></th>
                   <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase">Nr. factură</th>
                   <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase">Emisă</th>
                   <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase">Scadentă</th>
