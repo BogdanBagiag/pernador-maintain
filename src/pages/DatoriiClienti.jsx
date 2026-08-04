@@ -695,15 +695,30 @@ function ClientCard({ client, facturi, totalRestant, expanded, onToggleExpand, s
       {expanded && (
         <div className="border-t border-gray-100">
           {plati?.length > 0 && (
-            <div className="flex items-start gap-2 p-3 bg-blue-50 border-b border-blue-100 text-sm text-blue-800">
-              <Landmark className="w-4 h-4 flex-shrink-0 mt-0.5" />
-              <p>
-                <span className="font-medium">Ultimele {plati.length} {plati.length === 1 ? 'plată încasată' : 'plăți încasate'} de la acest client (din extrasele bancare):</span>{' '}
-                {plati.map((p, i) => (
-                  <span key={p.id}>{i > 0 && ' · '}{fmtData(p.data)} — {fmtBani(p.suma)}</span>
-                ))}
-                <br /><span className="text-xs text-blue-600">Fără asociere la o factură anume — verifică manual înainte de a trimite o înștiințare.</span>
-              </p>
+            <div className="bg-blue-50 border-b border-blue-100">
+              <div className="flex items-center gap-2 px-3 pt-3 text-sm text-blue-800">
+                <Landmark className="w-4 h-4 flex-shrink-0" />
+                <span className="font-medium">Ultimele {plati.length} {plati.length === 1 ? 'plată încasată' : 'plăți încasate'} de la acest client (din extrasele bancare)</span>
+              </div>
+              <table className="min-w-full text-sm mt-1.5">
+                <thead>
+                  <tr>
+                    <th className="px-3 pb-1.5 text-left text-xs font-semibold text-blue-500 uppercase w-8"></th>
+                    <th className="px-3 pb-1.5 text-left text-xs font-semibold text-blue-500 uppercase">Dată plată</th>
+                    <th className="px-3 pb-1.5 text-right text-xs font-semibold text-blue-500 uppercase">Sumă încasată</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {plati.map(p => (
+                    <tr key={p.id}>
+                      <td className="px-3 py-1 text-blue-300"><Check className="w-3.5 h-3.5" /></td>
+                      <td className="px-3 py-1 text-blue-900 whitespace-nowrap">{fmtData(p.data)}</td>
+                      <td className="px-3 py-1 text-right font-medium text-blue-900 whitespace-nowrap">{fmtBani(p.suma)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <p className="px-3 pb-2.5 text-xs text-blue-600">Fără asociere la o factură anume — verifică manual înainte de a trimite o înștiințare.</p>
             </div>
           )}
           <div className="overflow-x-auto">
