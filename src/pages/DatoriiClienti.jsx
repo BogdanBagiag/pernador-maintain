@@ -287,20 +287,26 @@ function DatoriiTab({ pEdit }) {
     return { ...f, _zile: zile, _categorie: categorie(zile) }
   }), [facturi])
 
+  // clientii debifati la "Afișare" (vizibil = false) nu mai sunt considerati deloc
+  // ca datornici - nici in sumar, nici in lista, desi facturile lor raman in baza de date
+  const facturiVizibile = useMemo(() =>
+    facturiCalc.filter(f => clientiById.get(f.client_id)?.vizibil !== false)
+  , [facturiCalc, clientiById])
+
   const sumar = useMemo(() => {
-    const restante = facturiCalc.filter(f => !f.achitat && Number(f.rest_de_incasat) > 0)
+    const restante = facturiVizibile.filter(f => !f.achitat && Number(f.rest_de_incasat) > 0)
     const totalRestant = restante.reduce((s, f) => s + Number(f.rest_de_incasat || 0), 0)
     const clientiRestanti = new Set(restante.map(f => f.client_id)).size
     const celMaiVechi = restante.reduce((max, f) => Math.max(max, f._zile), 0)
     return { totalRestant, countFacturi: restante.length, clientiRestanti, celMaiVechi }
-  }, [facturiCalc])
+  }, [facturiVizibile])
 
-  const facturiFiltrate = useMemo(() => facturiCalc.filter(f => {
+  const facturiFiltrate = useMemo(() => facturiVizibile.filter(f => {
     if (doarRestante && (f.achitat || Number(f.rest_de_incasat) <= 0)) return false
     if (categorieFilter === 'depasite' && f._categorie === 'in_termen') return false
     else if (categorieFilter !== 'toate' && categorieFilter !== 'depasite' && f._categorie !== categorieFilter) return false
     return true
-  }), [facturiCalc, doarRestante, categorieFilter])
+  }), [facturiVizibile, doarRestante, categorieFilter])
 
   const grupuri = useMemo(() => {
     const map = new Map()
@@ -637,6 +643,12 @@ function ClientiTab({ pEdit }) {
     setEditingId(null)
   }
 
+  const toggleVizibil = async (c) => {
+    const { error } = await supabase.from('datorii_clienti').update({ vizibil: !c.vizibil }).eq('id', c.id)
+    if (error) { alert('Eroare: ' + error.message); return }
+    queryClient.invalidateQueries({ queryKey: ['datorii_clienti'] })
+  }
+
   return (
     <div>
       <div className="relative mb-3 max-w-xs mt-4">
@@ -658,12 +670,13 @@ function ClientiTab({ pEdit }) {
                 <th className="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase">CIF</th>
                 <th className="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase">Email</th>
                 <th className="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase">Telefon</th>
+                <th className="px-4 py-2 text-center text-xs font-semibold text-gray-600 uppercase">Afișare</th>
                 {pEdit && <th className="px-4 py-2 w-20"></th>}
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
               {filtered.map(c => (
-                <tr key={c.id}>
+                <tr key={c.id} className={c.vizibil === false ? 'opacity-50' : ''}>
                   <td className="px-4 py-2 font-medium text-gray-900 whitespace-nowrap">{c.nume}</td>
                   <td className="px-4 py-2 text-gray-500 whitespace-nowrap">{c.cif || '—'}</td>
                   <td className="px-4 py-2">
@@ -677,6 +690,11 @@ function ClientiTab({ pEdit }) {
                       <input value={editTelefon} onChange={e => setEditTelefon(e.target.value)} placeholder="07xx xxx xxx"
                         className="border border-gray-300 rounded-lg px-2 py-1 text-sm outline-none focus:ring-2 focus:ring-primary-400 w-36" />
                     ) : (c.telefon || <span className="text-gray-300">—</span>)}
+                  </td>
+                  <td className="px-4 py-2 text-center">
+                    <input type="checkbox" checked={c.vizibil !== false} disabled={!pEdit}
+                      onChange={() => toggleVizibil(c)} title="Afișează acest client ca datornic"
+                      className="rounded disabled:opacity-50" />
                   </td>
                   {pEdit && (
                     <td className="px-4 py-2 text-right whitespace-nowrap">
