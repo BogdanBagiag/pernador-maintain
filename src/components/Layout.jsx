@@ -9,7 +9,7 @@ import {
   Settings, LogOut, Menu, X, MapPin, QrCode, CheckSquare,
   FileText, Users, Car, Package, LayoutGrid,
   ScrollText, ChevronDown, BookMarked, RotateCcw, Megaphone, ShoppingCart, Sparkles, Home,
-  DatabaseBackup, Users2,
+  DatabaseBackup, Users2, Banknote,
 } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { useRealtimeNotifications } from '../hooks/useRealtimeNotifications'
@@ -55,6 +55,7 @@ const GROUPS = [
       { name: 'Retururi',            href: '/retururi',           icon: RotateCcw,   moduleKey: 'retururi' },
       { name: 'Reclamații',          href: '/reclamatii',         icon: Megaphone,      moduleKey: 'reclamatii' },
       { name: 'Comenzi',             href: '/comenzi',            icon: ShoppingCart,   moduleKey: 'comenzi' },
+      { name: 'Datorii Clienți',     href: '/datorii-clienti',    icon: Banknote,       moduleKey: 'datorii_clienti' },
     ],
   },
   {
@@ -221,6 +222,17 @@ export default function Layout({ children }) {
     enabled: !!user, refetchInterval: 60_000, staleTime: 30_000,
   })
 
+  const { data: datoriiRestante = 0 } = useQuery({
+    queryKey: ['badge_datorii_clienti'],
+    queryFn: async () => {
+      const { count } = await supabase
+        .from('datorii_facturi').select('id', { count: 'exact', head: true })
+        .eq('achitat', false).lt('scadenta', today)
+      return count || 0
+    },
+    enabled: !!user, refetchInterval: 60_000, staleTime: 30_000,
+  })
+
   // Badge per href și per grup
   const ITEM_BADGES = {
     '/retururi':    retururiNeachitate,
@@ -231,11 +243,12 @@ export default function Layout({ children }) {
     '/reclamatii':  reclamatiiNerezolvate,
     '/comenzi':     comenziNoi,
     '/resurse-umane': hrCereriInAsteptare,
+    '/datorii-clienti': datoriiRestante,
   }
   const GROUP_BADGES = {
     operational: workOrdersOpen + schedulesOverdue,
     assets:      vehiclesExpired,
-    documents:   retururiNeachitate + reclamatiiNerezolvate + comenziNoi,
+    documents:   retururiNeachitate + reclamatiiNerezolvate + comenziNoi + datoriiRestante,
   }
 
   const isItemVisible = (item) => {
