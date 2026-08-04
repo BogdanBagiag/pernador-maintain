@@ -416,80 +416,16 @@ function numeSimilare(a, b) {
   const common = [...ta].filter(t => tb.has(t)).length
   return common / Math.min(ta.size, tb.size) >= 0.8
 }
-// Cauta numarul facturii (curatat de spatii/simboluri) ca substring in detaliile platii
-function facturaMentionata(nrDocument, text) {
-  const nd = String(nrDocument || '').toUpperCase().replace(/[^A-Z0-9]/g, '')
-  if (nd.length < 3) return false
-  const nt = String(text || '').toUpperCase().replace(/[^A-Z0-9]/g, '')
-  return nt.includes(nd)
-}
-function combinatieRecursiva(arr, size, target, tol, start, chosen) {
-  if (chosen.length === size) {
-    const sum = chosen.reduce((s, t) => s + Number(t.suma), 0)
-    return Math.abs(sum - target) < tol ? [...chosen] : null
-  }
-  for (let i = start; i < arr.length; i++) {
-    const res = combinatieRecursiva(arr, size, target, tol, i + 1, [...chosen, arr[i]])
-    if (res) return res
-  }
-  return null
-}
-function gasesteCombinatie(tranzactii, target) {
-  const arr = tranzactii.slice(0, 12) // limitam pentru performanta
-  for (let size = 2; size <= 3; size++) {
-    const res = combinatieRecursiva(arr, size, target, 1, 0, [])
-    if (res) return res
-  }
-  return null
-}
 
-// Algoritm multi-semnal: pentru fiecare factura neachitata, cauta printre incasarile
-// (suma > 0) de la clientul respectiv un semnal ca a fost deja platita - nu doar
-// potrivire exacta serie+suma, ci si nr. facturii mentionat in detaliile platii,
-// suma identica, sau o combinatie de mai multe incasari care aduna exact suma
-// restanta. Fiecare potrivire primeste un nivel de incredere.
-function calculeazaAvertizari(facturiNeachitate, tranzactii, clienti) {
-  const incoming = tranzactii.filter(t => Number(t.suma) > 0)
-  const warnings = new Map()
-
-  const facturiByClient = new Map()
-  for (const f of facturiNeachitate) {
-    if (!facturiByClient.has(f.client_id)) facturiByClient.set(f.client_id, [])
-    facturiByClient.get(f.client_id).push(f)
-  }
-
-  for (const [clientId, facturi] of facturiByClient) {
-    const client = clienti.find(c => c.id === clientId)
-    if (!client) continue
-    const tranzactiiClient = incoming.filter(t => numeSimilare(t.beneficiar, client.nume))
-    if (tranzactiiClient.length === 0) continue
-
-    const trUsed = new Set()
-    for (const f of facturi.sort((a, b) => new Date(a.scadenta || 0) - new Date(b.scadenta || 0))) {
-      const rest = Number(f.rest_de_incasat) || 0
-      if (rest <= 0) continue
-      const disponibile = tranzactiiClient.filter(t => !trUsed.has(t.id))
-
-      const byToken = disponibile.find(t => facturaMentionata(f.nr_document, t.detalii_plata))
-      if (byToken) {
-        warnings.set(f.id, { nivel: 'ridicata', tranzactii: [byToken], motiv: 'numărul facturii apare în detaliile plății' })
-        trUsed.add(byToken.id)
-        continue
-      }
-      const byAmount = disponibile.find(t => Math.abs(Number(t.suma) - rest) < 1)
-      if (byAmount) {
-        warnings.set(f.id, { nivel: 'medie', tranzactii: [byAmount], motiv: 'sumă identică încasată de la acest client' })
-        trUsed.add(byAmount.id)
-        continue
-      }
-      const combo = gasesteCombinatie(disponibile, rest)
-      if (combo) {
-        warnings.set(f.id, { nivel: 'scazuta', tranzactii: combo, motiv: 'sumă egală cu mai multe încasări combinate de la acest client' })
-        combo.forEach(t => trUsed.add(t.id))
-      }
-    }
-  }
-  return warnings
+// Ultimele incasari gasite in extrasele bancare importate de la un anumit client
+// (potrivire doar dupa nume, FARA asociere la o factura anume) - simplu semnal
+// informativ, afisat langa client in lista de datornici; pe masura ce se adauga
+// mai multe extrase, lista se completeaza cumulat (nu doar din ultimul extras).
+function ultimelePlatiClient(clientNume, tranzactii, n = 3) {
+  return tranzactii
+    .filter(t => Number(t.suma) > 0 && numeSimilare(t.beneficiar, clientNume))
+    .sort((a, b) => new Date(b.data) - new Date(a.data))
+    .slice(0, n)
 }
 
 // ═════════════════════════════════════════════════════════════
@@ -611,12 +547,6 @@ function DatoriiTab({ pEdit }) {
     return { totalRestant, countFacturi: restante.length, clientiRestanti, celMaiVechi }
   }, [facturiVizibile])
 
-  // avertizari "posibil deja achitat" - comparate cu incasarile din extrasele bancare importate
-  const avertizari = useMemo(() => {
-    const neachitate = facturiVizibile.filter(f => !f.achitat && Number(f.rest_de_incasat) > 0)
-    return calculeazaAvertizari(neachitate, tranzactii, clienti)
-  }, [facturiVizibile, tranzactii, clienti])
-
   const facturiFiltrate = useMemo(() => facturiVizibile.filter(f => {
     if (doarRestante && (f.achitat || Number(f.rest_de_incasat) <= 0)) return false
     if (categorieFilter === 'depasite' && f._categorie === 'in_termen') return false
@@ -630,17 +560,21 @@ function DatoriiTab({ pEdit }) {
       if (!map.has(f.client_id)) map.set(f.client_id, [])
       map.get(f.client_id).push(f)
     }
-    let list = [...map.entries()].map(([clientId, fs]) => ({
-      client: clientiById.get(clientId),
-      facturi: fs.sort((a, b) => b._zile - a._zile),
-      totalRestant: fs.reduce((s, f) => !f.achitat ? s + Number(f.rest_de_incasat || 0) : s, 0),
-    })).filter(g => g.client)
+    let list = [...map.entries()].map(([clientId, fs]) => {
+      const client = clientiById.get(clientId)
+      return {
+        client,
+        facturi: fs.sort((a, b) => b._zile - a._zile),
+        totalRestant: fs.reduce((s, f) => !f.achitat ? s + Number(f.rest_de_incasat || 0) : s, 0),
+        plati: client ? ultimelePlatiClient(client.nume, tranzactii, 3) : [],
+      }
+    }).filter(g => g.client)
     if (search.trim()) {
       const q = search.trim().toLowerCase()
       list = list.filter(g => g.client.nume.toLowerCase().includes(q))
     }
     return list.sort((a, b) => b.totalRestant - a.totalRestant)
-  }, [facturiFiltrate, clientiById, search])
+  }, [facturiFiltrate, clientiById, search, tranzactii])
 
   const toggleExpand = (clientId) => setExpanded(prev => {
     const next = new Set(prev)
@@ -674,16 +608,6 @@ function DatoriiTab({ pEdit }) {
         <SumarCard label="Clienți cu restanțe" value={sumar.clientiRestanti} />
         <SumarCard label="Cea mai veche restanță" value={sumar.celMaiVechi > 0 ? `${sumar.celMaiVechi} zile` : '—'} />
       </div>
-
-      {avertizari.size > 0 && (
-        <div className="flex items-start gap-2 p-3 mb-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800">
-          <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" />
-          <p>
-            {avertizari.size} {avertizari.size === 1 ? 'factură pare' : 'facturi par'} deja achitate, conform extraselor bancare încărcate —
-            verifică înainte de a trimite înștiințări (marcate cu <AlertTriangle className="inline w-3.5 h-3.5 -mt-0.5" /> mai jos).
-          </p>
-        </div>
-      )}
 
       <div className="flex flex-wrap items-center gap-3 mb-3">
         <div className="relative">
@@ -727,7 +651,7 @@ function DatoriiTab({ pEdit }) {
               onToggleSelect={(fid) => toggleSelect(g.client.id, fid)}
               onNotify={(facturiSelectate) => setNotificareTarget({ client: g.client, facturi: facturiSelectate })}
               onToggleAchitat={(id, achitat) => toggleAchitat.mutate({ id, achitat })}
-              avertizari={avertizari}
+              plati={g.plati}
               pEdit={pEdit}
             />
           ))}
@@ -741,10 +665,7 @@ function DatoriiTab({ pEdit }) {
   )
 }
 
-const NIVEL_LABEL = { ridicata: 'încredere mare', medie: 'încredere medie', scazuta: 'încredere scăzută' }
-const NIVEL_BADGE = { ridicata: 'bg-red-100 text-red-600', medie: 'bg-amber-100 text-amber-600', scazuta: 'bg-gray-200 text-gray-500' }
-
-function ClientCard({ client, facturi, totalRestant, expanded, onToggleExpand, selection, onToggleSelect, onNotify, onToggleAchitat, avertizari, pEdit }) {
+function ClientCard({ client, facturi, totalRestant, expanded, onToggleExpand, selection, onToggleSelect, onNotify, onToggleAchitat, plati, pEdit }) {
   const countRestante = facturi.filter(f => !f.achitat && Number(f.rest_de_incasat) > 0).length
   const selectedFacturi = facturi.filter(f => selection.has(f.id))
 
@@ -759,6 +680,11 @@ function ClientCard({ client, facturi, totalRestant, expanded, onToggleExpand, s
           </div>
         </div>
         <div className="flex items-center gap-3 flex-shrink-0">
+          {plati?.length > 0 && (
+            <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">
+              {plati.length} {plati.length === 1 ? 'plată recentă' : 'plăți recente'}
+            </span>
+          )}
           {countRestante > 0 && (
             <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-red-100 text-red-700">{countRestante} restante</span>
           )}
@@ -768,6 +694,18 @@ function ClientCard({ client, facturi, totalRestant, expanded, onToggleExpand, s
 
       {expanded && (
         <div className="border-t border-gray-100">
+          {plati?.length > 0 && (
+            <div className="flex items-start gap-2 p-3 bg-blue-50 border-b border-blue-100 text-sm text-blue-800">
+              <Landmark className="w-4 h-4 flex-shrink-0 mt-0.5" />
+              <p>
+                <span className="font-medium">Ultimele {plati.length} {plati.length === 1 ? 'plată încasată' : 'plăți încasate'} de la acest client (din extrasele bancare):</span>{' '}
+                {plati.map((p, i) => (
+                  <span key={p.id}>{i > 0 && ' · '}{fmtData(p.data)} — {fmtBani(p.suma)}</span>
+                ))}
+                <br /><span className="text-xs text-blue-600">Fără asociere la o factură anume — verifică manual înainte de a trimite o înștiințare.</span>
+              </p>
+            </div>
+          )}
           <div className="overflow-x-auto">
             <table className="min-w-full text-sm">
               <thead className="bg-gray-50">
@@ -783,27 +721,14 @@ function ClientCard({ client, facturi, totalRestant, expanded, onToggleExpand, s
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {facturi.map(f => {
-                  const avert = avertizari?.get(f.id)
-                  return (
+                {facturi.map(f => (
                   <tr key={f.id} className={f.achitat ? 'opacity-50' : ''}>
                     <td className="px-3 py-2">
                       {!f.achitat && Number(f.rest_de_incasat) > 0 && (
                         <input type="checkbox" checked={selection.has(f.id)} onChange={() => onToggleSelect(f.id)} className="rounded" />
                       )}
                     </td>
-                    <td className="px-3 py-2 font-medium whitespace-nowrap">
-                      <div className="flex items-center gap-1.5">
-                        {f.nr_document}
-                        {avert && (
-                          <span
-                            title={`Posibil deja achitat (${NIVEL_LABEL[avert.nivel]}): ${avert.motiv}. ${avert.tranzactii.map(t => `${fmtData(t.data)} · ${fmtBani(t.suma)} de la ${t.beneficiar}`).join('; ')}`}
-                            className={`inline-flex items-center justify-center w-4 h-4 rounded-full flex-shrink-0 ${NIVEL_BADGE[avert.nivel]}`}>
-                            <AlertTriangle className="w-2.5 h-2.5" />
-                          </span>
-                        )}
-                      </div>
-                    </td>
+                    <td className="px-3 py-2 font-medium whitespace-nowrap">{f.nr_document}</td>
                     <td className="px-3 py-2 text-gray-500 whitespace-nowrap">{fmtData(f.data_document)}</td>
                     <td className="px-3 py-2 text-gray-500 whitespace-nowrap">{fmtData(f.scadenta)}</td>
                     <td className="px-3 py-2 text-right font-medium whitespace-nowrap">{fmtBani(f.rest_de_incasat)}</td>
@@ -829,7 +754,7 @@ function ClientCard({ client, facturi, totalRestant, expanded, onToggleExpand, s
                       </td>
                     )}
                   </tr>
-                )})}
+                ))}
               </tbody>
             </table>
           </div>
