@@ -74,11 +74,15 @@ export default function UnificareClienti() {
   const [running, setRunning] = useState(false)
   const [progress, setProgress] = useState('')
   const [rezultat, setRezultat] = useState(null)
+  const [editedNume, setEditedNume] = useState({}) // { [comClientId]: nume corectat }
+
+  const numeFinalCom = (c) => (editedNume[c.id]?.trim() || c.denumire)
 
   const analizeaza = async () => {
     setLoading(true)
     setError('')
     setRezultat(null)
+    setEditedNume({})
     try {
       const { comClienti, datoriiClienti } = await fetchAmandoua()
       setAnalizat({ ...construiestePropuneri(comClienti, datoriiClienti), totalCom: comClienti.length, totalDatorii: datoriiClienti.length })
@@ -127,7 +131,7 @@ export default function UnificareClienti() {
       const doarDatorii = [...analizat.doarDatorii, ...respinse.map(p => p.datorii)]
 
       for (const c of doarComenzi) {
-        rows.push({ id: c.id, nume: c.denumire, cif: null, email: null, telefon: c.telefon || null, adresa: c.adresa || null, vizibil: true })
+        rows.push({ id: c.id, nume: numeFinalCom(c), cif: null, email: null, telefon: c.telefon || null, adresa: c.adresa || null, vizibil: true })
       }
       for (const d of doarDatorii) {
         rows.push({ id: d.id, nume: d.nume, cif: d.cif || null, email: d.email || null, telefon: d.telefon || null, adresa: null, vizibil: d.vizibil !== false })
@@ -250,9 +254,22 @@ export default function UnificareClienti() {
 
           {analizat.doarComenzi.length > 0 && (
             <div>
-              <h2 className="text-sm font-semibold text-gray-700 mb-2">{analizat.doarComenzi.length} clienți doar în Comenzi (fără potrivire, se preiau ca atare)</h2>
-              <div className="bg-white border border-gray-200 rounded-xl p-3 text-sm text-gray-600 flex flex-wrap gap-x-4 gap-y-1">
-                {analizat.doarComenzi.map(c => <span key={c.id}>{c.denumire}</span>)}
+              <h2 className="text-sm font-semibold text-gray-700 mb-2">
+                {analizat.doarComenzi.length} clienți doar în Comenzi (fără potrivire) — poți corecta numele înainte de unificare
+              </h2>
+              <div className="bg-white border border-gray-200 rounded-xl divide-y divide-gray-100">
+                {analizat.doarComenzi.map(c => (
+                  <div key={c.id} className="flex items-center gap-3 p-3">
+                    <span className="text-xs text-gray-400 w-32 flex-shrink-0 truncate" title={c.denumire}>{c.denumire}</span>
+                    <ArrowRight className="w-3.5 h-3.5 text-gray-300 flex-shrink-0" />
+                    <input
+                      type="text"
+                      value={editedNume[c.id] ?? c.denumire}
+                      onChange={e => setEditedNume(prev => ({ ...prev, [c.id]: e.target.value }))}
+                      className="flex-1 border border-gray-300 rounded-lg px-3 py-1.5 text-sm outline-none focus:ring-2 focus:ring-primary-400"
+                    />
+                  </div>
+                ))}
               </div>
             </div>
           )}
