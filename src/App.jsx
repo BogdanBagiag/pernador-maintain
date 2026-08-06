@@ -42,6 +42,7 @@ import RegistruIncasari from './pages/RegistruIncasari'
 import Retururi from './pages/Retururi'
 import Reclamatii from './pages/Reclamatii'
 import DatoriiClienti from './pages/DatoriiClienti'
+import Clienti from './pages/Clienti'
 import Comenzi from './pages/Comenzi'
 import PernadorClean from './pages/PernadorClean'
 import PernadorCleanScan from './pages/PernadorCleanScan'
@@ -188,6 +189,7 @@ function App() {
                       <Route path="/retururi" element={<Retururi />} />
                       <Route path="/reclamatii" element={<Reclamatii />} />
                       <Route path="/datorii-clienti" element={<DatoriiClienti />} />
+                      <Route path="/clienti" element={<Clienti />} />
                       <Route path="/comenzi" element={<Comenzi />} />
                       <Route path="/pernador-clean" element={<PernadorClean />} />
                       <Route path="/resurse-umane" element={<ResurseUmane />} />

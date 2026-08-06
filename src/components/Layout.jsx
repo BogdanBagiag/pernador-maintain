@@ -56,6 +56,7 @@ const GROUPS = [
       { name: 'Reclamații',          href: '/reclamatii',         icon: Megaphone,      moduleKey: 'reclamatii' },
       { name: 'Comenzi',             href: '/comenzi',            icon: ShoppingCart,   moduleKey: 'comenzi' },
       { name: 'Datorii Clienți',     href: '/datorii-clienti',    icon: Banknote,       moduleKey: 'datorii_clienti' },
+      { name: 'Clienți',             href: '/clienti',            icon: Users,          moduleKey: 'clienti' },
     ],
   },
   {

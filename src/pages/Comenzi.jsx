@@ -4,7 +4,6 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import { usePermissions } from '../contexts/PermissionsContext'
-import ClientModal from '../components/ClientModal'
 import { format } from 'date-fns'
 import {
   Plus, X, Save, Loader2, Printer, ShoppingCart,
@@ -92,14 +91,13 @@ export default function Comenzi() {
           <ShoppingCart className="w-6 h-6 text-primary-600" />
           Comenzi
         </h1>
-        <p className="text-sm text-gray-500 mt-1">Gestionează comenzile și clienții</p>
+        <p className="text-sm text-gray-500 mt-1">Gestionează comenzile</p>
       </div>
 
       <div className="border-b border-gray-200 mb-6">
         <nav className="-mb-px flex gap-4 overflow-x-auto scrollbar-none" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
           {[
             { key: 'comenzi',  label: 'Comenzi',  icon: ShoppingCart },
-            { key: 'clienti',  label: 'Clienți',  icon: Users },
             { key: 'produse',  label: 'Produse',  icon: Package },
             { key: 'rapoarte', label: 'Rapoarte', icon: BarChart2 },
             { key: 'anulate',  label: 'Anulate',  icon: Ban },
@@ -123,7 +121,6 @@ export default function Comenzi() {
       </div>
 
       {tab === 'comenzi'  && <ComenziTab  pEdit={pEdit} pDelete={pDelete} />}
-      {tab === 'clienti'  && <ClientiTab  pEdit={pEdit} pDelete={pDelete} />}
       {tab === 'produse'  && <ProduseTab  pEdit={pEdit} pDelete={pDelete} />}
       {tab === 'rapoarte' && <RapoarteTab />}
       {tab === 'anulate'  && <AnulateTab  pEdit={pEdit} pDelete={pDelete} />}
@@ -1535,115 +1532,6 @@ function PrintLayout({ clientName, data, observatii, linii, optiuniChecked = [] 
           </div>
         )
       })}
-    </>
-  )
-}
-
-// ═════════════════════════════════════════════════════════════
-// ClientiTab
-// ═════════════════════════════════════════════════════════════
-function ClientiTab({ pEdit, pDelete }) {
-  const queryClient = useQueryClient()
-  const [showModal, setShowModal] = useState(false)
-  const [editingClient, setEditingClient] = useState(null)
-  const [search, setSearch] = useState('')
-
-  const { data: clienti = [], isLoading } = useQuery({
-    queryKey: ['clienti'],
-    queryFn: async () => {
-      const { data, error } = await supabase.from('clienti').select('*').order('nume')
-      if (error) throw error
-      return data
-    },
-  })
-
-  const deleteClient = useMutation({
-    mutationFn: async (id) => {
-      const { error } = await supabase.from('clienti').delete().eq('id', id)
-      if (error) throw error
-    },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['clienti'] }),
-    onError: (e) => alert('Eroare: ' + e.message),
-  })
-
-  const filtered = clienti.filter(c =>
-    c.nume?.toLowerCase().includes(search.toLowerCase()) ||
-    c.telefon?.toLowerCase().includes(search.toLowerCase())
-  )
-
-  return (
-    <>
-      <div className="flex items-center justify-between mb-4">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-          <input type="text" placeholder="Caută client..." value={search}
-            onChange={e => setSearch(e.target.value)}
-            className="pl-9 pr-4 py-2 border border-gray-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-primary-400 w-64"
-          />
-        </div>
-        {pEdit && (
-          <button onClick={() => { setEditingClient(null); setShowModal(true) }}
-            className="flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 text-sm font-medium">
-            <Plus className="w-4 h-4" /> Client nou
-          </button>
-        )}
-      </div>
-
-      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-        <table className="min-w-full divide-y divide-gray-100">
-          <thead className="bg-gray-50">
-            <tr>
-              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Client</th>
-              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">CIF</th>
-              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Telefon</th>
-              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Email</th>
-              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Adresă</th>
-              {(pEdit || pDelete) && <th className="px-4 py-3 text-right text-xs font-semibold text-gray-600 uppercase w-24">Acțiuni</th>}
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-100">
-            {isLoading ? (
-              <tr><td colSpan={6} className="px-4 py-8 text-center text-sm text-gray-400">Se încarcă...</td></tr>
-            ) : filtered.length === 0 ? (
-              <tr><td colSpan={6} className="px-4 py-8 text-center text-sm text-gray-400">Niciun client găsit.</td></tr>
-            ) : filtered.map(c => (
-              <tr key={c.id} className="hover:bg-gray-50">
-                <td className="px-4 py-3 text-sm font-medium text-gray-900">{c.nume}</td>
-                <td className="px-4 py-3 text-sm text-gray-600">{c.cif || '—'}</td>
-                <td className="px-4 py-3 text-sm text-gray-600">{c.telefon || '—'}</td>
-                <td className="px-4 py-3 text-sm text-gray-600">{c.email || '—'}</td>
-                <td className="px-4 py-3 text-sm text-gray-600 max-w-xs truncate">{c.adresa || '—'}</td>
-                {(pEdit || pDelete) && (
-                  <td className="px-4 py-3 text-right">
-                    <div className="flex items-center justify-end gap-1">
-                      {pEdit && (
-                        <button onClick={() => { setEditingClient(c); setShowModal(true) }}
-                          className="p-1.5 text-gray-400 hover:text-blue-500 hover:bg-blue-50 rounded">
-                          <Pencil className="w-3.5 h-3.5" />
-                        </button>
-                      )}
-                      {pDelete && (
-                        <button onClick={() => { if (confirm(`Ștergi clientul "${c.nume}"?`)) deleteClient.mutate(c.id) }}
-                          className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded">
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      )}
-                    </div>
-                  </td>
-                )}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      {showModal && (
-        <ClientModal
-          client={editingClient}
-          onClose={() => { setShowModal(false); setEditingClient(null) }}
-          onSaved={() => { queryClient.invalidateQueries({ queryKey: ['clienti'] }); setShowModal(false); setEditingClient(null) }}
-        />
-      )}
     </>
   )
 }

@@ -4,10 +4,9 @@ import { supabase } from '../lib/supabase'
 import { usePermissions } from '../contexts/PermissionsContext'
 import { format, differenceInCalendarDays } from 'date-fns'
 import * as XLSX from 'xlsx'
-import ClientModal from '../components/ClientModal'
 import {
   Upload, Search, Mail, Copy, Check, X, Loader2, ChevronDown, ChevronRight,
-  Users, Banknote, Pencil, AlertTriangle, RotateCcw, Landmark, Trash2, Plus,
+  Banknote, AlertTriangle, RotateCcw, Landmark, Trash2,
 } from 'lucide-react'
 
 // ═════════════════════════════════════════════════════════════
@@ -493,11 +492,10 @@ export default function DatoriiClienti() {
 
       <div className="flex gap-1 border-b border-gray-200">
         <TabButton active={tab === 'datorii'} onClick={() => setTab('datorii')} icon={Banknote} label="Datorii" />
-        <TabButton active={tab === 'clienti'} onClick={() => setTab('clienti')} icon={Users} label="Clienți" />
         <TabButton active={tab === 'extrase'} onClick={() => setTab('extrase')} icon={Landmark} label="Extrase Bancare" />
       </div>
 
-      {tab === 'datorii' ? <DatoriiTab pEdit={pEdit} /> : tab === 'clienti' ? <ClientiTab pEdit={pEdit} /> : <ExtraseBancareTab pEdit={pEdit} />}
+      {tab === 'datorii' ? <DatoriiTab pEdit={pEdit} /> : <ExtraseBancareTab pEdit={pEdit} />}
 
       {showImport && <ImportDatoriiModal onClose={() => setShowImport(false)} />}
     </div>
@@ -931,96 +929,6 @@ function NotificareModal({ client, facturi, onClose }) {
           </button>
         </div>
       </div>
-    </div>
-  )
-}
-
-// ═════════════════════════════════════════════════════════════
-// ClientiTab — baza de clienti (nume/CIF stabile din import, email/telefon editabile)
-// ═════════════════════════════════════════════════════════════
-function ClientiTab({ pEdit }) {
-  const queryClient = useQueryClient()
-  const { data: clienti = [], isLoading } = useQuery({ queryKey: ['clienti'], queryFn: fetchClienti })
-  const [search, setSearch] = useState('')
-  const [showModal, setShowModal] = useState(false)
-  const [editingClient, setEditingClient] = useState(null)
-
-  const filtered = clienti.filter(c => !search.trim() || c.nume.toLowerCase().includes(search.trim().toLowerCase()))
-
-  const toggleVizibil = async (c) => {
-    const { error } = await supabase.from('clienti').update({ vizibil: !c.vizibil }).eq('id', c.id)
-    if (error) { alert('Eroare: ' + error.message); return }
-    queryClient.invalidateQueries({ queryKey: ['clienti'] })
-  }
-
-  return (
-    <div>
-      <div className="flex items-center justify-between gap-3 mb-3 mt-4">
-        <div className="relative max-w-xs w-full">
-          <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
-          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Caută client..."
-            className="pl-9 pr-3 py-2 border border-gray-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-primary-400 w-full" />
-        </div>
-        {pEdit && (
-          <button onClick={() => { setEditingClient(null); setShowModal(true) }}
-            className="flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 text-sm font-medium whitespace-nowrap">
-            <Plus className="w-4 h-4" /> Client nou
-          </button>
-        )}
-      </div>
-
-      {isLoading ? (
-        <p className="text-sm text-gray-400 py-8 text-center">Se încarcă...</p>
-      ) : filtered.length === 0 ? (
-        <p className="text-sm text-gray-400 py-8 text-center">Niciun client. Clienții apar automat aici după primul import de facturi.</p>
-      ) : (
-        <div className="bg-white rounded-xl border border-gray-200 overflow-hidden overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-100 text-sm">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase">Client</th>
-                <th className="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase">CIF</th>
-                <th className="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase">Email</th>
-                <th className="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase">Telefon</th>
-                <th className="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase">Adresă</th>
-                <th className="px-4 py-2 text-center text-xs font-semibold text-gray-600 uppercase">Afișare</th>
-                {pEdit && <th className="px-4 py-2 w-20"></th>}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {filtered.map(c => (
-                <tr key={c.id} className={c.vizibil === false ? 'opacity-50' : ''}>
-                  <td className="px-4 py-2 font-medium text-gray-900 whitespace-nowrap">{c.nume}</td>
-                  <td className="px-4 py-2 text-gray-500 whitespace-nowrap">{c.cif || '—'}</td>
-                  <td className="px-4 py-2 text-gray-500 whitespace-nowrap">{c.email || '—'}</td>
-                  <td className="px-4 py-2 text-gray-500 whitespace-nowrap">{c.telefon || '—'}</td>
-                  <td className="px-4 py-2 text-gray-500 max-w-xs truncate">{c.adresa || '—'}</td>
-                  <td className="px-4 py-2 text-center">
-                    <input type="checkbox" checked={c.vizibil !== false} disabled={!pEdit}
-                      onChange={() => toggleVizibil(c)} title="Afișează acest client ca datornic"
-                      className="rounded disabled:opacity-50" />
-                  </td>
-                  {pEdit && (
-                    <td className="px-4 py-2 text-right whitespace-nowrap">
-                      <button onClick={() => { setEditingClient(c); setShowModal(true) }} className="text-gray-400 hover:text-gray-700">
-                        <Pencil className="w-4 h-4" />
-                      </button>
-                    </td>
-                  )}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-
-      {showModal && (
-        <ClientModal
-          client={editingClient}
-          onClose={() => { setShowModal(false); setEditingClient(null) }}
-          onSaved={() => { queryClient.invalidateQueries({ queryKey: ['clienti'] }); setShowModal(false); setEditingClient(null) }}
-        />
-      )}
     </div>
   )
 }
