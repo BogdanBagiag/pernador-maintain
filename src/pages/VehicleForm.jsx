@@ -28,6 +28,7 @@ export default function VehicleForm() {
     engine_capacity: '',
     power_hp: '',
     transmission: 'manuala',
+    tire_size: '',
     status: 'operational',
     current_mileage: '',
     assigned_to: '',
@@ -88,6 +89,7 @@ export default function VehicleForm() {
         engine_capacity: vehicle.engine_capacity || '',
         power_hp: vehicle.power_hp || '',
         transmission: vehicle.transmission || 'manuala',
+        tire_size: vehicle.tire_size || '',
         status: vehicle.status || 'operational',
         current_mileage: vehicle.current_mileage || '',
         assigned_to: vehicle.assigned_to || '',
@@ -266,6 +268,7 @@ export default function VehicleForm() {
       engine_capacity: formData.vehicle_type === 'autovehicul' && formData.engine_capacity ? parseInt(formData.engine_capacity) : null,
       power_hp: formData.vehicle_type === 'autovehicul' && formData.power_hp ? parseInt(formData.power_hp) : null,
       transmission: formData.vehicle_type === 'autovehicul' ? formData.transmission : null,
+      tire_size: formData.tire_size?.trim() || null,
       status: formData.status,
       current_mileage: formData.current_mileage ? parseInt(formData.current_mileage) : null,
       assigned_to: formData.assigned_to || null,
@@ -516,6 +519,24 @@ export default function VehicleForm() {
                   onChange={handleChange}
                   className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
                   placeholder="ex: 90"
+                />
+              </div>
+            )}
+
+            {/* Tire Size - doar pentru autovehicule */}
+            {formData.vehicle_type === 'autovehicul' && (
+              <div>
+                <label htmlFor="tire_size" className="block text-sm font-medium text-gray-700">
+                  {t('vehicles.tireSize')}
+                </label>
+                <input
+                  type="text"
+                  name="tire_size"
+                  id="tire_size"
+                  value={formData.tire_size}
+                  onChange={handleChange}
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
+                  placeholder="ex: 225/65 R17"
                 />
               </div>
             )}

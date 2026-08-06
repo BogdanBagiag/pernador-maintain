@@ -432,6 +432,12 @@ export default function VehicleDetail() {
                       <dd className="mt-1 text-sm text-gray-900">{getTransmissionLabel(vehicle.transmission)}</dd>
                     </div>
                   )}
+                  {vehicle.tire_size && (
+                    <div>
+                      <dt className="text-sm font-medium text-gray-500">{t('vehicles.tireSize')}</dt>
+                      <dd className="mt-1 text-sm text-gray-900 font-semibold">{vehicle.tire_size}</dd>
+                    </div>
+                  )}
                 </dl>
               </div>
             )}
