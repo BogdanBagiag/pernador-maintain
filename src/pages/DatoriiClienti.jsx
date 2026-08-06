@@ -694,24 +694,24 @@ function ClientCard({ client, facturi, totalRestant, expanded, onToggleExpand, s
 
   return (
     <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-      <button onClick={onToggleExpand} className="w-full flex items-center justify-between gap-3 p-4 hover:bg-gray-50 text-left">
-        <div className="flex items-center gap-3 min-w-0">
-          {expanded ? <ChevronDown className="w-4 h-4 text-gray-400 flex-shrink-0" /> : <ChevronRight className="w-4 h-4 text-gray-400 flex-shrink-0" />}
+      <button onClick={onToggleExpand} className="w-full flex items-start justify-between gap-2 p-4 hover:bg-gray-50 text-left">
+        <div className="flex items-start gap-2 min-w-0 flex-1">
+          {expanded ? <ChevronDown className="w-4 h-4 text-gray-400 flex-shrink-0 mt-0.5" /> : <ChevronRight className="w-4 h-4 text-gray-400 flex-shrink-0 mt-0.5" />}
           <div className="min-w-0">
             <p className="font-semibold text-gray-900 truncate">{client.nume}</p>
-            <p className="text-xs text-gray-400">{client.cif ? `CIF ${client.cif}` : ''}{client.cif ? ' · ' : ''}{client.email || 'fără email'}</p>
+            <p className="text-xs text-gray-400 truncate">{client.cif ? `CIF ${client.cif}` : ''}{client.cif ? ' · ' : ''}{client.email || 'fără email'}</p>
           </div>
         </div>
-        <div className="flex items-center gap-3 flex-shrink-0">
+        <div className="flex flex-col items-end gap-1 flex-shrink-0">
+          <span className="font-bold text-gray-900 whitespace-nowrap">{fmtBani(totalRestant)}</span>
+          {countRestante > 0 && (
+            <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-red-100 text-red-700 whitespace-nowrap">{countRestante} restante</span>
+          )}
           {plati?.length > 0 && (
-            <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">
+            <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 whitespace-nowrap">
               {plati.length} {plati.length === 1 ? 'plată recentă' : 'plăți recente'}
             </span>
           )}
-          {countRestante > 0 && (
-            <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-red-100 text-red-700">{countRestante} restante</span>
-          )}
-          <span className="font-bold text-gray-900">{fmtBani(totalRestant)}</span>
         </div>
       </button>
 
