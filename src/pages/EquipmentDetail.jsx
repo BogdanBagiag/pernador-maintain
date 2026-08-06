@@ -548,18 +548,6 @@ export default function EquipmentDetail() {
             </div>
           </div>
 
-          {/* Equipment Image */}
-          {equipment.image_url && (
-            <div className="card p-3 sm:p-4 lg:p-6">
-              <h2 className="text-base sm:text-lg lg:text-xl font-semibold text-gray-900 mb-3 sm:mb-4">Equipment Image</h2>
-              <img
-                src={equipment.image_url}
-                alt={equipment.name}
-                className="w-full h-auto rounded-lg"
-              />
-            </div>
-          )}
-
           {/* Inspections History */}
           <div className="card p-3 sm:p-4 lg:p-6">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-0 mb-3 sm:mb-4">
@@ -1150,7 +1138,21 @@ export default function EquipmentDetail() {
 
         {/* Sidebar - QR Code */}
         <div className="lg:col-span-1 space-y-3 sm:space-y-4">
-          <QRCodeGenerator 
+          {/* Equipment Image */}
+          {equipment.image_url && (
+            <div className="card p-3 sm:p-4 lg:p-6">
+              <h3 className="text-sm sm:text-base font-semibold text-gray-900 mb-2 sm:mb-3">Imagine Echipament</h3>
+              <div className="flex justify-center">
+                <img
+                  src={equipment.image_url}
+                  alt={equipment.name}
+                  className="max-w-full max-h-64 sm:max-h-72 w-auto h-auto object-contain rounded-lg"
+                />
+              </div>
+            </div>
+          )}
+
+          <QRCodeGenerator
             equipmentId={equipment.id} 
             equipmentName={equipment.name}
           />
