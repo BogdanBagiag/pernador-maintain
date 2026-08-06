@@ -19,6 +19,19 @@ const STATUSES = [
 ]
 const ROWS_PER_PAGE = 13
 
+// Alaturam manual numele clientului la fiecare comanda, in loc sa ne bazam pe
+// embed-ul PostgREST "clienti(nume)" (care necesita o relatie FK definita intre
+// com_comenzi si clienti la nivel de baza de date) - mai robust, functioneaza
+// indiferent de starea migratiei de unificare a clientilor.
+async function fetchClientiMap() {
+  const { data, error } = await supabase.from('clienti').select('id, nume')
+  if (error) throw error
+  return new Map((data || []).map(c => [c.id, c.nume]))
+}
+function atasaNumeClienti(comenzi, clientiMap) {
+  return (comenzi || []).map(c => ({ ...c, clienti: c.client_id ? { nume: clientiMap.get(c.client_id) } : null }))
+}
+
 // Helper: fetch the org-wide default delivery term (com_setari, singleton row id=1)
 // Inlocuieste vechiul localStorage.getItem('com_termen_livrare_default'), care era per browser/utilizator.
 const useTermenLivrareDefault = () => useQuery({
@@ -130,13 +143,16 @@ function ComenziTab({ pEdit, pDelete }) {
   const { data: comenzi = [], isLoading } = useQuery({
     queryKey: ['com_comenzi'],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('com_comenzi')
-        .select('*, clienti(nume), com_linii(id, produs_text, dimensiune, cantitate, model, pozitie, produs_ok)')
-        .not('status', 'in', '("anulat","arhivat")')
-        .order('created_at', { ascending: false })
+      const [{ data, error }, clientiMap] = await Promise.all([
+        supabase
+          .from('com_comenzi')
+          .select('*, com_linii(id, produs_text, dimensiune, cantitate, model, pozitie, produs_ok)')
+          .not('status', 'in', '("anulat","arhivat")')
+          .order('created_at', { ascending: false }),
+        fetchClientiMap(),
+      ])
       if (error) throw error
-      return data
+      return atasaNumeClienti(data, clientiMap)
     },
   })
 
@@ -1848,13 +1864,16 @@ function AnulateTab({ pEdit, pDelete }) {
   const { data: anulate = [], isLoading } = useQuery({
     queryKey: ['com_comenzi_anulate'],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('com_comenzi')
-        .select('*, clienti(nume), com_linii(id, produs_text, dimensiune, cantitate, model, pozitie)')
-        .eq('status', 'anulat')
-        .order('created_at', { ascending: false })
+      const [{ data, error }, clientiMap] = await Promise.all([
+        supabase
+          .from('com_comenzi')
+          .select('*, com_linii(id, produs_text, dimensiune, cantitate, model, pozitie)')
+          .eq('status', 'anulat')
+          .order('created_at', { ascending: false }),
+        fetchClientiMap(),
+      ])
       if (error) throw error
-      return data
+      return atasaNumeClienti(data, clientiMap)
     },
   })
 
@@ -1979,13 +1998,16 @@ function ArhivaTab({ pEdit, pDelete }) {
   const { data: arhiva = [], isLoading } = useQuery({
     queryKey: ['com_comenzi_arhiva'],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('com_comenzi')
-        .select('*, clienti(nume), com_linii(id, produs_text, dimensiune, cantitate, model, pozitie)')
-        .eq('status', 'arhivat')
-        .order('data_livrare', { ascending: false })
+      const [{ data, error }, clientiMap] = await Promise.all([
+        supabase
+          .from('com_comenzi')
+          .select('*, com_linii(id, produs_text, dimensiune, cantitate, model, pozitie)')
+          .eq('status', 'arhivat')
+          .order('data_livrare', { ascending: false }),
+        fetchClientiMap(),
+      ])
       if (error) throw error
-      return data
+      return atasaNumeClienti(data, clientiMap)
     },
   })
 
@@ -2333,12 +2355,15 @@ function RapoarteTab() {
   const { data: comenzi = [] } = useQuery({
     queryKey: ['com_comenzi'],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('com_comenzi')
-        .select('*, clienti(nume), com_linii(id)')
-        .order('created_at', { ascending: false })
+      const [{ data, error }, clientiMap] = await Promise.all([
+        supabase
+          .from('com_comenzi')
+          .select('*, com_linii(id)')
+          .order('created_at', { ascending: false }),
+        fetchClientiMap(),
+      ])
       if (error) throw error
-      return data
+      return atasaNumeClienti(data, clientiMap)
     },
   })
 

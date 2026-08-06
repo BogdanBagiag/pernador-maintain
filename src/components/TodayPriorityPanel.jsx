@@ -62,14 +62,21 @@ export default function TodayPriorityPanel() {
   const { data: comenzi = [] } = useQuery({
     queryKey: ['today-panel-comenzi'],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('com_comenzi')
-        .select('id, data_livrare, status, clienti(nume)')
-        .in('status', ['noi', 'in_lucru'])
-        .lte('data_livrare', in2days)
-        .order('data_livrare', { ascending: true })
+      // Alaturam manual numele clientului (fara embed PostgREST, care depinde
+      // de o relatie FK definita intre com_comenzi si clienti in baza de date)
+      const [{ data, error }, { data: clientiData, error: eClienti }] = await Promise.all([
+        supabase
+          .from('com_comenzi')
+          .select('id, data_livrare, status, client_id')
+          .in('status', ['noi', 'in_lucru'])
+          .lte('data_livrare', in2days)
+          .order('data_livrare', { ascending: true }),
+        supabase.from('clienti').select('id, nume'),
+      ])
       if (error) throw error
-      return data
+      if (eClienti) throw eClienti
+      const clientiMap = new Map((clientiData || []).map(c => [c.id, c.nume]))
+      return (data || []).map(c => ({ ...c, clienti: c.client_id ? { nume: clientiMap.get(c.client_id) } : null }))
     },
     enabled: canView('comenzi'),
   })
