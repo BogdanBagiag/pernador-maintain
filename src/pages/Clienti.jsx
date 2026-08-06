@@ -47,22 +47,22 @@ export default function Clienti() {
   }
 
   if (!pView) {
-    return <div className="p-6 text-sm text-gray-500">Nu ai acces la această pagină.</div>
+    return (
+      <div className="text-center py-16">
+        <Users className="w-10 h-10 text-gray-300 mx-auto mb-3" />
+        <p className="text-sm text-gray-400">Nu ai permisiunea de a vizualiza Clienții.</p>
+      </div>
+    )
   }
 
   return (
-    <div className="p-6 max-w-6xl mx-auto">
-      <div className="flex items-center gap-3 mb-1">
-        <Users className="w-6 h-6 text-primary-600" />
-        <h1 className="text-xl font-bold text-gray-900">Clienți</h1>
-      </div>
-      <p className="text-sm text-gray-500 mb-6">Baza unificată de clienți, folosită de Comenzi și Datorii Clienți.</p>
-
-      <div className="flex items-center justify-between gap-3 mb-4">
-        <div className="relative max-w-xs w-full">
-          <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
-          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Caută client..."
-            className="pl-9 pr-3 py-2 border border-gray-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-primary-400 w-full" />
+    <div className="max-w-full mx-auto space-y-5">
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <div>
+          <h1 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+            <Users className="w-5 h-5 text-primary-600" /> Clienți
+          </h1>
+          <p className="text-sm text-gray-500 mt-0.5">Baza unificată de clienți, folosită de Comenzi și Datorii Clienți</p>
         </div>
         {pEdit && (
           <button onClick={() => { setEditingClient(null); setShowModal(true) }}
@@ -70,6 +70,12 @@ export default function Clienti() {
             <Plus className="w-4 h-4" /> Client nou
           </button>
         )}
+      </div>
+
+      <div className="relative max-w-xs w-full">
+        <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+        <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Caută client..."
+          className="pl-9 pr-3 py-2 border border-gray-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-primary-400 w-full" />
       </div>
 
       {isLoading ? (
