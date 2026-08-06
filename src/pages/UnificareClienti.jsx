@@ -106,15 +106,31 @@ export default function UnificareClienti() {
     setRunning(true)
     setError('')
     try {
-      const rows = []
+      // Un singur client din Comenzi din Comenzi poate avea acelasi client din
+      // Datorii ca potrivire (ex. "Alexa Poiana" si "Alexa Poiana SRL" separat) -
+      // in acel caz mai multe perechi confirmate au acelasi id de Datorii. Postgres
+      // nu accepta doua randuri cu acelasi id in acelasi upsert ("ON CONFLICT DO
+      // UPDATE command cannot affect row a second time"), asa ca deduplicam pe id,
+      // completand campurile lipsa din orice sursa gaseste ceva.
+      const rowsMap = new Map() // id -> rand
+      const addSauCompleteaza = (id, patch) => {
+        const existent = rowsMap.get(id)
+        if (!existent) { rowsMap.set(id, { id, ...patch }); return }
+        rowsMap.set(id, {
+          ...existent,
+          cif: existent.cif || patch.cif,
+          email: existent.email || patch.email,
+          telefon: existent.telefon || patch.telefon,
+          adresa: existent.adresa || patch.adresa,
+        })
+      }
       const actualizariComenzi = [] // { oldId, newId }
 
       // perechi confirmate -> un singur rand in clienti, sub id-ul din Datorii
       // (numele oficial, din contabilitate, e cel care ramane)
       for (const p of analizat.perechi) {
         if (!p.checked) continue
-        rows.push({
-          id: p.datorii.id,
+        addSauCompleteaza(p.datorii.id, {
           nume: p.datorii.nume,
           cif: p.datorii.cif || null,
           email: p.datorii.email || null,
@@ -131,11 +147,13 @@ export default function UnificareClienti() {
       const doarDatorii = [...analizat.doarDatorii, ...respinse.map(p => p.datorii)]
 
       for (const c of doarComenzi) {
-        rows.push({ id: c.id, nume: numeFinalCom(c), cif: null, email: null, telefon: c.telefon || null, adresa: c.adresa || null, vizibil: true })
+        addSauCompleteaza(c.id, { nume: numeFinalCom(c), cif: null, email: null, telefon: c.telefon || null, adresa: c.adresa || null, vizibil: true })
       }
       for (const d of doarDatorii) {
-        rows.push({ id: d.id, nume: d.nume, cif: d.cif || null, email: d.email || null, telefon: d.telefon || null, adresa: null, vizibil: d.vizibil !== false })
+        addSauCompleteaza(d.id, { nume: d.nume, cif: d.cif || null, email: d.email || null, telefon: d.telefon || null, adresa: null, vizibil: d.vizibil !== false })
       }
+
+      const rows = [...rowsMap.values()]
 
       setProgress(`Se scriu ${rows.length} clienți în tabelul unificat...`)
       const CHUNK = 200
