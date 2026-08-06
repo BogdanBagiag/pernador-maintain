@@ -506,6 +506,28 @@ export default function EquipmentDetail() {
                 </div>
               )}
 
+              {/* Brand / Manufacturer */}
+              {equipment.manufacturer && (
+                <div>
+                  <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1 sm:mb-2 flex items-center">
+                    <Package className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />
+                    Brand
+                  </label>
+                  <p className="text-sm sm:text-base text-gray-900 break-words">{equipment.manufacturer}</p>
+                </div>
+              )}
+
+              {/* Model */}
+              {equipment.model && (
+                <div>
+                  <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1 sm:mb-2 flex items-center">
+                    <Package className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />
+                    Model
+                  </label>
+                  <p className="text-sm sm:text-base text-gray-900 break-words">{equipment.model}</p>
+                </div>
+              )}
+
               {/* Location */}
               {equipment.location && (
                 <div className="sm:col-span-2">
@@ -773,6 +795,18 @@ export default function EquipmentDetail() {
 
                     {/* Action Buttons */}
                     <div className="flex items-center gap-1.5 sm:gap-2 justify-end">
+                      {/* View Button */}
+                      <a
+                        href={attachment.file_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-1 px-2 py-1.5 sm:px-3 sm:py-2 text-xs sm:text-sm font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+                        title="Vizualizează"
+                      >
+                        <Eye className="w-3 h-3 sm:w-4 sm:h-4" />
+                        <span className="hidden sm:inline">Vizualizează</span>
+                      </a>
+
                       {/* Download Button */}
                       <a
                         href={attachment.file_url}
