@@ -50,7 +50,6 @@ import ResurseUmane from './pages/ResurseUmane'
 import HRCerereForm from './pages/HRCerereForm'
 import Properties from './pages/Properties'
 import Backup from './pages/Backup'
-import UnificareClienti from './pages/UnificareClienti'
 
 // Components
 import Layout from './components/Layout'
@@ -196,7 +195,6 @@ function App() {
                       <Route path="/users" element={<UserManagement />} />
                       <Route path="/settings" element={<Settings />} />
                       <Route path="/backup" element={<Backup />} />
-                      <Route path="/unificare-clienti" element={<UnificareClienti />} />
 
                       {/* Kanban / To Do Routes */}
                       <Route path="/todo" element={<KanbanPage />} />
