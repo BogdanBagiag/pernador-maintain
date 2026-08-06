@@ -4,9 +4,10 @@ import { supabase } from '../lib/supabase'
 import { usePermissions } from '../contexts/PermissionsContext'
 import { format, differenceInCalendarDays } from 'date-fns'
 import * as XLSX from 'xlsx'
+import ClientModal from '../components/ClientModal'
 import {
   Upload, Search, Mail, Copy, Check, X, Loader2, ChevronDown, ChevronRight,
-  Users, Banknote, Pencil, Save, AlertTriangle, RotateCcw, Landmark, Trash2,
+  Users, Banknote, Pencil, AlertTriangle, RotateCcw, Landmark, Trash2, Plus,
 } from 'lucide-react'
 
 // ═════════════════════════════════════════════════════════════
@@ -941,25 +942,10 @@ function ClientiTab({ pEdit }) {
   const queryClient = useQueryClient()
   const { data: clienti = [], isLoading } = useQuery({ queryKey: ['clienti'], queryFn: fetchClienti })
   const [search, setSearch] = useState('')
-  const [editingId, setEditingId] = useState(null)
-  const [editEmail, setEditEmail] = useState('')
-  const [editTelefon, setEditTelefon] = useState('')
-  const [saving, setSaving] = useState(false)
+  const [showModal, setShowModal] = useState(false)
+  const [editingClient, setEditingClient] = useState(null)
 
   const filtered = clienti.filter(c => !search.trim() || c.nume.toLowerCase().includes(search.trim().toLowerCase()))
-
-  const startEdit = (c) => { setEditingId(c.id); setEditEmail(c.email || ''); setEditTelefon(c.telefon || '') }
-  const cancelEdit = () => setEditingId(null)
-  const save = async (id) => {
-    setSaving(true)
-    const { error } = await supabase.from('clienti')
-      .update({ email: editEmail.trim() || null, telefon: editTelefon.trim() || null })
-      .eq('id', id)
-    setSaving(false)
-    if (error) { alert('Eroare: ' + error.message); return }
-    queryClient.invalidateQueries({ queryKey: ['clienti'] })
-    setEditingId(null)
-  }
 
   const toggleVizibil = async (c) => {
     const { error } = await supabase.from('clienti').update({ vizibil: !c.vizibil }).eq('id', c.id)
@@ -969,10 +955,18 @@ function ClientiTab({ pEdit }) {
 
   return (
     <div>
-      <div className="relative mb-3 max-w-xs mt-4">
-        <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
-        <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Caută client..."
-          className="pl-9 pr-3 py-2 border border-gray-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-primary-400 w-full" />
+      <div className="flex items-center justify-between gap-3 mb-3 mt-4">
+        <div className="relative max-w-xs w-full">
+          <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Caută client..."
+            className="pl-9 pr-3 py-2 border border-gray-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-primary-400 w-full" />
+        </div>
+        {pEdit && (
+          <button onClick={() => { setEditingClient(null); setShowModal(true) }}
+            className="flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 text-sm font-medium whitespace-nowrap">
+            <Plus className="w-4 h-4" /> Client nou
+          </button>
+        )}
       </div>
 
       {isLoading ? (
@@ -988,6 +982,7 @@ function ClientiTab({ pEdit }) {
                 <th className="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase">CIF</th>
                 <th className="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase">Email</th>
                 <th className="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase">Telefon</th>
+                <th className="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase">Adresă</th>
                 <th className="px-4 py-2 text-center text-xs font-semibold text-gray-600 uppercase">Afișare</th>
                 {pEdit && <th className="px-4 py-2 w-20"></th>}
               </tr>
@@ -997,18 +992,9 @@ function ClientiTab({ pEdit }) {
                 <tr key={c.id} className={c.vizibil === false ? 'opacity-50' : ''}>
                   <td className="px-4 py-2 font-medium text-gray-900 whitespace-nowrap">{c.nume}</td>
                   <td className="px-4 py-2 text-gray-500 whitespace-nowrap">{c.cif || '—'}</td>
-                  <td className="px-4 py-2">
-                    {editingId === c.id ? (
-                      <input value={editEmail} onChange={e => setEditEmail(e.target.value)} type="email" placeholder="email@exemplu.ro"
-                        className="border border-gray-300 rounded-lg px-2 py-1 text-sm outline-none focus:ring-2 focus:ring-primary-400 w-48" />
-                    ) : (c.email || <span className="text-gray-300">—</span>)}
-                  </td>
-                  <td className="px-4 py-2">
-                    {editingId === c.id ? (
-                      <input value={editTelefon} onChange={e => setEditTelefon(e.target.value)} placeholder="07xx xxx xxx"
-                        className="border border-gray-300 rounded-lg px-2 py-1 text-sm outline-none focus:ring-2 focus:ring-primary-400 w-36" />
-                    ) : (c.telefon || <span className="text-gray-300">—</span>)}
-                  </td>
+                  <td className="px-4 py-2 text-gray-500 whitespace-nowrap">{c.email || '—'}</td>
+                  <td className="px-4 py-2 text-gray-500 whitespace-nowrap">{c.telefon || '—'}</td>
+                  <td className="px-4 py-2 text-gray-500 max-w-xs truncate">{c.adresa || '—'}</td>
                   <td className="px-4 py-2 text-center">
                     <input type="checkbox" checked={c.vizibil !== false} disabled={!pEdit}
                       onChange={() => toggleVizibil(c)} title="Afișează acest client ca datornic"
@@ -1016,14 +1002,9 @@ function ClientiTab({ pEdit }) {
                   </td>
                   {pEdit && (
                     <td className="px-4 py-2 text-right whitespace-nowrap">
-                      {editingId === c.id ? (
-                        <div className="flex items-center gap-1 justify-end">
-                          <button onClick={() => save(c.id)} disabled={saving} className="text-green-600 hover:text-green-700"><Save className="w-4 h-4" /></button>
-                          <button onClick={cancelEdit} className="text-gray-400 hover:text-gray-600"><X className="w-4 h-4" /></button>
-                        </div>
-                      ) : (
-                        <button onClick={() => startEdit(c)} className="text-gray-400 hover:text-gray-700"><Pencil className="w-4 h-4" /></button>
-                      )}
+                      <button onClick={() => { setEditingClient(c); setShowModal(true) }} className="text-gray-400 hover:text-gray-700">
+                        <Pencil className="w-4 h-4" />
+                      </button>
                     </td>
                   )}
                 </tr>
@@ -1031,6 +1012,14 @@ function ClientiTab({ pEdit }) {
             </tbody>
           </table>
         </div>
+      )}
+
+      {showModal && (
+        <ClientModal
+          client={editingClient}
+          onClose={() => { setShowModal(false); setEditingClient(null) }}
+          onSaved={() => { queryClient.invalidateQueries({ queryKey: ['clienti'] }); setShowModal(false); setEditingClient(null) }}
+        />
       )}
     </div>
   )

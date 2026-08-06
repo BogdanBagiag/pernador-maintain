@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import { usePermissions } from '../contexts/PermissionsContext'
+import ClientModal from '../components/ClientModal'
 import { format } from 'date-fns'
 import {
   Plus, X, Save, Loader2, Printer, ShoppingCart,
@@ -1592,21 +1593,25 @@ function ClientiTab({ pEdit, pDelete }) {
         <table className="min-w-full divide-y divide-gray-100">
           <thead className="bg-gray-50">
             <tr>
-              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Denumire</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Client</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">CIF</th>
               <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Telefon</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Email</th>
               <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Adresă</th>
               {(pEdit || pDelete) && <th className="px-4 py-3 text-right text-xs font-semibold text-gray-600 uppercase w-24">Acțiuni</th>}
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
             {isLoading ? (
-              <tr><td colSpan={4} className="px-4 py-8 text-center text-sm text-gray-400">Se încarcă...</td></tr>
+              <tr><td colSpan={6} className="px-4 py-8 text-center text-sm text-gray-400">Se încarcă...</td></tr>
             ) : filtered.length === 0 ? (
-              <tr><td colSpan={4} className="px-4 py-8 text-center text-sm text-gray-400">Niciun client găsit.</td></tr>
+              <tr><td colSpan={6} className="px-4 py-8 text-center text-sm text-gray-400">Niciun client găsit.</td></tr>
             ) : filtered.map(c => (
               <tr key={c.id} className="hover:bg-gray-50">
                 <td className="px-4 py-3 text-sm font-medium text-gray-900">{c.nume}</td>
+                <td className="px-4 py-3 text-sm text-gray-600">{c.cif || '—'}</td>
                 <td className="px-4 py-3 text-sm text-gray-600">{c.telefon || '—'}</td>
+                <td className="px-4 py-3 text-sm text-gray-600">{c.email || '—'}</td>
                 <td className="px-4 py-3 text-sm text-gray-600 max-w-xs truncate">{c.adresa || '—'}</td>
                 {(pEdit || pDelete) && (
                   <td className="px-4 py-3 text-right">
@@ -1640,69 +1645,6 @@ function ClientiTab({ pEdit, pDelete }) {
         />
       )}
     </>
-  )
-}
-
-function ClientModal({ client, onClose, onSaved }) {
-  const [nume,     setNume]     = useState(client?.nume || '')
-  const [telefon,  setTelefon]  = useState(client?.telefon  || '')
-  const [adresa,   setAdresa]   = useState(client?.adresa   || '')
-  const [saving,   setSaving]   = useState(false)
-  const isEdit = !!client
-
-  const handleSave = async () => {
-    if (!nume.trim()) return
-    setSaving(true)
-    const payload = { nume: nume.trim(), telefon: telefon.trim() || null, adresa: adresa.trim() || null }
-    if (isEdit) {
-      await supabase.from('clienti').update(payload).eq('id', client.id)
-    } else {
-      await supabase.from('clienti').insert(payload)
-    }
-    setSaving(false)
-    onSaved()
-  }
-
-  return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-md">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
-          <h2 className="font-semibold text-gray-900">{isEdit ? 'Editează Client' : 'Client Nou'}</h2>
-          <button onClick={onClose} className="p-2 text-gray-400 hover:text-gray-600 rounded-lg"><X className="w-5 h-5" /></button>
-        </div>
-        <div className="px-6 py-4 space-y-4">
-          {[
-            { label: 'Nume', val: nume, set: setNume, required: true },
-            { label: 'Telefon',  val: telefon,  set: setTelefon  },
-          ].map(({ label, val, set, required }) => (
-            <div key={label}>
-              <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">
-                {label} {required && <span className="text-red-400">*</span>}
-              </label>
-              <input type="text" value={val} onChange={e => set(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && handleSave()}
-                autoFocus={label === 'Nume'}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary-400"
-              />
-            </div>
-          ))}
-          <div>
-            <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Adresă</label>
-            <textarea value={adresa} onChange={e => setAdresa(e.target.value)} rows={2}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary-400 resize-none"
-            />
-          </div>
-        </div>
-        <div className="flex justify-end gap-3 px-6 py-4 border-t border-gray-200">
-          <button onClick={onClose} className="px-4 py-2 text-sm text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50">Anulează</button>
-          <button onClick={handleSave} disabled={saving || !nume.trim()}
-            className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-primary-600 rounded-lg hover:bg-primary-700 disabled:opacity-50">
-            {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-            {isEdit ? 'Salvează' : 'Adaugă'}
-          </button>
-        </div>
-      </div>
-    </div>
   )
 }
 
