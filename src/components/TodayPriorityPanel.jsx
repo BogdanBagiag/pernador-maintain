@@ -64,7 +64,7 @@ export default function TodayPriorityPanel() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('com_comenzi')
-        .select('id, data_livrare, status, com_clienti(denumire)')
+        .select('id, data_livrare, status, clienti(nume)')
         .in('status', ['noi', 'in_lucru'])
         .lte('data_livrare', in2days)
         .order('data_livrare', { ascending: true })
@@ -273,7 +273,7 @@ export default function TodayPriorityPanel() {
       const { urgency, days } = classifyByDate(c.data_livrare)
       list.push({
         id: `comanda-${c.id}`, module: 'Comenzi', icon: ShoppingCart,
-        title: c.com_clienti?.denumire || 'Client necunoscut',
+        title: c.clienti?.nume || 'Client necunoscut',
         detail: 'Termen de livrare', urgency, days, href: '/comenzi',
       })
     })

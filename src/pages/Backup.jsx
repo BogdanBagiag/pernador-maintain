@@ -44,7 +44,7 @@ const BACKUP_GROUPS = [
   {
     key: 'comenzi', label: 'Comenzi', tables: [
       { name: 'com_comenzi',  sheet: 'Comenzi' },
-      { name: 'com_clienti',  sheet: 'Clienti Comenzi' },
+      { name: 'clienti',      sheet: 'Clienti' },
       { name: 'com_linii',    sheet: 'Linii Comanda' },
       { name: 'com_produse',  sheet: 'Produse Comenzi' },
       { name: 'com_dimensiuni', sheet: 'Dimensiuni' },

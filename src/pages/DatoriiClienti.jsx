@@ -64,7 +64,7 @@ function buildMesaj(client, facturi) {
 }
 
 async function fetchClienti() {
-  const { data, error } = await supabase.from('datorii_clienti').select('*').order('nume')
+  const { data, error } = await supabase.from('clienti').select('*').order('nume')
   if (error) throw error
   return data
 }
@@ -152,7 +152,7 @@ async function runImport(rows) {
   const existingSet = new Set()
   if (numeList.length > 0) {
     const { data: existingClients, error: eCheck } = await supabase
-      .from('datorii_clienti').select('nume').in('nume', numeList)
+      .from('clienti').select('nume').in('nume', numeList)
     if (eCheck) throw eCheck
     ;(existingClients || []).forEach(c => existingSet.add(c.nume))
   }
@@ -161,7 +161,7 @@ async function runImport(rows) {
   let idByNume = new Map()
   if (clientRows.length > 0) {
     const { data: upsertedClients, error: eClienti } = await supabase
-      .from('datorii_clienti').upsert(clientRows, { onConflict: 'nume' }).select('id, nume')
+      .from('clienti').upsert(clientRows, { onConflict: 'nume' }).select('id, nume')
     if (eClienti) throw eClienti
     idByNume = new Map(upsertedClients.map(c => [c.nume, c.id]))
   }
@@ -528,7 +528,7 @@ function SumarCard({ label, value, accent }) {
 // ═════════════════════════════════════════════════════════════
 function DatoriiTab({ pEdit }) {
   const queryClient = useQueryClient()
-  const { data: clienti = [] } = useQuery({ queryKey: ['datorii_clienti'], queryFn: fetchClienti })
+  const { data: clienti = [] } = useQuery({ queryKey: ['clienti'], queryFn: fetchClienti })
   const { data: facturi = [], isLoading } = useQuery({ queryKey: ['datorii_facturi'], queryFn: fetchFacturi })
   const { data: tranzactii = [] } = useQuery({ queryKey: ['datorii_tranzactii_bancare'], queryFn: fetchTranzactiiBancare })
 
@@ -843,10 +843,10 @@ function NotificareModal({ client, facturi, onClose }) {
   const saveEmail = async () => {
     if (!email.trim()) return
     setSavingEmail(true)
-    const { error } = await supabase.from('datorii_clienti').update({ email: email.trim() }).eq('id', client.id)
+    const { error } = await supabase.from('clienti').update({ email: email.trim() }).eq('id', client.id)
     setSavingEmail(false)
     if (error) { alert('Eroare: ' + error.message); return }
-    queryClient.invalidateQueries({ queryKey: ['datorii_clienti'] })
+    queryClient.invalidateQueries({ queryKey: ['clienti'] })
     setSavedJustNow(true)
   }
 
@@ -939,7 +939,7 @@ function NotificareModal({ client, facturi, onClose }) {
 // ═════════════════════════════════════════════════════════════
 function ClientiTab({ pEdit }) {
   const queryClient = useQueryClient()
-  const { data: clienti = [], isLoading } = useQuery({ queryKey: ['datorii_clienti'], queryFn: fetchClienti })
+  const { data: clienti = [], isLoading } = useQuery({ queryKey: ['clienti'], queryFn: fetchClienti })
   const [search, setSearch] = useState('')
   const [editingId, setEditingId] = useState(null)
   const [editEmail, setEditEmail] = useState('')
@@ -952,19 +952,19 @@ function ClientiTab({ pEdit }) {
   const cancelEdit = () => setEditingId(null)
   const save = async (id) => {
     setSaving(true)
-    const { error } = await supabase.from('datorii_clienti')
+    const { error } = await supabase.from('clienti')
       .update({ email: editEmail.trim() || null, telefon: editTelefon.trim() || null })
       .eq('id', id)
     setSaving(false)
     if (error) { alert('Eroare: ' + error.message); return }
-    queryClient.invalidateQueries({ queryKey: ['datorii_clienti'] })
+    queryClient.invalidateQueries({ queryKey: ['clienti'] })
     setEditingId(null)
   }
 
   const toggleVizibil = async (c) => {
-    const { error } = await supabase.from('datorii_clienti').update({ vizibil: !c.vizibil }).eq('id', c.id)
+    const { error } = await supabase.from('clienti').update({ vizibil: !c.vizibil }).eq('id', c.id)
     if (error) { alert('Eroare: ' + error.message); return }
-    queryClient.invalidateQueries({ queryKey: ['datorii_clienti'] })
+    queryClient.invalidateQueries({ queryKey: ['clienti'] })
   }
 
   return (
@@ -1075,7 +1075,7 @@ function ImportDatoriiModal({ onClose }) {
 
       const res = await runImport(parsed)
       setResult(res)
-      queryClient.invalidateQueries({ queryKey: ['datorii_clienti'] })
+      queryClient.invalidateQueries({ queryKey: ['clienti'] })
       queryClient.invalidateQueries({ queryKey: ['datorii_facturi'] })
     } catch (err) {
       setError(err.message || 'Eroare la import.')

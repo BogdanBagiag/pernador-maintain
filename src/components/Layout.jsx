@@ -9,7 +9,7 @@ import {
   Settings, LogOut, Menu, X, MapPin, QrCode, CheckSquare,
   FileText, Users, Car, Package, LayoutGrid,
   ScrollText, ChevronDown, BookMarked, RotateCcw, Megaphone, ShoppingCart, Sparkles, Home,
-  DatabaseBackup, Users2, Banknote,
+  DatabaseBackup, Users2, Banknote, Combine,
 } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { useRealtimeNotifications } from '../hooks/useRealtimeNotifications'
@@ -65,6 +65,7 @@ const GROUPS = [
       { name: 'Setări',      href: '/settings', icon: Settings },
       { name: 'Utilizatori', href: '/users',    icon: Users,    adminOnly: true },
       { name: 'Backup',      href: '/backup',   icon: DatabaseBackup, adminOnly: true },
+      { name: 'Unificare Clienți', href: '/unificare-clienti', icon: Combine, adminOnly: true },
     ],
   },
 ]

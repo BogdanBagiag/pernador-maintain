@@ -132,7 +132,7 @@ function ComenziTab({ pEdit, pDelete }) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('com_comenzi')
-        .select('*, com_clienti(denumire), com_linii(id, produs_text, dimensiune, cantitate, model, pozitie, produs_ok)')
+        .select('*, clienti(nume), com_linii(id, produs_text, dimensiune, cantitate, model, pozitie, produs_ok)')
         .not('status', 'in', '("anulat","arhivat")')
         .order('created_at', { ascending: false })
       if (error) throw error
@@ -257,7 +257,7 @@ function ComenziTab({ pEdit, pDelete }) {
                     onView={() => setViewingComanda(c)}
                     onMove={(newStatus) => moveStatus.mutate({ id: c.id, status: newStatus })}
                     onDelete={() => {
-                      if (confirm(`Ștergi comanda pentru ${c.com_clienti?.denumire || ''}?`))
+                      if (confirm(`Ștergi comanda pentru ${c.clienti?.nume || ''}?`))
                         deleteComanda.mutate(c.id)
                     }}
                   />
@@ -321,7 +321,7 @@ function ComandaCard({ comanda, statusIndex, pEdit, pDelete, onOpen, onView, onM
         <Eye className="w-3.5 h-3.5" />
       </button>
       <p className="font-semibold text-gray-900 text-sm truncate pr-6">
-        {comanda.com_clienti?.denumire || '—'}
+        {comanda.clienti?.nume || '—'}
       </p>
       <div className="flex items-center justify-between mt-0.5 pr-6">
         <p className="text-xs text-gray-400">
@@ -527,7 +527,7 @@ function ViewComandaModal({ comanda, onClose, pEdit, showPrint = false }) {
           {createPortal(
             <div id="comanda-view-print-area">
               <PrintLayout
-                clientName={comanda.com_clienti?.denumire || ''}
+                clientName={comanda.clienti?.nume || ''}
                 data={comanda.data}
                 observatii={comanda.observatii}
                 linii={printLinii}
@@ -568,7 +568,7 @@ function ViewComandaModal({ comanda, onClose, pEdit, showPrint = false }) {
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
             <div className="col-span-2 sm:col-span-1">
               <p className="text-xs text-gray-500 mb-0.5">Client</p>
-              <p className="text-sm font-medium text-gray-900">{comanda.com_clienti?.denumire || '—'}</p>
+              <p className="text-sm font-medium text-gray-900">{comanda.clienti?.nume || '—'}</p>
             </div>
             <div>
               <p className="text-xs text-gray-500 mb-0.5">Status</p>
@@ -738,9 +738,9 @@ function ComandaModal({ comanda, onClose, onSaved, pEdit }) {
 
   // Fetch clients + products
   const { data: clienti = [] } = useQuery({
-    queryKey: ['com_clienti'],
+    queryKey: ['clienti'],
     queryFn: async () => {
-      const { data, error } = await supabase.from('com_clienti').select('*').order('denumire')
+      const { data, error } = await supabase.from('clienti').select('*').order('nume')
       if (error) throw error
       return data
     },
@@ -788,7 +788,7 @@ function ComandaModal({ comanda, onClose, onSaved, pEdit }) {
   useEffect(() => {
     if (comanda?.client_id && clienti.length > 0) {
       const found = clienti.find(c => c.id === comanda.client_id)
-      if (found) { setClientName(found.denumire); setClientId(found.id) }
+      if (found) { setClientName(found.nume); setClientId(found.id) }
     }
   }, [comanda?.client_id, clienti])
 
@@ -856,17 +856,17 @@ function ComandaModal({ comanda, onClose, onSaved, pEdit }) {
       // Resolve or create client
       let resolvedClientId = clientId
       if (!resolvedClientId) {
-        const match = clienti.find(c => c.denumire.toLowerCase() === clientName.trim().toLowerCase())
+        const match = clienti.find(c => c.nume.toLowerCase() === clientName.trim().toLowerCase())
         if (match) {
           resolvedClientId = match.id
         } else {
           const { data: nc, error: ncErr } = await supabase
-            .from('com_clienti')
-            .insert({ denumire: clientName.trim(), created_by: user.id })
+            .from('clienti')
+            .insert({ nume: clientName.trim() })
             .select().single()
           if (ncErr) throw ncErr
           resolvedClientId = nc.id
-          queryClient.invalidateQueries({ queryKey: ['com_clienti'] })
+          queryClient.invalidateQueries({ queryKey: ['clienti'] })
         }
       }
 
@@ -1256,7 +1256,7 @@ function ClientInput({ value, clienti, disabled, onChange }) {
   const [open, setOpen] = useState(false)
   const ref = useRef()
   const filtered = value.trim()
-    ? clienti.filter(c => c.denumire.toLowerCase().includes(value.toLowerCase())).slice(0, 8)
+    ? clienti.filter(c => c.nume.toLowerCase().includes(value.toLowerCase())).slice(0, 8)
     : clienti.slice(0, 8)
 
   useEffect(() => {
@@ -1280,13 +1280,13 @@ function ClientInput({ value, clienti, disabled, onChange }) {
         <div className="absolute top-full left-0 z-50 w-full bg-white border border-gray-200 rounded-lg shadow-lg max-h-48 overflow-y-auto mt-0.5">
           {filtered.length > 0 ? filtered.map(c => (
             <button key={c.id}
-              onMouseDown={() => { onChange(c.denumire, c.id); setOpen(false) }}
+              onMouseDown={() => { onChange(c.nume, c.id); setOpen(false) }}
               className="w-full text-left px-3 py-2 text-sm hover:bg-primary-50 hover:text-primary-700 flex items-center gap-2"
             >
               <span className="w-6 h-6 rounded-full bg-gray-100 flex items-center justify-center text-xs font-bold text-gray-500 flex-shrink-0">
-                {c.denumire[0]?.toUpperCase()}
+                {c.nume[0]?.toUpperCase()}
               </span>
-              {c.denumire}
+              {c.nume}
             </button>
           )) : (
             <div className="px-3 py-2 text-xs text-gray-400 italic">
@@ -1532,9 +1532,9 @@ function ClientiTab({ pEdit, pDelete }) {
   const [search, setSearch] = useState('')
 
   const { data: clienti = [], isLoading } = useQuery({
-    queryKey: ['com_clienti'],
+    queryKey: ['clienti'],
     queryFn: async () => {
-      const { data, error } = await supabase.from('com_clienti').select('*').order('denumire')
+      const { data, error } = await supabase.from('clienti').select('*').order('nume')
       if (error) throw error
       return data
     },
@@ -1542,15 +1542,15 @@ function ClientiTab({ pEdit, pDelete }) {
 
   const deleteClient = useMutation({
     mutationFn: async (id) => {
-      const { error } = await supabase.from('com_clienti').delete().eq('id', id)
+      const { error } = await supabase.from('clienti').delete().eq('id', id)
       if (error) throw error
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['com_clienti'] }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['clienti'] }),
     onError: (e) => alert('Eroare: ' + e.message),
   })
 
   const filtered = clienti.filter(c =>
-    c.denumire?.toLowerCase().includes(search.toLowerCase()) ||
+    c.nume?.toLowerCase().includes(search.toLowerCase()) ||
     c.telefon?.toLowerCase().includes(search.toLowerCase())
   )
 
@@ -1589,7 +1589,7 @@ function ClientiTab({ pEdit, pDelete }) {
               <tr><td colSpan={4} className="px-4 py-8 text-center text-sm text-gray-400">Niciun client găsit.</td></tr>
             ) : filtered.map(c => (
               <tr key={c.id} className="hover:bg-gray-50">
-                <td className="px-4 py-3 text-sm font-medium text-gray-900">{c.denumire}</td>
+                <td className="px-4 py-3 text-sm font-medium text-gray-900">{c.nume}</td>
                 <td className="px-4 py-3 text-sm text-gray-600">{c.telefon || '—'}</td>
                 <td className="px-4 py-3 text-sm text-gray-600 max-w-xs truncate">{c.adresa || '—'}</td>
                 {(pEdit || pDelete) && (
@@ -1602,7 +1602,7 @@ function ClientiTab({ pEdit, pDelete }) {
                         </button>
                       )}
                       {pDelete && (
-                        <button onClick={() => { if (confirm(`Ștergi clientul "${c.denumire}"?`)) deleteClient.mutate(c.id) }}
+                        <button onClick={() => { if (confirm(`Ștergi clientul "${c.nume}"?`)) deleteClient.mutate(c.id) }}
                           className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded">
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
@@ -1620,7 +1620,7 @@ function ClientiTab({ pEdit, pDelete }) {
         <ClientModal
           client={editingClient}
           onClose={() => { setShowModal(false); setEditingClient(null) }}
-          onSaved={() => { queryClient.invalidateQueries({ queryKey: ['com_clienti'] }); setShowModal(false); setEditingClient(null) }}
+          onSaved={() => { queryClient.invalidateQueries({ queryKey: ['clienti'] }); setShowModal(false); setEditingClient(null) }}
         />
       )}
     </>
@@ -1628,21 +1628,20 @@ function ClientiTab({ pEdit, pDelete }) {
 }
 
 function ClientModal({ client, onClose, onSaved }) {
-  const { user } = useAuth()
-  const [denumire, setDenumire] = useState(client?.denumire || '')
+  const [nume,     setNume]     = useState(client?.nume || '')
   const [telefon,  setTelefon]  = useState(client?.telefon  || '')
   const [adresa,   setAdresa]   = useState(client?.adresa   || '')
   const [saving,   setSaving]   = useState(false)
   const isEdit = !!client
 
   const handleSave = async () => {
-    if (!denumire.trim()) return
+    if (!nume.trim()) return
     setSaving(true)
-    const payload = { denumire: denumire.trim(), telefon: telefon.trim() || null, adresa: adresa.trim() || null }
+    const payload = { nume: nume.trim(), telefon: telefon.trim() || null, adresa: adresa.trim() || null }
     if (isEdit) {
-      await supabase.from('com_clienti').update(payload).eq('id', client.id)
+      await supabase.from('clienti').update(payload).eq('id', client.id)
     } else {
-      await supabase.from('com_clienti').insert({ ...payload, created_by: user.id })
+      await supabase.from('clienti').insert(payload)
     }
     setSaving(false)
     onSaved()
@@ -1657,7 +1656,7 @@ function ClientModal({ client, onClose, onSaved }) {
         </div>
         <div className="px-6 py-4 space-y-4">
           {[
-            { label: 'Denumire', val: denumire, set: setDenumire, required: true },
+            { label: 'Nume', val: nume, set: setNume, required: true },
             { label: 'Telefon',  val: telefon,  set: setTelefon  },
           ].map(({ label, val, set, required }) => (
             <div key={label}>
@@ -1666,7 +1665,7 @@ function ClientModal({ client, onClose, onSaved }) {
               </label>
               <input type="text" value={val} onChange={e => set(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && handleSave()}
-                autoFocus={label === 'Denumire'}
+                autoFocus={label === 'Nume'}
                 className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary-400"
               />
             </div>
@@ -1680,7 +1679,7 @@ function ClientModal({ client, onClose, onSaved }) {
         </div>
         <div className="flex justify-end gap-3 px-6 py-4 border-t border-gray-200">
           <button onClick={onClose} className="px-4 py-2 text-sm text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50">Anulează</button>
-          <button onClick={handleSave} disabled={saving || !denumire.trim()}
+          <button onClick={handleSave} disabled={saving || !nume.trim()}
             className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-primary-600 rounded-lg hover:bg-primary-700 disabled:opacity-50">
             {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
             {isEdit ? 'Salvează' : 'Adaugă'}
@@ -1851,7 +1850,7 @@ function AnulateTab({ pEdit, pDelete }) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('com_comenzi')
-        .select('*, com_clienti(denumire), com_linii(id, produs_text, dimensiune, cantitate, model, pozitie)')
+        .select('*, clienti(nume), com_linii(id, produs_text, dimensiune, cantitate, model, pozitie)')
         .eq('status', 'anulat')
         .order('created_at', { ascending: false })
       if (error) throw error
@@ -1906,7 +1905,7 @@ function AnulateTab({ pEdit, pDelete }) {
                 return (
                   <tr key={c.id} className="hover:bg-gray-50 transition-colors">
                     <td className="px-4 py-3 font-medium text-gray-800">
-                      {c.com_clienti?.denumire || '—'}
+                      {c.clienti?.nume || '—'}
                     </td>
                     <td className="px-4 py-3 text-gray-500">
                       {c.data ? format(new Date(c.data), 'dd.MM.yyyy') : '—'}
@@ -1937,7 +1936,7 @@ function AnulateTab({ pEdit, pDelete }) {
                         )}
                         {pDelete && (
                           <button
-                            onClick={() => { if (confirm(`Ștergi definitiv comanda pentru ${c.com_clienti?.denumire || ''}?`)) deleteComanda.mutate(c.id) }}
+                            onClick={() => { if (confirm(`Ștergi definitiv comanda pentru ${c.clienti?.nume || ''}?`)) deleteComanda.mutate(c.id) }}
                             className="p-1 text-gray-300 hover:text-red-500 rounded"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
@@ -1982,7 +1981,7 @@ function ArhivaTab({ pEdit, pDelete }) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('com_comenzi')
-        .select('*, com_clienti(denumire), com_linii(id, produs_text, dimensiune, cantitate, model, pozitie)')
+        .select('*, clienti(nume), com_linii(id, produs_text, dimensiune, cantitate, model, pozitie)')
         .eq('status', 'arhivat')
         .order('data_livrare', { ascending: false })
       if (error) throw error
@@ -2041,7 +2040,7 @@ function ArhivaTab({ pEdit, pDelete }) {
                 const linii = [...(c.com_linii || [])].sort((a, b) => (a.pozitie ?? 0) - (b.pozitie ?? 0))
                 return (
                   <tr key={c.id} className="hover:bg-gray-50 transition-colors">
-                    <td className="px-4 py-3 font-medium text-gray-800">{c.com_clienti?.denumire || '—'}</td>
+                    <td className="px-4 py-3 font-medium text-gray-800">{c.clienti?.nume || '—'}</td>
                     <td className="px-4 py-3 text-gray-500">
                       {c.data ? format(new Date(c.data), 'dd.MM.yyyy') : '—'}
                     </td>
@@ -2074,7 +2073,7 @@ function ArhivaTab({ pEdit, pDelete }) {
                         )}
                         {pDelete && (
                           <button
-                            onClick={() => { if (confirm(`Ștergi definitiv comanda pentru ${c.com_clienti?.denumire || ''}?`)) deleteComanda.mutate(c.id) }}
+                            onClick={() => { if (confirm(`Ștergi definitiv comanda pentru ${c.clienti?.nume || ''}?`)) deleteComanda.mutate(c.id) }}
                             className="p-1 text-gray-300 hover:text-red-500 rounded"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
@@ -2336,7 +2335,7 @@ function RapoarteTab() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('com_comenzi')
-        .select('*, com_clienti(denumire), com_linii(id)')
+        .select('*, clienti(nume), com_linii(id)')
         .order('created_at', { ascending: false })
       if (error) throw error
       return data
@@ -2359,7 +2358,7 @@ function RapoarteTab() {
 
   // Filter by search and status
   const filtered = comenzi.filter(c => {
-    const clientName = c.com_clienti?.denumire || 'Necunoscut'
+    const clientName = c.clienti?.nume || 'Necunoscut'
     const matchSearch = !searchClient || clientName.toLowerCase().includes(searchClient.toLowerCase())
     const matchStatus = filterStatus === 'all' || c.status === filterStatus
     return matchSearch && matchStatus
@@ -2436,7 +2435,7 @@ function RapoarteTab() {
                 {searchClient ? 'Nicio comandă găsită pentru acest client.' : 'Nicio comandă înregistrată.'}
               </td></tr>
             ) : filtered.map(c => {
-              const clientName = c.com_clienti?.denumire || 'Necunoscut'
+              const clientName = c.clienti?.nume || 'Necunoscut'
 
               let zileTotal = null
               let zileRamase = null
