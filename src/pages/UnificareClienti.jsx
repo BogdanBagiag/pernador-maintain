@@ -225,9 +225,10 @@ export default function UnificareClienti() {
           <div className="flex items-start gap-2 text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-lg p-3 mt-2">
             <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" />
             <p>
-              Ultimul pas (manual): rulează în Supabase SQL editor fișierul <code className="font-mono bg-amber-100 px-1 rounded">clienti_unificat_fk.sql</code> —
-              acesta leagă definitiv Comenzi și Datorii Clienți de tabelul nou și arhivează tabelele vechi. Pagina Comenzi și Datorii
-              Clienți nu vor folosi datele unificate până nu rulezi acel fișier.
+              Comenzi și Datorii Clienți deja folosesc datele unificate. Rămâne un ultim pas opțional (curățenie, poate fi făcut oricând):
+              rulează în Supabase SQL editor, în ordine, <code className="font-mono bg-amber-100 px-1 rounded">clienti_unificat_fk_pas1.sql</code> apoi{' '}
+              <code className="font-mono bg-amber-100 px-1 rounded">clienti_unificat_fk_pas2.sql</code> — dacă pas1 elimină o legătură veche,
+              revino aici și rulează încă o dată "Rulează unificarea" înainte de pas2.
             </p>
           </div>
         </div>
