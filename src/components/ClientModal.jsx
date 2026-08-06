@@ -23,14 +23,55 @@ export default function ClientModal({ client, onClose, onSaved }) {
     if (!nume.trim()) return
     setSaving(true)
     setError('')
+    const numeTrim = nume.trim()
     const payload = {
-      nume: nume.trim(),
+      nume: numeTrim,
       cif: cif.trim() || null,
       email: email.trim() || null,
       telefon: telefon.trim() || null,
       adresa: adresa.trim() || null,
       observatii: observatii.trim() || null,
     }
+
+    // Verifică dacă mai există un alt client cu exact același nume (fără majuscule/spații
+    // în plus) — dacă da, se unifică automat cu acela, în loc să se creeze un duplicat.
+    const { data: existenti, error: eList } = await supabase
+      .from('clienti')
+      .select('id, nume, cif, email, telefon, adresa, observatii')
+    if (eList) { setSaving(false); setError(eList.message); return }
+    const dublura = (existenti || []).find(
+      c => c.id !== client?.id && c.nume.trim().toLowerCase() === numeTrim.toLowerCase()
+    )
+
+    if (dublura) {
+      const mesaj = isEdit
+        ? `Există deja un client "${dublura.nume}". "${client.nume}" va fi unificat cu acesta — comenzile și datoriile lui se mută automat, iar acest client va fi șters. Continui?`
+        : `Există deja un client "${dublura.nume}". Datele completate se vor adăuga la acesta, fără să se creeze un client nou. Continui?`
+      if (!window.confirm(mesaj)) { setSaving(false); return }
+
+      const completat = {
+        cif: dublura.cif || payload.cif,
+        email: dublura.email || payload.email,
+        telefon: dublura.telefon || payload.telefon,
+        adresa: dublura.adresa || payload.adresa,
+        observatii: dublura.observatii || payload.observatii,
+      }
+      const { error: eUpd } = await supabase.from('clienti').update(completat).eq('id', dublura.id)
+      if (eUpd) { setSaving(false); setError(eUpd.message); return }
+
+      if (isEdit && client.id !== dublura.id) {
+        const { error: e1 } = await supabase.from('com_comenzi').update({ client_id: dublura.id }).eq('client_id', client.id)
+        if (e1) { setSaving(false); setError(e1.message); return }
+        const { error: e2 } = await supabase.from('datorii_facturi').update({ client_id: dublura.id }).eq('client_id', client.id)
+        if (e2) { setSaving(false); setError(e2.message); return }
+        const { error: e3 } = await supabase.from('clienti').delete().eq('id', client.id)
+        if (e3) { setSaving(false); setError(e3.message); return }
+      }
+      setSaving(false)
+      onSaved()
+      return
+    }
+
     const { error: err } = isEdit
       ? await supabase.from('clienti').update(payload).eq('id', client.id)
       : await supabase.from('clienti').insert(payload)
